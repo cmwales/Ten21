@@ -16,7 +16,7 @@ namespace Ten21.Api.Controllers;
 /// US-19: the real Property/Unit CRUD surface, replacing the throwaway US-01
 /// proof-of-concept this controller used to be (a single unauthenticated GET with no DTO).
 /// US-20 rebuilt the list action into the lightweight, paginated PropertyListItemDto shape.
-/// US-21 (this branch) adds the bulk importer; US-22 adds its own action on its own branch.
+/// US-21 added the bulk importer. US-22 (this branch) adds conditional deletion.
 /// </summary>
 [ApiController]
 [Route("api/properties")]
@@ -28,13 +28,18 @@ public class PropertiesController : ControllerBase
     private readonly Ten21DbContext _dbContext;
     private readonly IInputSanitizer _sanitizer;
     private readonly IPropertyImportFileParser _importParser;
+    private readonly IHardDeleteOverride _hardDeleteOverride;
 
     public PropertiesController(
-        Ten21DbContext dbContext, IInputSanitizer sanitizer, IPropertyImportFileParser importParser)
+        Ten21DbContext dbContext,
+        IInputSanitizer sanitizer,
+        IPropertyImportFileParser importParser,
+        IHardDeleteOverride hardDeleteOverride)
     {
         _dbContext = dbContext;
         _sanitizer = sanitizer;
         _importParser = importParser;
+        _hardDeleteOverride = hardDeleteOverride;
     }
 
     /// <summary>
@@ -192,6 +197,63 @@ public class PropertiesController : ControllerBase
 
         return Ok(ToResponse(property));
     }
+
+    /// <summary>
+    /// US-22: zero applied payments -> a genuine hard delete (every entity opted out of
+    /// AuditSaveChangesInterceptor's default soft-delete conversion via IHardDeleteOverride);
+    /// applied payments -> a soft delete (IsDeleted = true on both Property and its Units,
+    /// via that same interceptor's existing per-entity conversion -- no Property-specific
+    /// cascade code needed there, see below).
+    ///
+    /// Both branches Remove() the Units *and* the Property together, in the same call.
+    /// This isn't optional: Unit -> Property is a required (non-nullable FK),
+    /// DeleteBehavior.Restrict relationship (UnitConfiguration), and EF Core's own
+    /// relationship-severance check throws IMMEDIATELY -- synchronously, inside Remove(),
+    /// before SaveChanges or this interceptor ever runs -- if a parent is marked Deleted
+    /// while an already-tracked child keeps referencing it in an unchanged state. Marking
+    /// both parent and children Deleted together avoids that; AuditSaveChangesInterceptor
+    /// then independently converts each Deleted entry it sees to a soft delete unless
+    /// IHardDeleteOverride says otherwise, so the same explicit-RemoveRange-both shape
+    /// naturally produces the right outcome for whichever branch below.
+    /// </summary>
+    [HttpDelete("{id:guid}")]
+    [Authorize(Policy = Permissions.Property.Delete)]
+    public async Task<IActionResult> DeleteProperty(Guid id, CancellationToken cancellationToken)
+    {
+        var property = await _dbContext.Properties
+            .Include(p => p.Units)
+            .FirstOrDefaultAsync(p => p.Id == id, cancellationToken)
+            ?? throw new NotFoundException($"Property '{id}' was not found.");
+
+        var hasAppliedPayments = await HasAppliedPaymentsAsync(id, cancellationToken);
+
+        if (!hasAppliedPayments)
+        {
+            foreach (var unit in property.Units)
+            {
+                _hardDeleteOverride.MarkForHardDelete(unit);
+            }
+            _hardDeleteOverride.MarkForHardDelete(property);
+        }
+
+        _dbContext.Units.RemoveRange(property.Units);
+        _dbContext.Properties.Remove(property);
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        return NoContent();
+    }
+
+    /// <summary>
+    /// US-22: placeholder until Phase 1 (Monetization & Billing Logic) ships a real payment
+    /// ledger -- see User_Stories_Sprint_3.md's Executive Summary for why this is a
+    /// deliberate, confirmed choice rather than an assumption. Always false today, meaning
+    /// every delete currently takes the hard-delete branch above. When a real ledger exists,
+    /// swap this method's body for the genuine
+    /// PaymentLedger.AnyAsync(x => x.PropertyId == propertyId && x.AmountPaid > 0) query --
+    /// nothing else in DeleteProperty needs to change.
+    /// </summary>
+    private Task<bool> HasAppliedPaymentsAsync(Guid propertyId, CancellationToken cancellationToken) =>
+        Task.FromResult(false);
 
     /// <summary>
     /// US-21: parses, sanitizes, and validates every row up front -- nothing is added to the

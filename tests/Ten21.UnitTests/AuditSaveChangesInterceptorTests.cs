@@ -35,7 +35,7 @@ public class AuditSaveChangesInterceptorTests : IDisposable
 
         var options = new DbContextOptionsBuilder<Ten21DbContext>()
             .UseSqlite(_connection)
-            .AddInterceptors(new AuditSaveChangesInterceptor(tenantContext))
+            .AddInterceptors(new AuditSaveChangesInterceptor(tenantContext, new HardDeleteOverride()))
             .Options;
 
         var db = new Ten21DbContext(options, tenantContext);
@@ -141,6 +141,81 @@ public class AuditSaveChangesInterceptorTests : IDisposable
 
         Assert.Contains(auditRows, a => a.Action == "Update");
         Assert.DoesNotContain(auditRows, a => a.Action == "Delete");
+    }
+
+    [Fact]
+    public async Task SoftDelete_OfPropertyAndItsUnitsTogether_ConvertsBothToSoftDelete()
+    {
+        // US-22: PropertiesController.DeleteProperty (soft-delete branch) Remove()s a
+        // Property and all its Units in the same SaveChanges call -- required because EF
+        // Core's relationship-severance check throws synchronously inside Remove() if a
+        // parent is marked Deleted while an already-tracked, required-FK child is left
+        // Unchanged (Unit -> Property is DeleteBehavior.Restrict). This proves the
+        // interceptor converts every one of those Deleted entries to a soft delete
+        // independently, with no Property-specific cascade code involved.
+        var tenantId = Guid.NewGuid();
+        var (db, _) = CreateContext(tenantId);
+
+        var property = NewProperty();
+        property.Units.Add(new Domain.Entities.Unit
+        {
+            Id = Guid.NewGuid(),
+            UnitIdentifier = "101",
+            OccupancyStatus = Domain.Enums.OccupancyStatus.Vacant,
+            CreatedAt = DateTimeOffset.UtcNow,
+        });
+        property.Units.Add(new Domain.Entities.Unit
+        {
+            Id = Guid.NewGuid(),
+            UnitIdentifier = "102",
+            OccupancyStatus = Domain.Enums.OccupancyStatus.Occupied,
+            CreatedAt = DateTimeOffset.UtcNow,
+        });
+        db.Properties.Add(property);
+        await db.SaveChangesAsync();
+
+        var reloaded = await db.Properties.Include(p => p.Units).SingleAsync(p => p.Id == property.Id);
+        db.Units.RemoveRange(reloaded.Units);
+        db.Properties.Remove(reloaded);
+        await db.SaveChangesAsync();
+
+        var units = await db.Units.IgnoreQueryFilters().Where(u => u.PropertyId == property.Id).ToListAsync();
+        Assert.Equal(2, units.Count);
+        Assert.All(units, u => Assert.True(u.IsDeleted));
+
+        var reloadedProperty = await db.Properties.IgnoreQueryFilters().SingleAsync(p => p.Id == property.Id);
+        Assert.True(reloadedProperty.IsDeleted);
+
+        var unitAuditRows = await db.AuditLogs
+            .Where(a => a.EntityName == nameof(Domain.Entities.Unit) && a.Action == "Update")
+            .ToListAsync();
+        Assert.Equal(2, unitAuditRows.Count);
+    }
+
+    [Fact]
+    public async Task Delete_MarkedForHardDelete_ProducesARealDeleteNotASoftDelete()
+    {
+        var tenantId = Guid.NewGuid();
+        var tenantContext = new TenantContext();
+        tenantContext.SetTenant(tenantId);
+        var hardDeleteOverride = new HardDeleteOverride();
+
+        var options = new DbContextOptionsBuilder<Ten21DbContext>()
+            .UseSqlite(_connection)
+            .AddInterceptors(new AuditSaveChangesInterceptor(tenantContext, hardDeleteOverride))
+            .Options;
+        var db = new Ten21DbContext(options, tenantContext);
+        db.Database.EnsureCreated();
+
+        var property = NewProperty();
+        db.Properties.Add(property);
+        await db.SaveChangesAsync();
+
+        hardDeleteOverride.MarkForHardDelete(property);
+        db.Properties.Remove(property);
+        await db.SaveChangesAsync();
+
+        Assert.Empty(await db.Properties.IgnoreQueryFilters().Where(p => p.Id == property.Id).ToListAsync());
     }
 
     [Fact]
