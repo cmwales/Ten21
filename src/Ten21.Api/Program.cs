@@ -11,6 +11,7 @@ using Ten21.Infrastructure;
 using Ten21.Infrastructure.Authorization;
 using Ten21.Infrastructure.Email;
 using Ten21.Infrastructure.Identity;
+using Ten21.Infrastructure.Import;
 using Ten21.Infrastructure.Middleware;
 using Ten21.Infrastructure.Persistence;
 using Ten21.Infrastructure.RateLimiting;
@@ -28,6 +29,7 @@ builder.Services.AddObjectStorage(builder.Configuration); // US-06
 builder.Services.AddBotDefense(); // US-18
 builder.Services.AddEmail(builder.Configuration); // US-16
 builder.Services.AddInputSanitization(); // US-19
+builder.Services.AddPropertyImport(); // US-21
 builder.Services.AddEndpointsApiExplorer();
 
 // US-00: Swagger UI at /swagger with a JWT Bearer authorization header so

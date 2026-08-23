@@ -112,9 +112,29 @@
     "logout": "Déconnexion"
   },
   "properties": {
+    "import": {
+      "title": "Importer des propriétés",
+      "subtitle": "Glissez-déposez un fichier .csv ou .xlsx pour ajouter des propriétés et des unités en lot.",
+      "dropzoneLabel": "Glissez-déposez un fichier ici, ou",
+      "browseButton": "Parcourir un fichier",
+      "constraints": ".csv ou .xlsx, jusqu'à 10 Mo",
+      "uploading": "Téléversement de {{fileName}}…",
+      "successSummary": "{{properties}} propriétés et {{units}} unités importées.",
+      "failureSummary": "{{count}} ligne(s) comportaient des erreurs — rien n'a été importé. Corrigez le fichier et réessayez.",
+      "rowErrorPrefix": "Ligne {{row}}:",
+      "tryAnotherFile": "Essayer un autre fichier",
+      "viewProperties": "Voir les propriétés",
+      "invalidExtensionError": "Seuls les fichiers .csv et .xlsx sont pris en charge.",
+      "tooLargeError": "La taille du fichier ne doit pas dépasser 10 Mo.",
+      "networkError": "Une erreur s'est produite. Veuillez réessayer.",
+      "columns": {
+        "row": "Ligne"
+      }
+    },
     "list": {
       "title": "Propriétés",
       "addProperty": "Ajouter une propriété",
+      "importProperties": "Importer des propriétés",
       "addFirstProperty": "Ajouter la première propriété",
       "downloadTemplate": "Télécharger le modèle de feuille de calcul",
       "emptyTitle": "Aucune propriété pour le moment",

@@ -112,9 +112,29 @@
     "logout": "Log out"
   },
   "properties": {
+    "import": {
+      "title": "Import Properties",
+      "subtitle": "Drag and drop a .csv or .xlsx file to bulk-add properties and units.",
+      "dropzoneLabel": "Drag and drop a file here, or",
+      "browseButton": "Browse for a file",
+      "constraints": ".csv or .xlsx, up to 10MB",
+      "uploading": "Uploading {{fileName}}…",
+      "successSummary": "Imported {{properties}} properties and {{units}} units.",
+      "failureSummary": "{{count}} row(s) had errors — nothing was imported. Fix the file and try again.",
+      "rowErrorPrefix": "Row {{row}}:",
+      "tryAnotherFile": "Try Another File",
+      "viewProperties": "View Properties",
+      "invalidExtensionError": "Only .csv and .xlsx files are supported.",
+      "tooLargeError": "File size must not exceed 10MB.",
+      "networkError": "Something went wrong. Please try again.",
+      "columns": {
+        "row": "Row"
+      }
+    },
     "list": {
       "title": "Properties",
       "addProperty": "Add Property",
+      "importProperties": "Import Properties",
       "addFirstProperty": "Add First Property",
       "downloadTemplate": "Download Sample Spreadsheet Template",
       "emptyTitle": "No properties yet",

@@ -175,3 +175,69 @@ health across my portfolio.
 - Each property card links to `/properties/:id` (Edit) — without this, US-19's edit route
   would have been unreachable from anywhere in the app now that the dashboard's "Add
   Property" shortcut was replaced with a "Properties" link to this list page.
+
+### US-21: In-Memory Bulk CSV/XLSX Property & Unit Importer
+
+**As a** Property Manager, **I want** to drag and drop a .csv or .xlsx spreadsheet, **so
+that** I can onboard large property and unit inventories in under two minutes without
+manual entry.
+
+- **Primary Role:** Property Manager (`Permissions.Property.Import`).
+- **Authorized Secondary Roles:** None named in the story.
+- **Prohibited Roles:** Tenant, Vendor.
+- **Required Permission Claims:** `Permissions.Property.Import`.
+
+**What shipped:**
+- **One request does everything — parse, sanitize, validate, and (if every row passes)
+  commit.** There's no separate "preview" call before the real import: `POST
+  /api/properties/import` always returns every parsed row (`ImportRowResult`) alongside its
+  validation outcome in the same response the Angular preview grid renders, whether the
+  batch succeeded or not. This avoids re-uploading the file twice and matches the acceptance
+  criteria's own framing — "preview grid" and "row-level validation errors" both come from
+  one `ApiResponse<T>`-wrapped body, `ImportPropertiesResponse`.
+  (`src/Ten21.Api/Contracts/Properties/PropertyImportContracts.cs`)
+- **Nothing is added to the `DbContext` until every row has passed validation.** A single
+  invalid row rejects the entire file (`Success: false`, `PropertiesCreated`/`UnitsCreated`
+  stay 0) — even rows that were individually valid are not partially committed. Only once
+  every row passes does `PersistImportedRowsAsync` open an **explicit**
+  `Database.BeginTransactionAsync()`/`CommitAsync()` around the insert — literal, per the
+  acceptance criteria's own wording, even though a single `SaveChangesAsync()` call is
+  already atomic on its own; the explicit transaction is what protects against a DB-level
+  failure (e.g. a constraint violation) that only surfaces *after* every row already passed
+  application-level validation.
+- **Parsing is header-name-based, not position-based**, for both `.csv` (`CsvHelper`) and
+  `.xlsx` (`ClosedXML`) — column order in the uploaded file doesn't matter as long as the
+  header row has all 9 expected names (`PropertyImportFileParser`,
+  `IPropertyImportFileParser`/`RawImportRow` in `Ten21.Application.Abstractions`). A file
+  missing a required header is rejected up front as a whole-file `ValidationException`
+  (400), distinct from a row-level validation failure. `RowNumber` matches what a user sees
+  opening the file in Excel/Sheets (header = row 1, first data row = row 2), for messages
+  like "Row 42: Target Rent must be a positive number."
+- **Rows are grouped into properties by an exact match on (Name, StreetAddress1, City,
+  State, PostalCode, Country)** — multiple spreadsheet rows sharing all six sanitized values
+  become one `Property` with multiple child `Unit`s, exactly as the sample template
+  (`frontend/public/assets/templates/property-import-template.csv`, added during US-20) is
+  shaped. Newly imported units default to `OccupancyStatus.Vacant` — the spreadsheet has no
+  occupancy column.
+- **Two independent sanitization passes on every text cell, layered**: the existing
+  `IInputSanitizer` (HTML/XSS stripping, US-19) runs first, then the new
+  `FormulaInjectionGuard.Sanitize` (`Ten21.Domain.Common` — pure, dependency-free, unlike
+  `IInputSanitizer` which wraps an external library) prepends a `'` to any value starting
+  with `= + - @`, defending against CSV/formula injection if this data is ever re-exported
+  to a spreadsheet later. US-21's acceptance criteria only mandated the formula-injection
+  half; the HTML pass was kept for consistency with every other write path into `Property`/
+  `Unit` in this codebase, not because the story asked for it twice.
+- `TargetRent` validation for imported rows is stricter than the interactive US-19 form: it
+  must be a **positive** number if provided (`<= 0` is rejected, not just negative) — the
+  acceptance criteria's own example message ("Target Rent must be a positive number") is
+  reused verbatim, and a blank cell is treated as no override (falls back to nothing, since
+  bulk-imported properties have no `DefaultTargetRent` field to cascade from).
+- Frontend: `PropertyImport` (`/properties/import`) — a dropzone (drag-and-drop + a hidden
+  file input for click-to-browse) with client-side extension/size pre-checks (matching the
+  server's own 10MB/`.csv`/`.xlsx` limits, so an obviously-invalid file never gets uploaded
+  at all) before calling `PropertyService.importProperties()` (multipart `FormData`). The
+  same response renders both the summary banner (success/failure counts) and the full
+  preview table, with invalid rows highlighted and their error text shown inline — one
+  round trip, one render, matching the backend design above. Linked from both the property
+  list's toolbar and its own empty-state card's "Download Sample Spreadsheet Template" link
+  (added in US-20, now actually consumed here).
