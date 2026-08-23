@@ -108,10 +108,29 @@
   "nav": {
     "dashboard": "Dashboard",
     "ledger": "Ledger",
-    "addProperty": "Add Property",
+    "properties": "Properties",
     "logout": "Log out"
   },
   "properties": {
+    "list": {
+      "title": "Properties",
+      "addProperty": "Add Property",
+      "addFirstProperty": "Add First Property",
+      "downloadTemplate": "Download Sample Spreadsheet Template",
+      "emptyTitle": "No properties yet",
+      "emptySubtitle": "Add your first property to start tracking units, rent, and occupancy.",
+      "searchLabel": "Search properties",
+      "searchPlaceholder": "Search by name, address, zip, or unit #",
+      "noResults": "No properties match your search.",
+      "noUnits": "No units yet.",
+      "noTargetRent": "—",
+      "edit": "Edit",
+      "showingRange": "Showing {{start}}–{{end}} of {{total}} properties",
+      "pageSizeLabel": "Items per page",
+      "previous": "Previous",
+      "next": "Next",
+      "networkError": "Something went wrong loading your properties."
+    },
     "form": {
       "createTitle": "Add Property",
       "editTitle": "Edit Property",

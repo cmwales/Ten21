@@ -155,4 +155,50 @@ public class PropertiesControllerTests : IDisposable
             .SingleAsync(u => u.UnitIdentifier == "102");
         Assert.True(softDeletedUnit.IsDeleted);
     }
+
+    [Fact]
+    public async Task GetProperties_ReturnsOnlyActiveTenantsProperties_WithNestedUnits()
+    {
+        var tenantId = Guid.NewGuid();
+        var (_, controllerA) = CreateController(tenantId);
+        await controllerA.CreateProperty(
+            NewRequest(new UnitRequest(null, "101", null, OccupancyStatus.Vacant)), CancellationToken.None);
+
+        var (_, controllerOtherTenant) = CreateController(Guid.NewGuid());
+        await controllerOtherTenant.CreateProperty(NewRequest(), CancellationToken.None);
+
+        var (_, controllerB) = CreateController(tenantId);
+        var result = await controllerB.GetProperties(null, null, CancellationToken.None);
+
+        var ok = Assert.IsType<OkObjectResult>(result);
+        var response = Assert.IsType<PropertyListResponse>(ok.Value);
+
+        Assert.Equal(1, response.TotalCount);
+        var item = Assert.Single(response.Items);
+        Assert.Equal("Riverside Apartments", item.Name);
+        var unit = Assert.Single(item.Units);
+        Assert.Equal("101", unit.UnitIdentifier);
+    }
+
+    [Fact]
+    public async Task GetProperties_WithPageSize_PaginatesAndReportsTotalPropertyCount()
+    {
+        var tenantId = Guid.NewGuid();
+        var (_, controller) = CreateController(tenantId);
+        for (var i = 0; i < 3; i++)
+        {
+            await controller.CreateProperty(NewRequest() with { Name = $"Property {i}" }, CancellationToken.None);
+        }
+
+        var (_, pageController) = CreateController(tenantId);
+        var result = await pageController.GetProperties(pageNumber: 2, pageSize: 2, CancellationToken.None);
+
+        var ok = Assert.IsType<OkObjectResult>(result);
+        var response = Assert.IsType<PropertyListResponse>(ok.Value);
+
+        Assert.Equal(3, response.TotalCount);
+        Assert.Equal(2, response.PageNumber);
+        Assert.Equal(2, response.PageSize);
+        Assert.Single(response.Items);
+    }
 }

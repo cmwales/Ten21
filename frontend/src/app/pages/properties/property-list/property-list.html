@@ -1,0 +1,142 @@
+<div class="flex min-h-screen flex-col bg-slate-navy">
+  <main class="flex flex-1 justify-center px-4 py-8">
+    <div class="w-full max-w-5xl">
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <h1 class="text-2xl font-bold text-white">{{ 'properties.list.title' | translate }}</h1>
+        <a
+          routerLink="/properties/new"
+          class="tap-target flex items-center rounded-md bg-emerald px-4 py-2 font-semibold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
+        >
+          {{ 'properties.list.addProperty' | translate }}
+        </a>
+      </div>
+
+      @if (errorKey()) {
+        <div role="alert" class="mt-6 rounded-md border border-rose bg-rose/10 px-4 py-3 text-sm font-medium text-rose">
+          {{ errorKey()! | translate }}
+        </div>
+      }
+
+      @if (loading()) {
+        <p class="mt-6 text-sm text-white">{{ 'common.loading' | translate }}</p>
+      } @else if (isEmptyWorkspace()) {
+        <div class="mt-10 flex flex-col items-center gap-4 rounded-xl bg-surface-card p-10 text-center shadow-xl">
+          <h2 class="text-xl font-semibold text-slate-navy">{{ 'properties.list.emptyTitle' | translate }}</h2>
+          <p class="text-sm text-slate-navy-light">{{ 'properties.list.emptySubtitle' | translate }}</p>
+          <a
+            routerLink="/properties/new"
+            class="tap-target flex items-center rounded-md bg-emerald px-4 py-2 font-semibold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
+          >
+            {{ 'properties.list.addFirstProperty' | translate }}
+          </a>
+          <a
+            href="assets/templates/property-import-template.csv"
+            class="text-sm font-medium text-emerald focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
+          >
+            {{ 'properties.list.downloadTemplate' | translate }}
+          </a>
+        </div>
+      } @else {
+        <div class="mt-6 flex flex-wrap items-center gap-3">
+          <input
+            type="search"
+            [attr.aria-label]="'properties.list.searchLabel' | translate"
+            [placeholder]="'properties.list.searchPlaceholder' | translate"
+            (input)="onSearchInput($any($event.target).value)"
+            class="tap-target min-w-[220px] flex-1 rounded-md border border-slate-navy/20 bg-surface-card px-3 py-2 text-slate-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
+          />
+
+          @for (type of propertyTypes; track type) {
+            <button
+              type="button"
+              (click)="toggleTypeFilter(type)"
+              [attr.aria-pressed]="activeTypeFilters().has(type)"
+              class="tap-target rounded-full border px-3 py-1.5 text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
+              [class]="activeTypeFilters().has(type) ? 'border-emerald bg-emerald text-white' : 'border-white/40 text-white'"
+            >
+              {{ 'properties.propertyTypes.' + type | translate }}
+            </button>
+          }
+        </div>
+
+        @if (hasNoSearchResults()) {
+          <p class="mt-8 text-sm text-white">{{ 'properties.list.noResults' | translate }}</p>
+        } @else {
+          <div class="mt-6 flex flex-col gap-4">
+            @for (property of pagedProperties(); track property.id) {
+              <div class="rounded-xl bg-surface-card p-5 shadow-sm">
+                <div class="flex flex-wrap items-start justify-between gap-2">
+                  <div>
+                    <h2 class="text-lg font-semibold text-slate-navy">{{ property.name }}</h2>
+                    <p class="text-sm text-slate-navy-light">
+                      {{ 'properties.propertyTypes.' + property.propertyType | translate }}
+                      &middot; {{ property.streetAddress1 }}, {{ property.city }}, {{ property.state }} {{ property.postalCode }}
+                    </p>
+                  </div>
+                  <a
+                    [routerLink]="['/properties', property.id]"
+                    class="tap-target flex items-center text-sm font-medium text-emerald focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
+                  >
+                    {{ 'properties.list.edit' | translate }}
+                  </a>
+                </div>
+
+                @if (property.units.length === 0) {
+                  <p class="mt-3 text-sm text-slate-navy-light">{{ 'properties.list.noUnits' | translate }}</p>
+                } @else {
+                  <ul class="mt-3 flex flex-col divide-y divide-slate-navy/10">
+                    @for (unit of property.units; track unit.id) {
+                      <li class="flex flex-wrap items-center justify-between gap-2 py-2 text-sm">
+                        <span class="font-medium text-slate-navy">{{ unit.unitIdentifier }}</span>
+                        <span class="rounded-full px-2.5 py-0.5 text-xs font-semibold" [class]="occupancyBadgeClass[unit.occupancyStatus]">
+                          {{ 'properties.occupancyStatuses.' + unit.occupancyStatus | translate }}
+                        </span>
+                        <span class="text-slate-navy-light">
+                          {{ unit.targetRent !== null ? ('$' + unit.targetRent) : ('properties.list.noTargetRent' | translate) }}
+                        </span>
+                      </li>
+                    }
+                  </ul>
+                }
+              </div>
+            }
+          </div>
+
+          <div class="mt-6 flex flex-wrap items-center justify-between gap-3 text-sm text-white">
+            <span>
+              {{ 'properties.list.showingRange' | translate: { start: rangeStart(), end: rangeEnd(), total: totalFiltered() } }}
+            </span>
+            <div class="flex items-center gap-3">
+              <label for="pageSize" class="sr-only">{{ 'properties.list.pageSizeLabel' | translate }}</label>
+              <select
+                id="pageSize"
+                (change)="setPageSize($any(+$any($event.target).value))"
+                class="tap-target rounded-md border border-white/30 bg-slate-navy px-2 py-1.5 text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
+              >
+                @for (size of pageSizes; track size) {
+                  <option [value]="size" [selected]="size === pageSize()">{{ size }}</option>
+                }
+              </select>
+              <button
+                type="button"
+                (click)="previousPage()"
+                [disabled]="pageNumber() === 1"
+                class="tap-target rounded-md border border-white/30 px-3 py-1.5 text-white disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
+              >
+                {{ 'properties.list.previous' | translate }}
+              </button>
+              <button
+                type="button"
+                (click)="nextPage()"
+                [disabled]="pageNumber() === totalPages()"
+                class="tap-target rounded-md border border-white/30 px-3 py-1.5 text-white disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
+              >
+                {{ 'properties.list.next' | translate }}
+              </button>
+            </div>
+          </div>
+        }
+      }
+    </div>
+  </main>
+</div>

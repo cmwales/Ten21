@@ -108,10 +108,29 @@
   "nav": {
     "dashboard": "Tableau de bord",
     "ledger": "Grand livre",
-    "addProperty": "Ajouter une propriété",
+    "properties": "Propriétés",
     "logout": "Déconnexion"
   },
   "properties": {
+    "list": {
+      "title": "Propriétés",
+      "addProperty": "Ajouter une propriété",
+      "addFirstProperty": "Ajouter la première propriété",
+      "downloadTemplate": "Télécharger le modèle de feuille de calcul",
+      "emptyTitle": "Aucune propriété pour le moment",
+      "emptySubtitle": "Ajoutez votre première propriété pour commencer à suivre les unités, le loyer et l'occupation.",
+      "searchLabel": "Rechercher des propriétés",
+      "searchPlaceholder": "Rechercher par nom, adresse, code postal ou unité #",
+      "noResults": "Aucune propriété ne correspond à votre recherche.",
+      "noUnits": "Aucune unité pour le moment.",
+      "noTargetRent": "—",
+      "edit": "Modifier",
+      "showingRange": "Affichage de {{start}}–{{end}} sur {{total}} propriétés",
+      "pageSizeLabel": "Éléments par page",
+      "previous": "Précédent",
+      "next": "Suivant",
+      "networkError": "Une erreur s'est produite lors du chargement de vos propriétés."
+    },
     "form": {
       "createTitle": "Ajouter une propriété",
       "editTitle": "Modifier la propriété",
