@@ -98,37 +98,17 @@
     },
     "verifyTwoFactor": {
       "title": "Verificación en dos pasos",
-      "subtitleEmail": "Ingrese el código de 6 dígitos que le enviamos por correo electrónico.",
-      "subtitleAuthenticator": "Ingrese el código de 6 dígitos de su aplicación de autenticación.",
+      "subtitle": "Ingrese el código de 6 dígitos que le enviamos por correo electrónico.",
       "codeLabel": "Código de verificación",
       "submit": "Verificar",
       "invalidCodeError": "Ese código no es válido o ha expirado.",
       "networkError": "Algo salió mal. Inténtelo de nuevo."
-    },
-    "security": {
-      "title": "Seguridad",
-      "subtitle": "Administre la autenticación en dos pasos de su cuenta.",
-      "enableTitle": "Aplicación de autenticación",
-      "enableDescription": "Use una aplicación como Google Authenticator o Microsoft Authenticator para el inicio de sesión en dos pasos.",
-      "beginSetupButton": "Configurar aplicación de autenticación",
-      "scanInstructions": "Agregue esta clave a su aplicación de autenticación y luego ingrese el código de 6 dígitos que muestra.",
-      "sharedKeyLabel": "Clave de configuración",
-      "confirmButton": "Confirmar",
-      "enableSuccess": "La autenticación en dos pasos ya está habilitada.",
-      "setupError": "Algo salió mal al configurar la autenticación en dos pasos. Inténtelo de nuevo.",
-      "wrongCodeError": "Ese código no coincidió. Inténtelo de nuevo.",
-      "disableTitle": "Desactivar aplicación de autenticación",
-      "disableDescription": "Las cuentas administrativas seguirán recibiendo un código por correo electrónico al iniciar sesión incluso después de esto.",
-      "disableButton": "Desactivar aplicación de autenticación",
-      "disableSuccess": "La autenticación en dos pasos ha sido desactivada.",
-      "disableError": "Algo salió mal. Inténtelo de nuevo."
     }
   },
   "nav": {
     "dashboard": "Panel",
     "ledger": "Libro contable",
-    "logout": "Cerrar sesión",
-    "security": "Seguridad"
+    "logout": "Cerrar sesión"
   },
   "dashboard": {
     "welcome": "Bienvenido de nuevo",

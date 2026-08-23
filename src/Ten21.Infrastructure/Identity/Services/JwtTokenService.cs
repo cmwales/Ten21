@@ -101,28 +101,4 @@ public class JwtTokenService : IJwtTokenService
         var tokenValue = new JwtSecurityTokenHandler().WriteToken(token);
         return new AccessToken(tokenValue, expiresAtUtc);
     }
-
-    public AccessToken GenerateTwoFactorChallengeToken(Guid userId, string twoFactorProvider)
-    {
-        var expiresAtUtc = DateTimeOffset.UtcNow.Add(InterimAccessTokenLifetime);
-
-        var claims = new List<Claim>
-        {
-            new(JwtRegisteredClaimNames.Sub, userId.ToString()),
-            new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
-            new("user_id", userId.ToString()),
-            new(TokenPurposes.ClaimType, TokenPurposes.TwoFactorPending),
-            new(TokenPurposes.TwoFactorProviderClaimType, twoFactorProvider),
-        };
-
-        var token = new JwtSecurityToken(
-            issuer: _issuer,
-            audience: _audience,
-            claims: claims,
-            expires: expiresAtUtc.UtcDateTime,
-            signingCredentials: _signingCredentials);
-
-        var tokenValue = new JwtSecurityTokenHandler().WriteToken(token);
-        return new AccessToken(tokenValue, expiresAtUtc);
-    }
 }
