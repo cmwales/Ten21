@@ -54,6 +54,7 @@ public static class InfrastructureServiceCollectionExtensions
 
         services.AddScoped<IJwtTokenService, JwtTokenService>();
         services.AddScoped<IRefreshTokenService, RefreshTokenService>();
+        services.AddScoped<IGoogleIdTokenVerifier, GoogleIdTokenVerifier>(); // US-15
 
         return services;
     }

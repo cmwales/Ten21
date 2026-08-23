@@ -38,6 +38,7 @@ namespace Ten21.Api.Controllers;
 public class AuthController : ControllerBase
 {
     private const string GenericLoginFailureMessage = "Invalid email or password.";
+    private const string GoogleLoginProvider = "Google";
 
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly RoleManager<ApplicationRole> _roleManager;
@@ -46,6 +47,7 @@ public class AuthController : ControllerBase
     private readonly IRefreshTokenService _refreshTokenService;
     private readonly ITenantContext _tenantContext;
     private readonly ITurnstileVerificationService _turnstileVerificationService;
+    private readonly IGoogleIdTokenVerifier _googleIdTokenVerifier;
     private readonly IWebHostEnvironment _environment;
 
     public AuthController(
@@ -56,6 +58,7 @@ public class AuthController : ControllerBase
         IRefreshTokenService refreshTokenService,
         ITenantContext tenantContext,
         ITurnstileVerificationService turnstileVerificationService,
+        IGoogleIdTokenVerifier googleIdTokenVerifier,
         IWebHostEnvironment environment)
     {
         _userManager = userManager;
@@ -65,6 +68,7 @@ public class AuthController : ControllerBase
         _refreshTokenService = refreshTokenService;
         _tenantContext = tenantContext;
         _turnstileVerificationService = turnstileVerificationService;
+        _googleIdTokenVerifier = googleIdTokenVerifier;
         _environment = environment;
     }
 
@@ -132,50 +136,138 @@ public class AuthController : ControllerBase
             });
         }
 
-        var tenant = new Tenant
-        {
-            Id = Guid.NewGuid(),
-            Name = request.WorkspaceName,
-            PortfolioSize = request.PortfolioSize,
-            OrganizationId = null,
-            CreatedAt = DateTimeOffset.UtcNow,
-        };
-        // Tenant is not ITenantScopedEntity (it sits above the tenant boundary) -- no active
-        // tenant context is needed for its own insert.
-        _dbContext.Tenants.Add(tenant);
-        await _dbContext.SaveChangesAsync(cancellationToken);
-
-        var propertyManagerRole = await _roleManager.FindByNameAsync(RoleNames.PropertyManager)
-            ?? throw new InvalidOperationException("PropertyManager role not seeded -- has RoleSeeder run?");
-        var propertyOwnerRole = await _roleManager.FindByNameAsync(RoleNames.PropertyOwner)
-            ?? throw new InvalidOperationException("PropertyOwner role not seeded -- has RoleSeeder run?");
-
-        // TenantMembership IS ITenantScopedEntity -- the fail-closed insert guard (US-01)
-        // requires an active tenant context before either row below can be added.
-        _tenantContext.SetTenant(tenant.Id);
-
-        var propertyManagerMembership = new TenantMembership
-        {
-            Id = Guid.NewGuid(),
-            TenantId = tenant.Id,
-            UserId = user.Id,
-            RoleId = propertyManagerRole.Id,
-            IsPrimary = true,
-            CreatedAt = DateTimeOffset.UtcNow,
-        };
-        _dbContext.TenantMemberships.Add(propertyManagerMembership);
-        _dbContext.TenantMemberships.Add(new TenantMembership
-        {
-            Id = Guid.NewGuid(),
-            TenantId = tenant.Id,
-            UserId = user.Id,
-            RoleId = propertyOwnerRole.Id,
-            IsPrimary = false,
-            CreatedAt = DateTimeOffset.UtcNow,
-        });
-        await _dbContext.SaveChangesAsync(cancellationToken);
+        var propertyManagerMembership = await ProvisionWorkspaceAsync(
+            user.Id, request.WorkspaceName, request.PortfolioSize, cancellationToken);
 
         var response = await IssueTokensAsync(user.Id, propertyManagerMembership, cancellationToken);
+        return Ok(response);
+    }
+
+    /// <summary>
+    /// US-15: Google Sign-In. Verifies the Google ID token server-side, then either
+    /// auto-links to an existing account (by prior Google login, falling back to a
+    /// verified-email match) or creates a brand-new, passwordless ApplicationUser.
+    /// A user with no workspace yet (either genuinely new, or an existing account that
+    /// somehow has no TenantMembership) gets an interim token and must call
+    /// POST /api/auth/complete-profile before any tenant-scoped JWT is issued.
+    /// </summary>
+    [HttpPost("google")]
+    [AllowAnonymous]
+    public async Task<IActionResult> GoogleLogin([FromBody] GoogleAuthRequest request, CancellationToken cancellationToken)
+    {
+        var identity = await _googleIdTokenVerifier.VerifyAsync(request.IdToken, cancellationToken);
+        if (identity is null || !identity.EmailVerified)
+        {
+            throw new UnauthorizedException("Invalid Google credential.");
+        }
+
+        var user = await _userManager.FindByLoginAsync(GoogleLoginProvider, identity.Subject);
+
+        if (user is null)
+        {
+            // No prior Google login recorded -- but a verified Google email matching an
+            // existing account's email is enough to auto-link, per US-15's acceptance
+            // criteria. Google already vouches for email ownership (EmailVerified above),
+            // so this isn't trusting client input the way it would be for an unverified
+            // claim.
+            user = await _userManager.FindByEmailAsync(identity.Email);
+            if (user is not null)
+            {
+                var linkResult = await _userManager.AddLoginAsync(
+                    user, new UserLoginInfo(GoogleLoginProvider, identity.Subject, GoogleLoginProvider));
+                if (!linkResult.Succeeded)
+                {
+                    throw new ValidationException(new Dictionary<string, string[]>
+                    {
+                        ["Google"] = linkResult.Errors.Select(e => e.Description).ToArray(),
+                    });
+                }
+            }
+        }
+
+        if (user is null)
+        {
+            user = new ApplicationUser
+            {
+                Id = Guid.NewGuid(),
+                UserName = identity.Email,
+                Email = identity.Email,
+                EmailConfirmed = true, // Google already verified it -- US-16 has nothing to add here
+                FirstName = string.IsNullOrWhiteSpace(identity.GivenName) ? "New" : identity.GivenName,
+                LastName = string.IsNullOrWhiteSpace(identity.FamilyName) ? "User" : identity.FamilyName,
+                IsActive = true,
+                CreatedAt = DateTimeOffset.UtcNow,
+            };
+
+            // No password -- CheckPasswordAsync will simply always fail for this account,
+            // which is correct: Google Sign-In is the only way in for a Google-only user.
+            var createResult = await _userManager.CreateAsync(user);
+            if (!createResult.Succeeded)
+            {
+                throw new ValidationException(new Dictionary<string, string[]>
+                {
+                    ["Email"] = createResult.Errors.Select(e => e.Description).ToArray(),
+                });
+            }
+
+            await _userManager.AddLoginAsync(
+                user, new UserLoginInfo(GoogleLoginProvider, identity.Subject, GoogleLoginProvider));
+        }
+
+        var hasWorkspace = await _dbContext.TenantMemberships
+            .IgnoreQueryFilters()
+            .AnyAsync(tm => tm.UserId == user.Id, cancellationToken);
+
+        if (!hasWorkspace)
+        {
+            var interimToken = _jwtTokenService.GenerateInterimAccessToken(user.Id, TokenPurposes.ProfileIncomplete);
+            return Ok(new ProfileCompletionRequiredResponse(true, interimToken.Value, interimToken.ExpiresAtUtc));
+        }
+
+        var membership = await ResolvePrimaryMembershipAsync(user.Id, cancellationToken)
+            ?? throw new UnauthorizedException("This account has no property/tenant access configured.");
+
+        var response = await IssueTokensAsync(user.Id, membership, cancellationToken);
+        return Ok(response);
+    }
+
+    /// <summary>
+    /// US-15: the second half of a first-time Google signup. Requires an interim
+    /// (profile_incomplete) token -- checked explicitly here, not just relied on
+    /// structurally, even though an interim token's missing tenant_id/role claims already
+    /// fail-close it out of every tenant-scoped/permission-gated endpoint on their own.
+    /// </summary>
+    [HttpPost("complete-profile")]
+    public async Task<IActionResult> CompleteProfile(
+        [FromBody] CompleteProfileRequest request, CancellationToken cancellationToken)
+    {
+        var purpose = User.FindFirst(TokenPurposes.ClaimType)?.Value;
+        if (purpose != TokenPurposes.ProfileIncomplete)
+        {
+            throw new ForbiddenException("This endpoint requires a profile-completion token.");
+        }
+
+        var userId = Guid.Parse(User.FindFirst("user_id")!.Value);
+
+        var alreadyHasWorkspace = await _dbContext.TenantMemberships
+            .IgnoreQueryFilters()
+            .AnyAsync(tm => tm.UserId == userId, cancellationToken);
+        if (alreadyHasWorkspace)
+        {
+            throw new ConflictException("This account already has a workspace.");
+        }
+
+        var user = await _userManager.FindByIdAsync(userId.ToString())
+            ?? throw new UnauthorizedException("Account no longer exists.");
+
+        user.PhoneNumber = request.PhoneNumber;
+        user.Address = request.Address;
+        await _userManager.UpdateAsync(user);
+
+        var propertyManagerMembership = await ProvisionWorkspaceAsync(
+            userId, request.WorkspaceName, request.PortfolioSize, cancellationToken);
+
+        var response = await IssueTokensAsync(userId, propertyManagerMembership, cancellationToken);
         return Ok(response);
     }
 
@@ -309,6 +401,61 @@ public class AuthController : ControllerBase
             role,
             permissions,
         });
+    }
+
+    /// <summary>
+    /// Shared by US-14 (Register) and US-15 (CompleteProfile): creates the new Tenant
+    /// (workspace) and a root TenantMembership pair -- PropertyManager (IsPrimary = true)
+    /// and PropertyOwner (IsPrimary = false) -- for userId. See Register's doc comment for
+    /// why a self-service landlord gets both roles.
+    /// </summary>
+    private async Task<TenantMembership> ProvisionWorkspaceAsync(
+        Guid userId, string workspaceName, int portfolioSize, CancellationToken cancellationToken)
+    {
+        var tenant = new Tenant
+        {
+            Id = Guid.NewGuid(),
+            Name = workspaceName,
+            PortfolioSize = portfolioSize,
+            OrganizationId = null,
+            CreatedAt = DateTimeOffset.UtcNow,
+        };
+        // Tenant is not ITenantScopedEntity (it sits above the tenant boundary) -- no active
+        // tenant context is needed for its own insert.
+        _dbContext.Tenants.Add(tenant);
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        var propertyManagerRole = await _roleManager.FindByNameAsync(RoleNames.PropertyManager)
+            ?? throw new InvalidOperationException("PropertyManager role not seeded -- has RoleSeeder run?");
+        var propertyOwnerRole = await _roleManager.FindByNameAsync(RoleNames.PropertyOwner)
+            ?? throw new InvalidOperationException("PropertyOwner role not seeded -- has RoleSeeder run?");
+
+        // TenantMembership IS ITenantScopedEntity -- the fail-closed insert guard (US-01)
+        // requires an active tenant context before either row below can be added.
+        _tenantContext.SetTenant(tenant.Id);
+
+        var propertyManagerMembership = new TenantMembership
+        {
+            Id = Guid.NewGuid(),
+            TenantId = tenant.Id,
+            UserId = userId,
+            RoleId = propertyManagerRole.Id,
+            IsPrimary = true,
+            CreatedAt = DateTimeOffset.UtcNow,
+        };
+        _dbContext.TenantMemberships.Add(propertyManagerMembership);
+        _dbContext.TenantMemberships.Add(new TenantMembership
+        {
+            Id = Guid.NewGuid(),
+            TenantId = tenant.Id,
+            UserId = userId,
+            RoleId = propertyOwnerRole.Id,
+            IsPrimary = false,
+            CreatedAt = DateTimeOffset.UtcNow,
+        });
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        return propertyManagerMembership;
     }
 
     private async Task<TenantMembership?> ResolvePrimaryMembershipAsync(Guid userId, CancellationToken cancellationToken)

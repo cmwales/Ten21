@@ -299,6 +299,24 @@ request actually came from; see `TurnstileVerificationService`'s class comment).
 key itself is public and already lives directly in
 `frontend/src/app/core/turnstile/turnstile.ts`, not in User Secrets.
 
+`POST /api/auth/google` (US-15, Google Sign-In) needs one more piece of configuration, but
+it is genuinely **not committed here yet** — see `docs/User_Stories_Phase_5.md`'s "build it
+now, get credentials later" note. `Google:ClientId` (an OAuth Client ID from Google Cloud
+Console) is not a secret in the same sense as the two above (it's meant to be public — it
+appears directly in `frontend/src/app/core/google-auth/google-auth.ts`'s
+`GOOGLE_CLIENT_ID` constant too), but until a real one is set, `GoogleIdTokenVerifier`
+cleanly fails every Google sign-in attempt (returns `null`, never throws) rather than
+blocking API startup the way `Jwt:Key` does — see that class's comment for why. Once you
+have a real Client ID:
+
+```bash
+dotnet user-secrets set "Google:ClientId" "<your Google OAuth Client ID>.apps.googleusercontent.com"
+```
+
+...and set the same value as `GOOGLE_CLIENT_ID` in
+`frontend/src/app/core/google-auth/google-auth.ts` (the frontend Sign-In button renders
+nothing at all until that constant is non-empty).
+
 Note this is a **local-machine mechanism only** — it won't help GitLab CI or a real
 deployment. Those need their own secret source (GitLab CI/CD variables, a proper secrets
 manager) when the time comes; don't reach for User Secrets outside local dev.

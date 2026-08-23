@@ -1,7 +1,14 @@
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { Observable, catchError, map, of, tap } from 'rxjs';
-import { ApiResponse, AuthResponse, LoginRequest, RegisterRequest } from '../models/auth.models';
+import {
+  ApiResponse,
+  AuthResponse,
+  CompleteProfileRequest,
+  LoginRequest,
+  ProfileCompletionRequiredResponse,
+  RegisterRequest,
+} from '../models/auth.models';
 
 const SESSION_STORAGE_KEY = 'ten21_auth_session';
 
@@ -19,6 +26,13 @@ export class AuthService {
 
   private readonly _session = signal<AuthResponse | null>(this.readStoredSession());
   readonly session = this._session.asReadonly();
+
+  /** US-15: holds the interim (profile_incomplete) token between /api/auth/google
+   * returning ProfileCompletionRequiredResponse and the CompleteProfile page submitting
+   * it -- deliberately memory-only (not localStorage), since it's short-lived and
+   * single-purpose, never a real session. */
+  private readonly _interimToken = signal<string | null>(null);
+  readonly interimToken = this._interimToken.asReadonly();
 
   readonly isAuthenticated = computed(() => {
     const session = this._session();
@@ -48,6 +62,52 @@ export class AuthService {
       .pipe(
         map((response) => response.data!),
         tap((session) => this.setSession(session)),
+      );
+  }
+
+  /** US-15: Google Sign-In. Returns either a full AuthResponse (existing account with a
+   * workspace -- session is set immediately, same as login()) or a
+   * ProfileCompletionRequiredResponse (first-time signup with no workspace yet -- no
+   * session is set; the interim token is stashed for CompleteProfile to use next). */
+  loginWithGoogle(idToken: string): Observable<AuthResponse | ProfileCompletionRequiredResponse> {
+    return this.http
+      .post<ApiResponse<AuthResponse | ProfileCompletionRequiredResponse>>(
+        '/api/auth/google',
+        { idToken },
+        { withCredentials: true },
+      )
+      .pipe(
+        map((response) => response.data!),
+        tap((result) => {
+          if ('requiresProfileCompletion' in result) {
+            this._interimToken.set(result.interimToken);
+          } else {
+            this.setSession(result);
+          }
+        }),
+      );
+  }
+
+  /** US-15: the second half of a first-time Google signup. Uses the stashed interim token
+   * directly as the Authorization header rather than going through the normal
+   * session-based interceptor path -- there is no session yet at this point. */
+  completeProfile(request: CompleteProfileRequest): Observable<AuthResponse> {
+    const interimToken = this._interimToken();
+    if (!interimToken) {
+      throw new Error('completeProfile() called with no interim token -- start over at /login.');
+    }
+
+    return this.http
+      .post<ApiResponse<AuthResponse>>('/api/auth/complete-profile', request, {
+        withCredentials: true,
+        headers: new HttpHeaders({ Authorization: `Bearer ${interimToken}` }),
+      })
+      .pipe(
+        map((response) => response.data!),
+        tap((session) => {
+          this._interimToken.set(null);
+          this.setSession(session);
+        }),
       );
   }
 

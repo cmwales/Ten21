@@ -21,6 +21,7 @@ namespace Ten21.IntegrationTests;
 /// real database end to end, including cookie round-tripping through an HttpClient the way
 /// a browser would.
 /// </summary>
+[Collection(SequentialWebApplicationFactoryCollection.Name)]
 public class AuthEndToEndTests : IAsyncLifetime
 {
     private readonly PostgreSqlContainer _postgres = new PostgreSqlBuilder()

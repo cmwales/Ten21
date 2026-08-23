@@ -39,14 +39,18 @@ public class TenantMiddleware
             Guid? organizationId = Guid.TryParse(orgClaim, out var parsedOrgId) ? parsedOrgId : null;
 
             tenantContext.SetTenant(tenantId, organizationId);
+        }
 
-            // Added for US-07 (Audit Logging): AuditSaveChangesInterceptor reads this to
-            // record who made a change. Same claim JwtTokenService already issues as "user_id".
-            var userClaim = context.User?.FindFirst("user_id")?.Value;
-            if (Guid.TryParse(userClaim, out var userId))
-            {
-                tenantContext.SetUser(userId);
-            }
+        // Added for US-07 (Audit Logging): AuditSaveChangesInterceptor reads this to record
+        // who made a change. Same claim JwtTokenService already issues as "user_id".
+        // Deliberately independent of the tenant_id branch above (not nested inside it, as
+        // it originally was): US-15/US-17's interim, tenant-less tokens (profile
+        // completion, pending 2FA) still carry a real user_id worth recording -- a caller
+        // holding one of those is genuinely authenticated, just not tenant-scoped yet.
+        var userClaim = context.User?.FindFirst("user_id")?.Value;
+        if (Guid.TryParse(userClaim, out var userId))
+        {
+            tenantContext.SetUser(userId);
         }
 
         // Anonymous/public endpoints (login, health checks, marketing routes) proceed with

@@ -42,6 +42,23 @@ export interface AuthResponse {
   role: string;
 }
 
+/** Mirrors Ten21.Api.Contracts.Auth.ProfileCompletionRequiredResponse (US-15). Returned by
+ * POST /api/auth/google instead of AuthResponse when a first-time Google signup has no
+ * workspace yet. */
+export interface ProfileCompletionRequiredResponse {
+  requiresProfileCompletion: true;
+  interimToken: string;
+  expiresAtUtc: string;
+}
+
+/** Mirrors Ten21.Api.Contracts.Auth.CompleteProfileRequest (US-15). */
+export interface CompleteProfileRequest {
+  phoneNumber: string | null;
+  address: string | null;
+  workspaceName: string;
+  portfolioSize: number;
+}
+
 /** Mirrors the RFC 7807 ProblemDetails shape produced by GlobalExceptionHandler (US-09). */
 export interface ProblemDetails {
   status: number;
