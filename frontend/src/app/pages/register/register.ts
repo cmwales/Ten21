@@ -8,13 +8,40 @@ import {
   inject,
   signal,
 } from '@angular/core';
-import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { AbstractControl, FormBuilder, ReactiveFormsModule, ValidationErrors, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { TranslatePipe } from '@ngx-translate/core';
 import { AuthService } from '../../core/services/auth.service';
 import { ProblemDetails } from '../../core/models/auth.models';
 import { LanguageSelector } from '../../shared/language-selector/language-selector';
 import { TURNSTILE_SITE_KEY, turnstileReady } from '../../core/turnstile/turnstile';
+
+/** Group-level (not confirmPassword-level) so it doesn't fight with confirmPassword's own
+ * Validators.required for error precedence -- the mismatch error is read off the form via
+ * form.errors, not confirmPassword.errors, in the template. */
+function passwordsMatchValidator(control: AbstractControl): ValidationErrors | null {
+  const password = control.get('password')?.value;
+  const confirmPassword = control.get('confirmPassword')?.value;
+  return password === confirmPassword ? null : { passwordMismatch: true };
+}
+
+/** Formats as the user types: (555) 123-4567. Non-digit characters are stripped and the
+ * result is capped at 10 digits -- deliberately plain TypeScript rather than pulling in a
+ * masking library for one field. */
+function formatPhoneNumber(value: string): string {
+  const digits = value.replace(/\D/g, '').slice(0, 10);
+
+  if (digits.length === 0) {
+    return '';
+  }
+  if (digits.length < 4) {
+    return `(${digits}`;
+  }
+  if (digits.length < 7) {
+    return `(${digits.slice(0, 3)}) ${digits.slice(3)}`;
+  }
+  return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
+}
 
 @Component({
   selector: 'app-register',
@@ -29,21 +56,30 @@ export class Register implements AfterViewInit, OnDestroy {
   private readonly router = inject(Router);
   private turnstileWidgetId: string | null = null;
 
-  protected readonly form = this.fb.nonNullable.group({
-    firstName: ['', [Validators.required]],
-    lastName: ['', [Validators.required]],
-    email: ['', [Validators.required, Validators.email]],
-    password: ['', [Validators.required, Validators.minLength(6)]],
-    phoneNumber: [''],
-    address: [''],
-    workspaceName: ['', [Validators.required]],
-    portfolioSize: [1, [Validators.required, Validators.min(1)]],
-    agreedToTerms: [false, [Validators.requiredTrue]],
-  });
+  protected readonly form = this.fb.nonNullable.group(
+    {
+      firstName: ['', [Validators.required]],
+      lastName: ['', [Validators.required]],
+      email: ['', [Validators.required, Validators.email]],
+      password: ['', [Validators.required, Validators.minLength(6)]],
+      confirmPassword: ['', [Validators.required]],
+      phoneNumber: [''],
+      address: [''],
+      workspaceName: ['', [Validators.required]],
+      portfolioSize: [1, [Validators.required, Validators.min(1)]],
+      agreedToTerms: [false, [Validators.requiredTrue]],
+    },
+    { validators: [passwordsMatchValidator] },
+  );
 
   protected readonly submitting = signal(false);
   protected readonly errorKey = signal<string | null>(null);
   protected readonly turnstileToken = signal<string | null>(null);
+
+  protected onPhoneInput(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    this.form.controls.phoneNumber.setValue(formatPhoneNumber(input.value));
+  }
 
   async ngAfterViewInit(): Promise<void> {
     await turnstileReady();

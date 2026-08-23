@@ -1,4 +1,6 @@
 using System.Security.Claims;
+using System.Security.Cryptography;
+using System.Text;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
@@ -448,15 +450,24 @@ public class AuthController : ControllerBase
 
         if (MandatoryTwoFactorRoles.Values.Contains(role.Name))
         {
-            var code = await _userManager.GenerateTwoFactorTokenAsync(user, TokenOptions.DefaultEmailProvider);
+            // A fresh, cryptographically random code every call -- no dependency on
+            // Identity's built-in Email token provider, whose ~3-minute TOTP step is
+            // hardcoded (not configurable) and returns the SAME code for repeated calls
+            // within that step. codeExpiresAtUtc is this code's own, real 5-minute window,
+            // independent of the challenge token's own (longer) lifetime -- see
+            // GenerateTwoFactorChallengeToken's doc comment.
+            var code = RandomNumberGenerator.GetInt32(0, 1_000_000).ToString("D6");
+            var codeHash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(code)));
+            var codeExpiresAtUtc = DateTimeOffset.UtcNow.AddMinutes(5);
+
             await _emailSender.SendAsync(
                 user.Email!,
                 "Your Ten21 sign-in code",
                 $"<p>Your sign-in code is: <strong>{code}</strong></p>" +
-                $"<p>Enter it to finish signing in. This code expires shortly.</p>",
+                $"<p>Enter it to finish signing in. This code expires in 5 minutes.</p>",
                 cancellationToken);
 
-            var challenge = _jwtTokenService.GenerateInterimAccessToken(user.Id, TokenPurposes.TwoFactorPending);
+            var challenge = _jwtTokenService.GenerateTwoFactorChallengeToken(user.Id, codeHash, codeExpiresAtUtc);
             return Ok(new TwoFactorRequiredResponse(true, challenge.Value, challenge.ExpiresAtUtc));
         }
 
@@ -465,7 +476,10 @@ public class AuthController : ControllerBase
     }
 
     /// <summary>US-17: the second half of a 2FA-gated login. Requires a TwoFactorPending
-    /// challenge token -- checked explicitly, not just relied on structurally.</summary>
+    /// challenge token -- checked explicitly, not just relied on structurally. Validates the
+    /// submitted code directly against the code_hash/code_exp claims the challenge token
+    /// carries (see GenerateTwoFactorChallengeToken) rather than through ASP.NET Core
+    /// Identity's built-in Email token provider.</summary>
     [HttpPost("login/verify-2fa")]
     public async Task<IActionResult> VerifyTwoFactor(
         [FromBody] VerifyTwoFactorRequest request, CancellationToken cancellationToken)
@@ -476,18 +490,55 @@ public class AuthController : ControllerBase
             throw new ForbiddenException("This endpoint requires a two-factor challenge token.");
         }
 
-        var user = await GetCurrentUserAsync();
-
-        if (!await _userManager.VerifyTwoFactorTokenAsync(user, TokenOptions.DefaultEmailProvider, request.Code))
+        if (!IsCodeValid(request.Code))
         {
             throw new UnauthorizedException("Invalid or expired code.");
         }
+
+        var user = await GetCurrentUserAsync();
 
         var membership = await ResolvePrimaryMembershipAsync(user.Id, cancellationToken)
             ?? throw new UnauthorizedException("This account has no property/tenant access configured.");
 
         var response = await IssueTokensAsync(user.Id, membership, cancellationToken);
         return Ok(response);
+    }
+
+    /// <summary>US-17 (fix): compares the submitted code's hash against the challenge
+    /// token's code_hash claim (constant-time, to avoid a timing side-channel) and checks
+    /// code_exp against the current time. False for anything malformed/missing rather than
+    /// throwing -- an absent or unparsable claim on a token this endpoint already required
+    /// to carry TokenPurposes.TwoFactorPending indicates a stale/foreign token, which is
+    /// exactly what "invalid or expired code" already communicates.</summary>
+    private bool IsCodeValid(string submittedCode)
+    {
+        var codeHashClaim = User.FindFirst(TokenPurposes.CodeHashClaimType)?.Value;
+        var codeExpiresClaim = User.FindFirst(TokenPurposes.CodeExpiresClaimType)?.Value;
+
+        if (string.IsNullOrEmpty(codeHashClaim)
+            || !long.TryParse(codeExpiresClaim, out var expiresUnixSeconds))
+        {
+            return false;
+        }
+
+        if (DateTimeOffset.UtcNow > DateTimeOffset.FromUnixTimeSeconds(expiresUnixSeconds))
+        {
+            return false;
+        }
+
+        byte[] storedHash;
+        try
+        {
+            storedHash = Convert.FromHexString(codeHashClaim);
+        }
+        catch (FormatException)
+        {
+            return false; // malformed claim -- treat like any other invalid code
+        }
+
+        var submittedHash = SHA256.HashData(Encoding.UTF8.GetBytes(submittedCode));
+        return storedHash.Length == submittedHash.Length
+            && CryptographicOperations.FixedTimeEquals(submittedHash, storedHash);
     }
 
     [HttpPost("refresh-token")]

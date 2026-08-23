@@ -101,4 +101,33 @@ public class JwtTokenService : IJwtTokenService
         var tokenValue = new JwtSecurityTokenHandler().WriteToken(token);
         return new AccessToken(tokenValue, expiresAtUtc);
     }
+
+    public AccessToken GenerateTwoFactorChallengeToken(Guid userId, string codeHash, DateTimeOffset codeExpiresAtUtc)
+    {
+        // The token itself outlives the code (same InterimAccessTokenLifetime as every
+        // other interim token) so a user who lets the code lapse gets "invalid or expired
+        // code" from VerifyTwoFactor's own expiry check, not a token-level 401 from expired
+        // JWT `exp` first -- one consistent error path regardless of which expiry hits.
+        var expiresAtUtc = DateTimeOffset.UtcNow.Add(InterimAccessTokenLifetime);
+
+        var claims = new List<Claim>
+        {
+            new(JwtRegisteredClaimNames.Sub, userId.ToString()),
+            new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
+            new("user_id", userId.ToString()),
+            new(TokenPurposes.ClaimType, TokenPurposes.TwoFactorPending),
+            new(TokenPurposes.CodeHashClaimType, codeHash),
+            new(TokenPurposes.CodeExpiresClaimType, codeExpiresAtUtc.ToUnixTimeSeconds().ToString()),
+        };
+
+        var token = new JwtSecurityToken(
+            issuer: _issuer,
+            audience: _audience,
+            claims: claims,
+            expires: expiresAtUtc.UtcDateTime,
+            signingCredentials: _signingCredentials);
+
+        var tokenValue = new JwtSecurityTokenHandler().WriteToken(token);
+        return new AccessToken(tokenValue, expiresAtUtc);
+    }
 }

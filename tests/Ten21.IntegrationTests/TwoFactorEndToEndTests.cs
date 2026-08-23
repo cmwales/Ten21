@@ -1,3 +1,4 @@
+using System.IdentityModel.Tokens.Jwt;
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
@@ -140,6 +141,62 @@ public class TwoFactorEndToEndTests : IAsyncLifetime
         var response = await _client.PostAsJsonAsync("/api/auth/login/verify-2fa", new { code = "123456" });
 
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+    }
+
+    /// <summary>
+    /// Regression test for a real reported bug: ASP.NET Core Identity's built-in Email
+    /// token provider (TokenOptions.DefaultEmailProvider) is TOTP-based with a hardcoded,
+    /// non-configurable ~3-minute step, so calling Login twice within that step returned
+    /// the IDENTICAL code -- indistinguishable, from a user's perspective, from "requesting
+    /// a new code did nothing." AuthController now generates its own cryptographically
+    /// random code on every Login call, independent of any time step.
+    /// register(1) + login(2) + login(3) = 3 calls.
+    /// </summary>
+    [Fact]
+    public async Task Login_CalledTwiceInQuickSuccession_IssuesADifferentCodeEachTime()
+    {
+        var email = "repeat-login-2fa@ten21.io";
+        const string password = "Repeat-Login-2fa-Passw0rd!1";
+
+        await RegisterAsync(email, password);
+        _emailSender.SentEmails.Clear();
+
+        await _client.PostAsJsonAsync("/api/auth/login", new { email, password });
+        await _client.PostAsJsonAsync("/api/auth/login", new { email, password });
+
+        Assert.Equal(2, _emailSender.SentEmails.Count);
+        var firstCode = ExtractCode(_emailSender.SentEmails[0].HtmlBody);
+        var secondCode = ExtractCode(_emailSender.SentEmails[1].HtmlBody);
+        Assert.NotEqual(firstCode, secondCode);
+    }
+
+    /// <summary>
+    /// Regression test for the same reported bug: the code's real validity window is a
+    /// fixed 5 minutes, set explicitly by AuthController (not delegated to Identity's
+    /// opaque, hardcoded TOTP step). Read directly off the challenge token's own code_exp
+    /// claim rather than waiting 5 real minutes for an expiry to actually elapse.
+    /// register(1) + login(2) = 2 calls.
+    /// </summary>
+    [Fact]
+    public async Task Login_MandatoryTwoFactorRole_ChallengeTokenCarriesAFiveMinuteCodeExpiry()
+    {
+        var email = "code-expiry-2fa@ten21.io";
+        const string password = "Code-Expiry-2fa-Passw0rd!1";
+
+        await RegisterAsync(email, password);
+
+        var loginResponse = await _client.PostAsJsonAsync("/api/auth/login", new { email, password });
+        var loginData = await ReadDataAsync(loginResponse);
+        var challengeToken = loginData.GetProperty("challengeToken").GetString()!;
+
+        var jwt = new JwtSecurityTokenHandler().ReadJwtToken(challengeToken);
+        var codeExpClaim = jwt.Claims.Single(c => c.Type == "code_exp").Value;
+        var codeExpiresAtUtc = DateTimeOffset.FromUnixTimeSeconds(long.Parse(codeExpClaim));
+
+        var expectedExpiry = DateTimeOffset.UtcNow.AddMinutes(5);
+        Assert.True(
+            Math.Abs((codeExpiresAtUtc - expectedExpiry).TotalSeconds) < 30,
+            $"Expected code_exp near {expectedExpiry:o}, got {codeExpiresAtUtc:o}.");
     }
 
     private async Task RegisterAsync(string email, string password)
