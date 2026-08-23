@@ -45,6 +45,7 @@ public class AuthController : ControllerBase
     private readonly IJwtTokenService _jwtTokenService;
     private readonly IRefreshTokenService _refreshTokenService;
     private readonly ITenantContext _tenantContext;
+    private readonly ITurnstileVerificationService _turnstileVerificationService;
     private readonly IWebHostEnvironment _environment;
 
     public AuthController(
@@ -54,6 +55,7 @@ public class AuthController : ControllerBase
         IJwtTokenService jwtTokenService,
         IRefreshTokenService refreshTokenService,
         ITenantContext tenantContext,
+        ITurnstileVerificationService turnstileVerificationService,
         IWebHostEnvironment environment)
     {
         _userManager = userManager;
@@ -62,6 +64,7 @@ public class AuthController : ControllerBase
         _jwtTokenService = jwtTokenService;
         _refreshTokenService = refreshTokenService;
         _tenantContext = tenantContext;
+        _turnstileVerificationService = turnstileVerificationService;
         _environment = environment;
     }
 
@@ -78,6 +81,17 @@ public class AuthController : ControllerBase
     [AllowAnonymous]
     public async Task<IActionResult> Register([FromBody] RegisterRequest request, CancellationToken cancellationToken)
     {
+        // US-18: bot defense gates first, before any other validation runs -- no reason to
+        // do field validation or an email-uniqueness DB lookup for a request that fails
+        // this check anyway.
+        if (!await _turnstileVerificationService.VerifyAsync(request.TurnstileToken, GetClientIp(), cancellationToken))
+        {
+            throw new ValidationException(new Dictionary<string, string[]>
+            {
+                [nameof(request.TurnstileToken)] = ["Bot verification failed. Please try again."],
+            });
+        }
+
         if (!request.AgreedToTerms)
         {
             throw new ValidationException(new Dictionary<string, string[]>

@@ -16,7 +16,7 @@ export interface LoginRequest {
   password: string;
 }
 
-/** Mirrors Ten21.Api.Contracts.Auth.RegisterRequest (US-14). */
+/** Mirrors Ten21.Api.Contracts.Auth.RegisterRequest (US-14, +turnstileToken in US-18). */
 export interface RegisterRequest {
   firstName: string;
   lastName: string;
@@ -27,6 +27,7 @@ export interface RegisterRequest {
   workspaceName: string;
   portfolioSize: number;
   agreedToTerms: boolean;
+  turnstileToken: string;
 }
 
 /**

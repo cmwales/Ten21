@@ -3,7 +3,8 @@ namespace Ten21.Api.Contracts.Auth;
 public record LoginRequest(string Email, string Password);
 
 /// <summary>US-14: workspace registration. WorkspaceName/PortfolioSize describe the new
-/// Tenant being provisioned, not the registrant themselves.</summary>
+/// Tenant being provisioned, not the registrant themselves. TurnstileToken (US-18) is the
+/// Cloudflare Turnstile response token from the frontend's "register" widget.</summary>
 public record RegisterRequest(
     string FirstName,
     string LastName,
@@ -13,7 +14,8 @@ public record RegisterRequest(
     string? Address,
     string WorkspaceName,
     int PortfolioSize,
-    bool AgreedToTerms);
+    bool AgreedToTerms,
+    string TurnstileToken);
 
 /// <summary>
 /// The refresh token deliberately never appears here -- it only ever travels as an

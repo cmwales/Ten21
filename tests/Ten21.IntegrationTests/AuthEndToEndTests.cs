@@ -54,6 +54,16 @@ public class AuthEndToEndTests : IAsyncLifetime
         Environment.SetEnvironmentVariable("Jwt__Issuer", "https://api.ten21.io");
         Environment.SetEnvironmentVariable("Jwt__Audience", "https://app.ten21.io");
 
+        // US-18: Cloudflare's own published "always passes" Turnstile testing secret --
+        // never a real credential. It doesn't require a real solved widget token (any
+        // non-empty string satisfies it) but its siteverify response always reports
+        // hostname "example.com" and omits Action entirely, which is why AllowedHostnames
+        // is pinned to that value here rather than the real "localhost"/"app.ten21.io"
+        // hosts this app actually serves from.
+        Environment.SetEnvironmentVariable(
+            "Turnstile__SecretKey", "1x0000000000000000000000000000000AA");
+        Environment.SetEnvironmentVariable("Turnstile__AllowedHostnames", "example.com");
+
         _factory = new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
         {
             // AuthController's refresh cookie is only non-Secure in Development (see its
@@ -99,6 +109,7 @@ public class AuthEndToEndTests : IAsyncLifetime
             workspaceName = "Test Workspace",
             portfolioSize = 3,
             agreedToTerms = true,
+            turnstileToken = "test-token",
         });
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -159,6 +170,7 @@ public class AuthEndToEndTests : IAsyncLifetime
             workspaceName = "New Landlord Properties",
             portfolioSize = 5,
             agreedToTerms = true,
+            turnstileToken = "test-token",
         });
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
@@ -188,6 +200,7 @@ public class AuthEndToEndTests : IAsyncLifetime
             workspaceName = "Someone Else's Workspace",
             portfolioSize = 1,
             agreedToTerms = true,
+            turnstileToken = "test-token",
         });
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
@@ -207,6 +220,7 @@ public class AuthEndToEndTests : IAsyncLifetime
             workspaceName = "Workspace",
             portfolioSize = 1,
             agreedToTerms = false,
+            turnstileToken = "test-token",
         });
 
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);

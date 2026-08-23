@@ -283,6 +283,22 @@ dotnet user-secrets set "Jwt:Key" "$(openssl rand -base64 48)"
 (`Jwt:Issuer` and `Jwt:Audience` are not secrets — they're just checked into
 `appsettings.json` as `https://api.ten21.io` / `https://app.ten21.io`.)
 
+`POST /api/auth/register` (US-14) is bot-defended by Cloudflare Turnstile (US-18) and needs
+its own secret the same way:
+
+```bash
+dotnet user-secrets set "Turnstile:SecretKey" "<your Cloudflare Turnstile secret key>"
+```
+
+Without a real secret, `TurnstileVerificationService`'s constructor throws on first use —
+same fail-loud-if-misconfigured behavior as `Jwt:Key`. For pure local testing without a real
+Cloudflare account, Cloudflare's own published always-pass testing secret works too:
+`1x0000000000000000000000000000000AA` (also set `Turnstile:AllowedHostnames` to
+`example.com` — that testing secret always reports that hostname regardless of where the
+request actually came from; see `TurnstileVerificationService`'s class comment). The site
+key itself is public and already lives directly in
+`frontend/src/app/core/turnstile/turnstile.ts`, not in User Secrets.
+
 Note this is a **local-machine mechanism only** — it won't help GitLab CI or a real
 deployment. Those need their own secret source (GitLab CI/CD variables, a proper secrets
 manager) when the time comes; don't reach for User Secrets outside local dev.
