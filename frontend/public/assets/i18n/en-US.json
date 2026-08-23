@@ -1,0 +1,45 @@
+{
+  "app": {
+    "name": "Ten21"
+  },
+  "auth": {
+    "login": {
+      "title": "Sign in to Ten21",
+      "subtitle": "Manage your properties, leases, and finances in one place.",
+      "languageLabel": "Language",
+      "emailLabel": "Email address",
+      "emailPlaceholder": "you@example.com",
+      "passwordLabel": "Password",
+      "passwordPlaceholder": "Enter your password",
+      "showPassword": "Show password",
+      "hidePassword": "Hide password",
+      "submit": "Sign in",
+      "submitting": "Signing in…",
+      "emailRequired": "Email address is required.",
+      "emailInvalid": "Enter a valid email address.",
+      "passwordRequired": "Password is required.",
+      "genericError": "Invalid email or password.",
+      "lockedOutError": "Your account is temporarily locked after too many failed attempts. Please try again in 15 minutes.",
+      "rateLimitedError": "Too many attempts. Please wait a moment and try again.",
+      "networkError": "Something went wrong. Please try again."
+    }
+  },
+  "nav": {
+    "dashboard": "Dashboard",
+    "ledger": "Ledger",
+    "logout": "Log out"
+  },
+  "dashboard": {
+    "welcome": "Welcome back",
+    "role": "Role",
+    "tenant": "Property",
+    "organization": "Organization"
+  },
+  "ledger": {
+    "title": "Financial Ledger",
+    "placeholder": "Ledger detail views are coming in a later phase."
+  },
+  "common": {
+    "loading": "Loading…"
+  }
+}

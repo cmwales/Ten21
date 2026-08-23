@@ -1,0 +1,45 @@
+{
+  "app": {
+    "name": "Ten21"
+  },
+  "auth": {
+    "login": {
+      "title": "Iniciar sesión en Ten21",
+      "subtitle": "Administre sus propiedades, contratos y finanzas en un solo lugar.",
+      "languageLabel": "Idioma",
+      "emailLabel": "Correo electrónico",
+      "emailPlaceholder": "usted@ejemplo.com",
+      "passwordLabel": "Contraseña",
+      "passwordPlaceholder": "Ingrese su contraseña",
+      "showPassword": "Mostrar contraseña",
+      "hidePassword": "Ocultar contraseña",
+      "submit": "Iniciar sesión",
+      "submitting": "Iniciando sesión…",
+      "emailRequired": "El correo electrónico es obligatorio.",
+      "emailInvalid": "Ingrese un correo electrónico válido.",
+      "passwordRequired": "La contraseña es obligatoria.",
+      "genericError": "Correo electrónico o contraseña incorrectos.",
+      "lockedOutError": "Su cuenta está bloqueada temporalmente tras varios intentos fallidos. Inténtelo de nuevo en 15 minutos.",
+      "rateLimitedError": "Demasiados intentos. Espere un momento y vuelva a intentarlo.",
+      "networkError": "Algo salió mal. Inténtelo de nuevo."
+    }
+  },
+  "nav": {
+    "dashboard": "Panel",
+    "ledger": "Libro contable",
+    "logout": "Cerrar sesión"
+  },
+  "dashboard": {
+    "welcome": "Bienvenido de nuevo",
+    "role": "Rol",
+    "tenant": "Propiedad",
+    "organization": "Organización"
+  },
+  "ledger": {
+    "title": "Libro Contable Financiero",
+    "placeholder": "Las vistas detalladas del libro contable llegarán en una fase posterior."
+  },
+  "common": {
+    "loading": "Cargando…"
+  }
+}

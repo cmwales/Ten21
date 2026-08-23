@@ -1,0 +1,13 @@
+<label class="flex items-center gap-2 text-sm text-white">
+  <span class="sr-only">{{ 'auth.login.languageLabel' | translate }}</span>
+  <select
+    class="tap-target rounded-md border border-white/20 bg-slate-navy-light px-3 py-2 text-sm text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
+    [value]="translate.currentLang()"
+    (change)="onLanguageChange($event)"
+    [attr.aria-label]="'auth.login.languageLabel' | translate"
+  >
+    @for (language of languages; track language.code) {
+      <option [value]="language.code">{{ language.label }}</option>
+    }
+  </select>
+</label>

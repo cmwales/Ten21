@@ -1,0 +1,43 @@
+/*
+ * Ten21 Master Style Architecture (DESIGN_SYSTEM.md §1)
+ * Single global stylesheet — Tailwind CSS + design tokens. Component-level
+ * .scss files are disabled by schematic default (angular.json inlineStyle: true);
+ * all shared visual language lives here.
+ */
+@import "tailwindcss";
+
+@theme {
+  /* DESIGN_SYSTEM.md §2 — Slate Navy & Emerald Color Tokens */
+  --color-slate-navy: #0f172a;
+  --color-slate-navy-light: #1e293b;
+  --color-emerald: #059669;
+  --color-amber: #d97706;
+  --color-rose: #e11d48;
+  --color-surface: #f8fafc;
+  --color-surface-card: #ffffff;
+
+  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+
+/* WCAG 2.1 AA — visible, high-contrast focus rings everywhere, not just on
+   :hover-capable pointer devices. Tailwind's focus-visible:ring-2 utility
+   handles the per-element case; this is the fail-safe default. */
+:focus-visible {
+  outline: none;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  @apply bg-surface text-slate-navy font-sans antialiased;
+}
+
+/* WCAG 2.1 AA — 48x48px minimum touch target. Applied explicitly via this
+   utility class on primary interactive controls (buttons, form fields),
+   rather than globally, so it doesn't inflate incidental inline links. */
+.tap-target {
+  min-height: 48px;
+}

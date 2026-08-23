@@ -1,0 +1,45 @@
+{
+  "app": {
+    "name": "Ten21"
+  },
+  "auth": {
+    "login": {
+      "title": "Connexion à Ten21",
+      "subtitle": "Gérez vos propriétés, baux et finances en un seul endroit.",
+      "languageLabel": "Langue",
+      "emailLabel": "Adresse courriel",
+      "emailPlaceholder": "vous@exemple.com",
+      "passwordLabel": "Mot de passe",
+      "passwordPlaceholder": "Entrez votre mot de passe",
+      "showPassword": "Afficher le mot de passe",
+      "hidePassword": "Masquer le mot de passe",
+      "submit": "Se connecter",
+      "submitting": "Connexion en cours…",
+      "emailRequired": "L'adresse courriel est requise.",
+      "emailInvalid": "Entrez une adresse courriel valide.",
+      "passwordRequired": "Le mot de passe est requis.",
+      "genericError": "Courriel ou mot de passe invalide.",
+      "lockedOutError": "Votre compte est temporairement verrouillé après plusieurs tentatives infructueuses. Réessayez dans 15 minutes.",
+      "rateLimitedError": "Trop de tentatives. Veuillez patienter un moment avant de réessayer.",
+      "networkError": "Une erreur s'est produite. Veuillez réessayer."
+    }
+  },
+  "nav": {
+    "dashboard": "Tableau de bord",
+    "ledger": "Grand livre",
+    "logout": "Déconnexion"
+  },
+  "dashboard": {
+    "welcome": "Content de vous revoir",
+    "role": "Rôle",
+    "tenant": "Propriété",
+    "organization": "Organisation"
+  },
+  "ledger": {
+    "title": "Grand Livre Financier",
+    "placeholder": "Les vues détaillées du grand livre arriveront dans une phase ultérieure."
+  },
+  "common": {
+    "loading": "Chargement…"
+  }
+}

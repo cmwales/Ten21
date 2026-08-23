@@ -1,0 +1,108 @@
+<div class="flex min-h-screen flex-col bg-slate-navy">
+  <header class="flex items-center justify-between px-4 py-4 sm:px-8">
+    <span class="text-lg font-semibold text-white">{{ 'app.name' | translate }}</span>
+    <app-language-selector />
+  </header>
+
+  <main class="flex flex-1 items-center justify-center px-4 pb-12">
+    <div class="w-full max-w-md rounded-xl bg-surface-card p-6 shadow-xl sm:p-8">
+      <h1 class="text-2xl font-bold text-slate-navy">{{ 'auth.login.title' | translate }}</h1>
+      <p class="mt-1 text-sm text-slate-navy-light">{{ 'auth.login.subtitle' | translate }}</p>
+
+      @if (errorKey()) {
+        <div
+          role="alert"
+          class="mt-6 rounded-md border border-rose bg-rose/10 px-4 py-3 text-sm font-medium text-rose"
+        >
+          {{ errorKey()! | translate }}
+        </div>
+      }
+
+      <form class="mt-6 flex flex-col gap-5" [formGroup]="form" (ngSubmit)="submit()" novalidate>
+        <div class="flex flex-col gap-1.5">
+          <label for="email" class="text-sm font-medium text-slate-navy">
+            {{ 'auth.login.emailLabel' | translate }}
+          </label>
+          <input
+            id="email"
+            type="email"
+            autocomplete="email"
+            formControlName="email"
+            [placeholder]="'auth.login.emailPlaceholder' | translate"
+            [attr.aria-invalid]="form.controls.email.invalid && form.controls.email.touched"
+            aria-describedby="email-error"
+            class="tap-target w-full rounded-md border border-slate-navy/20 px-3 py-2 text-slate-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
+          />
+          @if (form.controls.email.invalid && form.controls.email.touched) {
+            <p id="email-error" class="text-sm text-rose">
+              {{
+                (form.controls.email.hasError('required')
+                  ? 'auth.login.emailRequired'
+                  : 'auth.login.emailInvalid'
+                ) | translate
+              }}
+            </p>
+          }
+        </div>
+
+        <div class="flex flex-col gap-1.5">
+          <label for="password" class="text-sm font-medium text-slate-navy">
+            {{ 'auth.login.passwordLabel' | translate }}
+          </label>
+          <div class="relative">
+            <input
+              id="password"
+              [type]="showPassword() ? 'text' : 'password'"
+              autocomplete="current-password"
+              formControlName="password"
+              [placeholder]="'auth.login.passwordPlaceholder' | translate"
+              [attr.aria-invalid]="form.controls.password.invalid && form.controls.password.touched"
+              aria-describedby="password-error"
+              class="tap-target w-full rounded-md border border-slate-navy/20 px-3 py-2 pr-12 text-slate-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
+            />
+            <button
+              type="button"
+              (click)="togglePasswordVisibility()"
+              [attr.aria-label]="
+                (showPassword() ? 'auth.login.hidePassword' : 'auth.login.showPassword') | translate
+              "
+              class="tap-target absolute inset-y-0 right-0 flex w-12 items-center justify-center text-slate-navy-light focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
+            >
+              @if (showPassword()) {
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-5 w-5">
+                  <path
+                    d="M3 3l18 18M10.58 10.58a2 2 0 102.83 2.83M9.88 4.24A9.53 9.53 0 0112 4c5 0 9 4 10 8-.31 1.2-.86 2.32-1.6 3.31M6.1 6.1C3.9 7.5 2.3 9.6 2 12c1 4 5 8 10 8 1.35 0 2.63-.28 3.79-.79"
+                  />
+                </svg>
+              } @else {
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-5 w-5">
+                  <path d="M2 12s4-8 10-8 10 8 10 8-4 8-10 8-10-8-10-8z" />
+                  <circle cx="12" cy="12" r="3" />
+                </svg>
+              }
+            </button>
+          </div>
+          @if (form.controls.password.invalid && form.controls.password.touched) {
+            <p id="password-error" class="text-sm text-rose">
+              {{ 'auth.login.passwordRequired' | translate }}
+            </p>
+          }
+        </div>
+
+        <button
+          type="submit"
+          [disabled]="submitting()"
+          class="tap-target mt-2 flex w-full items-center justify-center gap-2 rounded-md bg-emerald px-4 py-2 font-semibold text-white transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald disabled:opacity-60"
+        >
+          @if (submitting()) {
+            <span
+              class="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white"
+              aria-hidden="true"
+            ></span>
+          }
+          {{ (submitting() ? 'auth.login.submitting' : 'auth.login.submit') | translate }}
+        </button>
+      </form>
+    </div>
+  </main>
+</div>

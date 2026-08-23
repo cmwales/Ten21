@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi;
 using Ten21.Api.ExceptionHandling;
 using Ten21.Api.Filters;
 using Ten21.Application.Abstractions;
@@ -24,6 +25,31 @@ builder.Services.AddControllers(options => options.Filters.Add<ApiResponseWrappi
 builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddObjectStorage(builder.Configuration); // US-06
 builder.Services.AddEndpointsApiExplorer();
+
+// US-00: Swagger UI at /swagger with a JWT Bearer authorization header so
+// endpoints behind [Authorize] can be exercised interactively in dev.
+builder.Services.AddSwaggerGen(options =>
+{
+    options.SwaggerDoc("v1", new OpenApiInfo { Title = "Ten21 API", Version = "v1" });
+
+    options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+    {
+        Name = "Authorization",
+        Type = SecuritySchemeType.Http,
+        Scheme = "bearer",
+        BearerFormat = "JWT",
+        In = ParameterLocation.Header,
+        Description = "Paste the access token returned by POST /api/auth/login (no \"Bearer \" prefix needed).",
+    });
+
+    options.AddSecurityRequirement(_ => new OpenApiSecurityRequirement
+    {
+        {
+            new OpenApiSecuritySchemeReference("Bearer", null),
+            new List<string>()
+        },
+    });
+});
 
 // US-09: the only registered IExceptionHandler -- every unhandled exception, domain or
 // otherwise, funnels through GlobalExceptionHandler and comes out as RFC 7807
@@ -98,6 +124,9 @@ app.UseExceptionHandler();
 // (see .gitlab-ci.yml), never here. Role seeding follows the exact same reasoning.
 if (app.Environment.IsDevelopment())
 {
+    app.UseSwagger();
+    app.UseSwaggerUI(); // serves the interactive UI at /swagger
+
     await using var scope = app.Services.CreateAsyncScope();
     var db = scope.ServiceProvider.GetRequiredService<Ten21DbContext>();
     await db.Database.MigrateAsync();
