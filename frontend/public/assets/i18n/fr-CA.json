@@ -95,12 +95,40 @@
       "invalidLinkError": "Ce lien de réinitialisation de mot de passe est invalide ou a expiré.",
       "requestNewLink": "Demander un nouveau lien",
       "networkError": "Une erreur s'est produite. Veuillez réessayer."
+    },
+    "verifyTwoFactor": {
+      "title": "Vérification en deux étapes",
+      "subtitleEmail": "Entrez le code à 6 chiffres que nous vous avons envoyé par courriel.",
+      "subtitleAuthenticator": "Entrez le code à 6 chiffres de votre application d'authentification.",
+      "codeLabel": "Code de vérification",
+      "submit": "Vérifier",
+      "invalidCodeError": "Ce code est invalide ou a expiré.",
+      "networkError": "Une erreur s'est produite. Veuillez réessayer."
+    },
+    "security": {
+      "title": "Sécurité",
+      "subtitle": "Gérez l'authentification à deux facteurs de votre compte.",
+      "enableTitle": "Application d'authentification",
+      "enableDescription": "Utilisez une application comme Google Authenticator ou Microsoft Authenticator pour la connexion à deux facteurs.",
+      "beginSetupButton": "Configurer l'application d'authentification",
+      "scanInstructions": "Ajoutez cette clé à votre application d'authentification, puis entrez le code à 6 chiffres affiché.",
+      "sharedKeyLabel": "Clé de configuration",
+      "confirmButton": "Confirmer",
+      "enableSuccess": "L'authentification à deux facteurs est maintenant activée.",
+      "setupError": "Une erreur s'est produite lors de la configuration. Veuillez réessayer.",
+      "wrongCodeError": "Ce code ne correspond pas. Veuillez réessayer.",
+      "disableTitle": "Désactiver l'application d'authentification",
+      "disableDescription": "Les comptes administratifs continueront de recevoir un code par courriel à la connexion même après cela.",
+      "disableButton": "Désactiver l'application d'authentification",
+      "disableSuccess": "L'authentification à deux facteurs a été désactivée.",
+      "disableError": "Une erreur s'est produite. Veuillez réessayer."
     }
   },
   "nav": {
     "dashboard": "Tableau de bord",
     "ledger": "Grand livre",
-    "logout": "Déconnexion"
+    "logout": "Déconnexion",
+    "security": "Sécurité"
   },
   "dashboard": {
     "welcome": "Content de vous revoir",

@@ -31,6 +31,16 @@ public interface IJwtTokenService
     /// explicitly rather than relying on structural inertness alone.
     /// </summary>
     AccessToken GenerateInterimAccessToken(Guid userId, string purpose);
+
+    /// <summary>
+    /// US-17: same interim-token shape as GenerateInterimAccessToken (tenant-less,
+    /// role-less, purpose = TokenPurposes.TwoFactorPending), plus one extra claim
+    /// (TokenPurposes.TwoFactorProviderClaimType) recording WHICH Identity token provider
+    /// ("Email" or "Authenticator") the challenge was issued against -- verify-2fa checks
+    /// the submitted code against that specific provider, not either one, so a code
+    /// generated for one channel can't be replayed against the other.
+    /// </summary>
+    AccessToken GenerateTwoFactorChallengeToken(Guid userId, string twoFactorProvider);
 }
 
 public record AccessToken(string Value, DateTimeOffset ExpiresAtUtc);
@@ -48,4 +58,9 @@ public static class TokenPurposes
     /// <summary>US-17: password verified, awaiting a 2FA code. Only valid against
     /// POST /api/auth/login/verify-2fa.</summary>
     public const string TwoFactorPending = "2fa_pending";
+
+    /// <summary>US-17: the claim type recording which Identity token provider
+    /// (TokenOptions.DefaultEmailProvider/DefaultAuthenticatorProvider) a TwoFactorPending
+    /// token's challenge was issued against.</summary>
+    public const string TwoFactorProviderClaimType = "tfa_provider";
 }

@@ -1,0 +1,97 @@
+<div class="min-h-screen bg-surface">
+  <header class="flex items-center justify-between bg-slate-navy px-4 py-4 sm:px-8">
+    <span class="text-lg font-semibold text-white">{{ 'app.name' | translate }}</span>
+    <nav class="flex items-center gap-4 text-sm text-white">
+      <a routerLink="/dashboard" class="tap-target flex items-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald">
+        {{ 'nav.dashboard' | translate }}
+      </a>
+    </nav>
+  </header>
+
+  <main class="mx-auto max-w-2xl px-4 py-10 sm:px-8">
+    <h1 class="text-2xl font-bold text-slate-navy">{{ 'auth.security.title' | translate }}</h1>
+    <p class="mt-1 text-sm text-slate-navy-light">{{ 'auth.security.subtitle' | translate }}</p>
+
+    <section class="mt-8 rounded-lg bg-surface-card p-6 shadow-sm">
+      <h2 class="text-lg font-semibold text-slate-navy">{{ 'auth.security.enableTitle' | translate }}</h2>
+
+      @if (enableSucceeded()) {
+        <p class="mt-3 rounded-md border border-emerald bg-emerald/10 px-4 py-3 text-sm font-medium text-emerald">
+          {{ 'auth.security.enableSuccess' | translate }}
+        </p>
+      } @else if (setupData(); as data) {
+        <p class="mt-2 text-sm text-slate-navy-light">{{ 'auth.security.scanInstructions' | translate }}</p>
+
+        <dl class="mt-4 rounded-md bg-surface p-4">
+          <dt class="text-xs font-medium uppercase tracking-wide text-slate-navy-light">
+            {{ 'auth.security.sharedKeyLabel' | translate }}
+          </dt>
+          <dd class="mt-1 break-all font-mono text-sm text-slate-navy">{{ data.sharedKey }}</dd>
+        </dl>
+
+        @if (setupErrorKey()) {
+          <p class="mt-4 rounded-md border border-rose bg-rose/10 px-4 py-3 text-sm font-medium text-rose">
+            {{ setupErrorKey()! | translate }}
+          </p>
+        }
+
+        <form class="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end" [formGroup]="enableForm" (ngSubmit)="confirmEnable()" novalidate>
+          <div class="flex flex-1 flex-col gap-1.5">
+            <label for="enableCode" class="text-sm font-medium text-slate-navy">
+              {{ 'auth.verifyTwoFactor.codeLabel' | translate }}
+            </label>
+            <input
+              id="enableCode"
+              type="text"
+              inputmode="numeric"
+              maxlength="6"
+              formControlName="code"
+              class="tap-target w-full rounded-md border border-slate-navy/20 px-3 py-2 text-center text-lg tracking-[0.5em] text-slate-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
+            />
+          </div>
+          <button
+            type="submit"
+            class="tap-target rounded-md bg-emerald px-4 py-2 font-semibold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
+          >
+            {{ 'auth.security.confirmButton' | translate }}
+          </button>
+        </form>
+      } @else {
+        <p class="mt-2 text-sm text-slate-navy-light">{{ 'auth.security.enableDescription' | translate }}</p>
+        <button
+          type="button"
+          (click)="beginSetup()"
+          [disabled]="settingUp()"
+          class="tap-target mt-4 rounded-md bg-emerald px-4 py-2 font-semibold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald disabled:opacity-60"
+        >
+          {{ 'auth.security.beginSetupButton' | translate }}
+        </button>
+      }
+    </section>
+
+    <section class="mt-6 rounded-lg bg-surface-card p-6 shadow-sm">
+      <h2 class="text-lg font-semibold text-slate-navy">{{ 'auth.security.disableTitle' | translate }}</h2>
+      <p class="mt-2 text-sm text-slate-navy-light">{{ 'auth.security.disableDescription' | translate }}</p>
+
+      @if (disableSucceeded()) {
+        <p class="mt-4 rounded-md border border-emerald bg-emerald/10 px-4 py-3 text-sm font-medium text-emerald">
+          {{ 'auth.security.disableSuccess' | translate }}
+        </p>
+      }
+      @if (disableErrorKey()) {
+        <p class="mt-4 rounded-md border border-rose bg-rose/10 px-4 py-3 text-sm font-medium text-rose">
+          {{ disableErrorKey()! | translate }}
+        </p>
+      }
+
+      <button
+        type="button"
+        (click)="disable()"
+        [disabled]="disabling()"
+        class="tap-target mt-4 rounded-md border border-rose px-4 py-2 font-semibold text-rose focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose disabled:opacity-60"
+      >
+        {{ 'auth.security.disableButton' | translate }}
+      </button>
+    </section>
+  </main>
+</div>

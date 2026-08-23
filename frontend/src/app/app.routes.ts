@@ -37,6 +37,16 @@ export const routes: Routes = [
       import('./pages/reset-password/reset-password').then((m) => m.ResetPassword),
   },
   {
+    path: 'verify-2fa',
+    loadComponent: () =>
+      import('./pages/verify-two-factor/verify-two-factor').then((m) => m.VerifyTwoFactor),
+  },
+  {
+    path: 'security',
+    canActivate: [authGuard],
+    loadComponent: () => import('./pages/security/security').then((m) => m.Security),
+  },
+  {
     path: 'dashboard',
     canActivate: [authGuard],
     loadComponent: () => import('./pages/dashboard/dashboard').then((m) => m.Dashboard),

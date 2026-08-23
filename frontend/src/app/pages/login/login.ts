@@ -63,9 +63,13 @@ export class Login {
     this.errorKey.set(null);
 
     this.authService.login(this.form.getRawValue()).subscribe({
-      next: () => {
+      next: (result) => {
         this.submitting.set(false);
-        void this.router.navigateByUrl('/dashboard');
+        if ('requiresTwoFactor' in result) {
+          void this.router.navigateByUrl('/verify-2fa');
+        } else {
+          void this.router.navigateByUrl('/dashboard');
+        }
       },
       error: (error: unknown) => {
         this.submitting.set(false);
