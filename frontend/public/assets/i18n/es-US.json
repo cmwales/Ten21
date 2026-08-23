@@ -42,6 +42,8 @@
       "submit": "Crear espacio de trabajo",
       "submitting": "Creando su espacio de trabajo…",
       "emailTakenError": "Ya existe una cuenta con este correo electrónico.",
+      "turnstileRequired": "Complete la verificación antes de continuar.",
+      "turnstileFailedError": "No pudimos verificar que usted no es un robot. Inténtelo de nuevo.",
       "validationError": "Verifique los campos resaltados e inténtelo de nuevo.",
       "rateLimitedError": "Demasiados intentos. Espere un momento y vuelva a intentarlo.",
       "networkError": "Algo salió mal. Inténtelo de nuevo.",

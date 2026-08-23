@@ -42,6 +42,8 @@
       "submit": "Create workspace",
       "submitting": "Creating your workspace…",
       "emailTakenError": "An account with this email already exists.",
+      "turnstileRequired": "Please complete the verification challenge before continuing.",
+      "turnstileFailedError": "We couldn't verify you're not a bot. Please try again.",
       "validationError": "Please check the highlighted fields and try again.",
       "rateLimitedError": "Too many attempts. Please wait a moment and try again.",
       "networkError": "Something went wrong. Please try again.",

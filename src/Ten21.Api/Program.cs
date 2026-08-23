@@ -13,6 +13,7 @@ using Ten21.Infrastructure.Identity;
 using Ten21.Infrastructure.Middleware;
 using Ten21.Infrastructure.Persistence;
 using Ten21.Infrastructure.RateLimiting;
+using Ten21.Infrastructure.Security;
 using Ten21.Infrastructure.Storage;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -23,6 +24,7 @@ builder.Services.AddControllers(options => options.Filters.Add<ApiResponseWrappi
 
 builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddObjectStorage(builder.Configuration); // US-06
+builder.Services.AddBotDefense(); // US-18
 builder.Services.AddEndpointsApiExplorer();
 
 // US-00: Swagger UI at /swagger with a JWT Bearer authorization header so

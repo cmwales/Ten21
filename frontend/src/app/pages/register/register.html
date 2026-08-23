@@ -135,6 +135,8 @@
           {{ 'auth.register.agreeToTerms' | translate }}
         </label>
 
+        <div #turnstileContainer></div>
+
         <button
           type="submit"
           [disabled]="submitting()"

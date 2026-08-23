@@ -6,6 +6,15 @@
   <base href="/">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <link rel="icon" type="image/x-icon" href="favicon.ico">
+  <!-- US-18: loaded globally (not per-page) since Turnstile's own script is what the
+       widget on the register page renders against. render=explicit + the onload callback
+       let TurnstileLoader (core/turnstile/turnstile.ts) know precisely when
+       window.turnstile is ready, rather than guessing at a timeout. -->
+  <script
+    src="https://challenges.cloudflare.com/turnstile/v0/api.js?onload=__ten21TurnstileReady&render=explicit"
+    async
+    defer
+  ></script>
 </head>
 <body>
   <app-root></app-root>

@@ -30,12 +30,22 @@ those sections mostly read "N/A (anonymous/public endpoint)" by design, not omis
   carries no `tenant_id`, every existing tenant-scoped endpoint already fail-closes against
   it for free (`Ten21DbContext`'s fail-closed query filter, US-01) — the same
   defense-in-depth property the rest of the codebase relies on, not a new invariant to trust.
-- **Turnstile and SMTP are both real, both configured, both dev-defaulted to a no-credential
-  path:** Turnstile validates against Cloudflare's own published always-pass test keys until
-  a real site key is configured; email send defaults to a `ConsoleEmailSender` in
-  Development (logs the link/code instead of sending) behind the same `IEmailSender`
-  interface a real `SmtpEmailSender` implements — so swapping either to production
-  credentials later is a config change, not a code change.
+- **Turnstile ships wired to a real site/secret key pair** (provided directly by the
+  Founder for this project — `Turnstile:SecretKey` via `dotnet user-secrets`, never
+  committed; the site key is public by design and lives directly in the frontend). Server
+  verification (`TurnstileVerificationService`) gates on three conditions per Cloudflare's
+  own guidance — `success`, `action == "register"` (skipped only when Cloudflare omits
+  `action` entirely, which only its own published testing secrets do — see the class
+  comment), and an allow-listed `hostname` (`Turnstile:AllowedHostnames`, defaults to
+  `localhost`; production needs `app.ten21.io` added). Automated tests use Cloudflare's own
+  published always-pass testing secret against the *real* siteverify endpoint (no mocking
+  of Cloudflare itself) — a developer without the real secret can still run
+  `dotnet test`/`ng test` end to end, just not `dotnet run` against a live registration
+  form until they have one.
+- **SMTP dev-defaults to a no-credential path:** email send defaults to a
+  `ConsoleEmailSender` in Development (logs the link/code instead of sending) behind the
+  same `IEmailSender` interface a real `SmtpEmailSender` implements — so swapping to
+  production SMTP credentials later is a config change, not a code change.
 - **Rate limiting is inherited, not re-built.** Every new endpoint in this phase lives on
   `AuthController` (or a controller carrying the same `[EnableRateLimiting(AuthRateLimiterPolicy.PolicyName)]`
   policy from US-05), so "5 req/min per IP on `/api/auth/*`" (US-18's second half) is
@@ -200,13 +210,19 @@ endpoints, so that automated account creation spam and email flooding are blocke
 
 **Acceptance Criteria:**
 
-- `POST /api/auth/register` requires a Cloudflare Turnstile response token in the request
-  body; the server verifies it against Cloudflare's `siteverify` endpoint (secret key +
-  token + caller IP) before creating any account, rejecting with a `ValidationException` on
-  failure.
-- Defaults to Cloudflare's published always-pass test site key/secret in configuration so
-  the flow is fully exercisable in dev without a real Cloudflare account; a real site key is
-  a config change for production, not a code change.
+- `POST /api/auth/register` requires a Cloudflare Turnstile response token
+  (`RegisterRequest.TurnstileToken`) from a widget rendered with `data-action="register"`;
+  the server (`TurnstileVerificationService`) verifies it against Cloudflare's `siteverify`
+  endpoint (secret key + token + caller IP), gating on `success`, the reported `action`, and
+  an allow-listed `hostname`, before creating any account. Bot-defense runs before any other
+  registration validation, so a failing request never reaches an email-uniqueness DB lookup.
+  Rejects with a `ValidationException` on any failure.
+- Wired to a real Cloudflare site/secret key pair for this project (`Turnstile:SecretKey`
+  via `dotnet user-secrets`, never committed; the site key is public and lives directly in
+  `frontend/src/app/core/turnstile/turnstile.ts`). Automated tests instead use Cloudflare's
+  own published always-pass testing secret against the real `siteverify` endpoint, so
+  `dotnet test`/`ng test` need no credential at all — only `dotnet run` against a live
+  registration form needs the real secret configured.
 - `AuthRateLimiterPolicy` (US-05, already 5 req/min/IP sliding window on `/api/auth/*`) is
   verified to cover every endpoint this phase adds by construction (same controller, same
   `[EnableRateLimiting]` attribute) — no new limiter logic needed.
