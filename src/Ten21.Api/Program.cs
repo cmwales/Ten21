@@ -9,6 +9,7 @@ using Ten21.Api.ExceptionHandling;
 using Ten21.Api.Filters;
 using Ten21.Infrastructure;
 using Ten21.Infrastructure.Authorization;
+using Ten21.Infrastructure.Email;
 using Ten21.Infrastructure.Identity;
 using Ten21.Infrastructure.Middleware;
 using Ten21.Infrastructure.Persistence;
@@ -25,6 +26,7 @@ builder.Services.AddControllers(options => options.Filters.Add<ApiResponseWrappi
 builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddObjectStorage(builder.Configuration); // US-06
 builder.Services.AddBotDefense(); // US-18
+builder.Services.AddEmail(builder.Configuration); // US-16
 builder.Services.AddEndpointsApiExplorer();
 
 // US-00: Swagger UI at /swagger with a JWT Bearer authorization header so

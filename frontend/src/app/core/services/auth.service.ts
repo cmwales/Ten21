@@ -5,6 +5,7 @@ import {
   ApiResponse,
   AuthResponse,
   CompleteProfileRequest,
+  GenericAcknowledgementResponse,
   LoginRequest,
   ProfileCompletionRequiredResponse,
   RegisterRequest,
@@ -109,6 +110,38 @@ export class AuthService {
           this.setSession(session);
         }),
       );
+  }
+
+  /** US-16. */
+  resendActivation(email: string): Observable<GenericAcknowledgementResponse> {
+    return this.http
+      .post<ApiResponse<GenericAcknowledgementResponse>>('/api/auth/resend-activation', { email })
+      .pipe(map((response) => response.data!));
+  }
+
+  /** US-16. */
+  activate(userId: string, token: string): Observable<GenericAcknowledgementResponse> {
+    return this.http
+      .post<ApiResponse<GenericAcknowledgementResponse>>('/api/auth/activate', { userId, token })
+      .pipe(map((response) => response.data!));
+  }
+
+  /** US-16. */
+  forgotPassword(email: string): Observable<GenericAcknowledgementResponse> {
+    return this.http
+      .post<ApiResponse<GenericAcknowledgementResponse>>('/api/auth/forgot-password', { email })
+      .pipe(map((response) => response.data!));
+  }
+
+  /** US-16. */
+  resetPassword(userId: string, token: string, newPassword: string): Observable<GenericAcknowledgementResponse> {
+    return this.http
+      .post<ApiResponse<GenericAcknowledgementResponse>>('/api/auth/reset-password', {
+        userId,
+        token,
+        newPassword,
+      })
+      .pipe(map((response) => response.data!));
   }
 
   /** Used by the auth interceptor to silently mint a new access token from the refresh cookie. */

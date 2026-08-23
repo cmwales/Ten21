@@ -1,0 +1,37 @@
+<div class="flex min-h-screen flex-col bg-slate-navy">
+  <header class="flex items-center justify-between px-4 py-4 sm:px-8">
+    <span class="text-lg font-semibold text-white">{{ 'app.name' | translate }}</span>
+    <app-language-selector />
+  </header>
+
+  <main class="flex flex-1 items-center justify-center px-4 pb-12">
+    <div class="w-full max-w-md rounded-xl bg-surface-card p-6 text-center shadow-xl sm:p-8">
+      @switch (state()) {
+        @case ('pending') {
+          <h1 class="text-2xl font-bold text-slate-navy">{{ 'auth.activate.pendingTitle' | translate }}</h1>
+          <p class="mt-2 text-sm text-slate-navy-light">{{ 'common.loading' | translate }}</p>
+        }
+        @case ('success') {
+          <h1 class="text-2xl font-bold text-emerald">{{ 'auth.activate.successTitle' | translate }}</h1>
+          <p class="mt-2 text-sm text-slate-navy-light">{{ 'auth.activate.successSubtitle' | translate }}</p>
+          <a
+            routerLink="/login"
+            class="tap-target mt-6 inline-flex items-center justify-center rounded-md bg-emerald px-4 py-2 font-semibold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
+          >
+            {{ 'auth.activate.goToLogin' | translate }}
+          </a>
+        }
+        @case ('error') {
+          <h1 class="text-2xl font-bold text-rose">{{ 'auth.activate.errorTitle' | translate }}</h1>
+          <p class="mt-2 text-sm text-slate-navy-light">{{ 'auth.activate.errorSubtitle' | translate }}</p>
+          <a
+            routerLink="/resend-activation"
+            class="tap-target mt-6 inline-flex items-center justify-center rounded-md bg-emerald px-4 py-2 font-semibold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
+          >
+            {{ 'auth.activate.resendLink' | translate }}
+          </a>
+        }
+      }
+    </div>
+  </main>
+</div>

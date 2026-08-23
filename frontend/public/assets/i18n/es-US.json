@@ -18,6 +18,7 @@
       "emailRequired": "El correo electrónico es obligatorio.",
       "emailInvalid": "Ingrese un correo electrónico válido.",
       "passwordRequired": "La contraseña es obligatoria.",
+      "forgotPassword": "¿Olvidó su contraseña?",
       "genericError": "Correo electrónico o contraseña incorrectos.",
       "lockedOutError": "Su cuenta está bloqueada temporalmente tras varios intentos fallidos. Inténtelo de nuevo en 15 minutos.",
       "rateLimitedError": "Demasiados intentos. Espere un momento y vuelva a intentarlo.",
@@ -58,6 +59,41 @@
       "submit": "Finalizar configuración",
       "submitting": "Finalizando configuración…",
       "expiredError": "Este enlace ha expirado. Vuelva a iniciar sesión con Google.",
+      "networkError": "Algo salió mal. Inténtelo de nuevo."
+    },
+    "activate": {
+      "pendingTitle": "Confirmando su correo electrónico…",
+      "successTitle": "Correo electrónico confirmado",
+      "successSubtitle": "Su cuenta ya está verificada.",
+      "goToLogin": "Ir a iniciar sesión",
+      "errorTitle": "Este enlace no funcionó",
+      "errorSubtitle": "Puede haber expirado o ya haberse usado. Solicite un nuevo enlace de confirmación abajo.",
+      "resendLink": "Reenviar correo de confirmación"
+    },
+    "resendActivation": {
+      "title": "Reenviar correo de confirmación",
+      "subtitle": "Ingrese su correo electrónico y le enviaremos un nuevo enlace de confirmación.",
+      "submit": "Enviar enlace de confirmación",
+      "sentTitle": "Revise su correo electrónico",
+      "sentSubtitle": "Si esa cuenta existe y aún no está verificada, un nuevo enlace de confirmación está en camino."
+    },
+    "forgotPassword": {
+      "title": "¿Olvidó su contraseña?",
+      "subtitle": "Ingrese su correo electrónico y le enviaremos un enlace para restablecerla.",
+      "submit": "Enviar enlace de restablecimiento",
+      "sentTitle": "Revise su correo electrónico",
+      "sentSubtitle": "Si esa cuenta existe, las instrucciones para restablecer la contraseña están en camino."
+    },
+    "resetPassword": {
+      "title": "Elija una nueva contraseña",
+      "subtitle": "Ingrese una nueva contraseña para su cuenta.",
+      "newPasswordLabel": "Nueva contraseña",
+      "submit": "Restablecer contraseña",
+      "successTitle": "Contraseña restablecida",
+      "successSubtitle": "Su contraseña se ha actualizado. Ahora puede iniciar sesión con ella.",
+      "invalidLinkTitle": "Este enlace no funcionó",
+      "invalidLinkError": "Este enlace de restablecimiento de contraseña no es válido o ha expirado.",
+      "requestNewLink": "Solicitar un nuevo enlace",
       "networkError": "Algo salió mal. Inténtelo de nuevo."
     }
   },

@@ -166,8 +166,14 @@ reset tools, so that my account identity is verified and recoverable.
 - `IEmailSender` (Application.Abstractions) has two implementations: `SmtpEmailSender`
   (Infrastructure, real SMTP via the configured `cmwales@gmail.com` gateway) and
   `ConsoleEmailSender` (Infrastructure, dev-only — logs the link/code instead of sending).
-  Registration picks one based on whether SMTP credentials are configured, defaulting to the
-  console sender in Development so the flow is testable with zero mailbox setup.
+  Registration (`EmailServiceCollectionExtensions.AddEmail`) picks one based on whether
+  `Smtp:Username`/`Smtp:Password` are configured — not an environment check — so the flow
+  is testable with zero mailbox setup by default, and a real SMTP gateway works the moment
+  credentials exist, in any environment.
+- A successful `reset-password` also calls the new `IRefreshTokenService.RevokeAllForUserAsync`,
+  killing every other currently-active session (across every tenant) for that account — a
+  token issued under the old password shouldn't silently keep working after a reset,
+  especially since a reset is often the recovery action for a compromised account.
 - Frontend: an activation-landing route, a "Resend Activation Email" affordance, and
   forgot/reset-password forms.
 

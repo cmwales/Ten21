@@ -156,6 +156,24 @@ public class RefreshTokenService : IRefreshTokenService
         return newRawToken;
     }
 
+    public async Task RevokeAllForUserAsync(Guid userId, string? ip, CancellationToken cancellationToken = default)
+    {
+        var activeTokens = await _dbContext.RefreshTokens
+            .Where(rt => rt.UserId == userId && rt.RevokedAt == null && rt.ExpiresAt > DateTimeOffset.UtcNow)
+            .ToListAsync(cancellationToken);
+
+        foreach (var token in activeTokens)
+        {
+            token.RevokedAt = DateTimeOffset.UtcNow;
+            token.RevokedByIp = ip;
+        }
+
+        if (activeTokens.Count > 0)
+        {
+            await _dbContext.SaveChangesAsync(cancellationToken);
+        }
+    }
+
     private async Task RevokeChainAsync(RefreshToken token, string? ip, CancellationToken cancellationToken)
     {
         var current = token;
