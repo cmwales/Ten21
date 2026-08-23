@@ -52,6 +52,16 @@ public static class InfrastructureServiceCollectionExtensions
             .AddEntityFrameworkStores<Ten21DbContext>()
             .AddDefaultTokenProviders();
 
+        // US-16: 24-hour expiry for email confirmation and password reset tokens, both of
+        // which use the "Default" DataProtectorTokenProvider unless a story-specific
+        // provider is registered for them. Explicit, not relied on as an undocumented
+        // library default -- same reasoning as every other security-relevant constant in
+        // this codebase (AccessTokenLifetime, RefreshTokenLifetime, ...).
+        services.Configure<DataProtectionTokenProviderOptions>(options =>
+        {
+            options.TokenLifespan = TimeSpan.FromHours(24);
+        });
+
         services.AddScoped<IJwtTokenService, JwtTokenService>();
         services.AddScoped<IRefreshTokenService, RefreshTokenService>();
         services.AddScoped<IGoogleIdTokenVerifier, GoogleIdTokenVerifier>(); // US-15

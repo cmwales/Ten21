@@ -18,6 +18,7 @@
       "emailRequired": "Email address is required.",
       "emailInvalid": "Enter a valid email address.",
       "passwordRequired": "Password is required.",
+      "forgotPassword": "Forgot password?",
       "genericError": "Invalid email or password.",
       "lockedOutError": "Your account is temporarily locked after too many failed attempts. Please try again in 15 minutes.",
       "rateLimitedError": "Too many attempts. Please wait a moment and try again.",
@@ -58,6 +59,41 @@
       "submit": "Finish setup",
       "submitting": "Finishing setup…",
       "expiredError": "This link has expired. Please sign in with Google again.",
+      "networkError": "Something went wrong. Please try again."
+    },
+    "activate": {
+      "pendingTitle": "Confirming your email…",
+      "successTitle": "Email confirmed",
+      "successSubtitle": "Your account is now verified.",
+      "goToLogin": "Go to sign in",
+      "errorTitle": "This link didn't work",
+      "errorSubtitle": "It may be expired or already used. Request a new confirmation email below.",
+      "resendLink": "Resend confirmation email"
+    },
+    "resendActivation": {
+      "title": "Resend confirmation email",
+      "subtitle": "Enter your email address and we'll send a new confirmation link.",
+      "submit": "Send confirmation link",
+      "sentTitle": "Check your email",
+      "sentSubtitle": "If that email exists and isn't already verified, a new confirmation link is on its way."
+    },
+    "forgotPassword": {
+      "title": "Forgot your password?",
+      "subtitle": "Enter your email address and we'll send you a link to reset it.",
+      "submit": "Send reset link",
+      "sentTitle": "Check your email",
+      "sentSubtitle": "If that email exists, password reset instructions are on their way."
+    },
+    "resetPassword": {
+      "title": "Choose a new password",
+      "subtitle": "Enter a new password for your account.",
+      "newPasswordLabel": "New password",
+      "submit": "Reset password",
+      "successTitle": "Password reset",
+      "successSubtitle": "Your password has been updated. You can now sign in with it.",
+      "invalidLinkTitle": "This link didn't work",
+      "invalidLinkError": "This password reset link is invalid or has expired.",
+      "requestNewLink": "Request a new link",
       "networkError": "Something went wrong. Please try again."
     }
   },

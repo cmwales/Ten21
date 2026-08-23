@@ -59,6 +59,12 @@ export interface CompleteProfileRequest {
   portfolioSize: number;
 }
 
+/** Mirrors Ten21.Api.Contracts.Auth.GenericAcknowledgementResponse (US-16) -- the
+ * enumeration-safe response resend-activation and forgot-password both return. */
+export interface GenericAcknowledgementResponse {
+  message: string;
+}
+
 /** Mirrors the RFC 7807 ProblemDetails shape produced by GlobalExceptionHandler (US-09). */
 export interface ProblemDetails {
   status: number;

@@ -42,6 +42,15 @@ public interface IRefreshTokenService
     /// </summary>
     Task<string> RevokeAndReissueForTenantAsync(
         Guid userId, Guid newTenantId, string? oldRawToken, string? ip, CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// US-16: revokes every currently-active refresh token for a user, across every tenant
+    /// they hold a session in -- called after a successful password reset, on the same
+    /// reasoning as forcing a re-login after any other credential change: a token issued
+    /// under the old password shouldn't silently keep working after it's been reset (e.g.
+    /// because the account was compromised and the reset IS the recovery action).
+    /// </summary>
+    Task RevokeAllForUserAsync(Guid userId, string? ip, CancellationToken cancellationToken = default);
 }
 
 public record RefreshTokenRotationResult(string NewRawToken, Guid UserId, Guid TenantId);

@@ -18,6 +18,7 @@
       "emailRequired": "L'adresse courriel est requise.",
       "emailInvalid": "Entrez une adresse courriel valide.",
       "passwordRequired": "Le mot de passe est requis.",
+      "forgotPassword": "Mot de passe oublié?",
       "genericError": "Courriel ou mot de passe invalide.",
       "lockedOutError": "Votre compte est temporairement verrouillé après plusieurs tentatives infructueuses. Réessayez dans 15 minutes.",
       "rateLimitedError": "Trop de tentatives. Veuillez patienter un moment avant de réessayer.",
@@ -58,6 +59,41 @@
       "submit": "Terminer la configuration",
       "submitting": "Finalisation en cours…",
       "expiredError": "Ce lien a expiré. Veuillez vous reconnecter avec Google.",
+      "networkError": "Une erreur s'est produite. Veuillez réessayer."
+    },
+    "activate": {
+      "pendingTitle": "Confirmation de votre courriel…",
+      "successTitle": "Courriel confirmé",
+      "successSubtitle": "Votre compte est maintenant vérifié.",
+      "goToLogin": "Aller à la connexion",
+      "errorTitle": "Ce lien n'a pas fonctionné",
+      "errorSubtitle": "Il est peut-être expiré ou déjà utilisé. Demandez un nouveau lien de confirmation ci-dessous.",
+      "resendLink": "Renvoyer le courriel de confirmation"
+    },
+    "resendActivation": {
+      "title": "Renvoyer le courriel de confirmation",
+      "subtitle": "Entrez votre adresse courriel et nous vous enverrons un nouveau lien de confirmation.",
+      "submit": "Envoyer le lien de confirmation",
+      "sentTitle": "Vérifiez votre courriel",
+      "sentSubtitle": "Si ce compte existe et n'est pas déjà vérifié, un nouveau lien de confirmation est en route."
+    },
+    "forgotPassword": {
+      "title": "Mot de passe oublié?",
+      "subtitle": "Entrez votre adresse courriel et nous vous enverrons un lien pour le réinitialiser.",
+      "submit": "Envoyer le lien de réinitialisation",
+      "sentTitle": "Vérifiez votre courriel",
+      "sentSubtitle": "Si ce compte existe, les instructions de réinitialisation sont en route."
+    },
+    "resetPassword": {
+      "title": "Choisissez un nouveau mot de passe",
+      "subtitle": "Entrez un nouveau mot de passe pour votre compte.",
+      "newPasswordLabel": "Nouveau mot de passe",
+      "submit": "Réinitialiser le mot de passe",
+      "successTitle": "Mot de passe réinitialisé",
+      "successSubtitle": "Votre mot de passe a été mis à jour. Vous pouvez maintenant vous connecter avec celui-ci.",
+      "invalidLinkTitle": "Ce lien n'a pas fonctionné",
+      "invalidLinkError": "Ce lien de réinitialisation de mot de passe est invalide ou a expiré.",
+      "requestNewLink": "Demander un nouveau lien",
       "networkError": "Une erreur s'est produite. Veuillez réessayer."
     }
   },

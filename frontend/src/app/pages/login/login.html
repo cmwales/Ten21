@@ -89,6 +89,13 @@
           }
         </div>
 
+        <a
+          routerLink="/forgot-password"
+          class="-mt-3 self-end text-sm font-medium text-emerald focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
+        >
+          {{ 'auth.login.forgotPassword' | translate }}
+        </a>
+
         <button
           type="submit"
           [disabled]="submitting()"

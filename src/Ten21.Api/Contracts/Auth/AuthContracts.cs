@@ -34,6 +34,23 @@ public record CompleteProfileRequest(
 public record ProfileCompletionRequiredResponse(
     bool RequiresProfileCompletion, string InterimToken, DateTimeOffset ExpiresAtUtc);
 
+/// <summary>US-16.</summary>
+public record ResendActivationRequest(string Email);
+
+/// <summary>US-16. UserId + Token come straight from the activation link's query string.</summary>
+public record ActivateAccountRequest(Guid UserId, string Token);
+
+/// <summary>US-16.</summary>
+public record ForgotPasswordRequest(string Email);
+
+/// <summary>US-16. UserId + Token come straight from the reset link's query string.</summary>
+public record ResetPasswordRequest(Guid UserId, string Token, string NewPassword);
+
+/// <summary>US-16: the generic, enumeration-safe acknowledgement resend-activation and
+/// forgot-password both return -- identical whether or not the email actually exists, same
+/// principle as Login's generic failure message.</summary>
+public record GenericAcknowledgementResponse(string Message);
+
 /// <summary>
 /// The refresh token deliberately never appears here -- it only ever travels as an
 /// HTTP-only cookie (SECURITY.docx §2), never in a JSON body a script could read.

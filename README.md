@@ -317,6 +317,27 @@ dotnet user-secrets set "Google:ClientId" "<your Google OAuth Client ID>.apps.go
 `frontend/src/app/core/google-auth/google-auth.ts` (the frontend Sign-In button renders
 nothing at all until that constant is non-empty).
 
+`POST /api/auth/register`/`resend-activation`/`forgot-password` (US-16) send real email once
+`Smtp:Username`/`Smtp:Password` are configured (`EmailServiceCollectionExtensions.AddEmail`);
+until then, every environment (not just Development) falls back to `ConsoleEmailSender`,
+which just logs the activation/reset link to the console instead of sending it — copy the
+link straight out of `dotnet run`'s terminal output for local testing, no mailbox needed.
+To send for real via the `cmwales@gmail.com` gateway named in the story:
+
+```bash
+dotnet user-secrets set "Smtp:Username" "cmwales@gmail.com"
+dotnet user-secrets set "Smtp:Password" "<a Gmail App Password, NOT the account's real password>"
+```
+
+Gmail rejects plain-password SMTP auth outright — generate an App Password at
+[myaccount.google.com/apppasswords](https://myaccount.google.com/apppasswords) (requires
+2-Step Verification enabled on that Google account first). `Smtp:Host`/`Port`/`FromAddress`/
+`FromName` already have sensible defaults in `appsettings.json` and don't need setting
+unless you're pointing at a different gateway entirely.
+
+Activation/reset links point at `Frontend:BaseUrl` (`appsettings.json`, defaults to
+`http://localhost:4200`) — set this to `https://app.ten21.io` in production config.
+
 Note this is a **local-machine mechanism only** — it won't help GitLab CI or a real
 deployment. Those need their own secret source (GitLab CI/CD variables, a proper secrets
 manager) when the time comes; don't reach for User Secrets outside local dev.

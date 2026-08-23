@@ -18,6 +18,25 @@ export const routes: Routes = [
       import('./pages/complete-profile/complete-profile').then((m) => m.CompleteProfile),
   },
   {
+    path: 'activate',
+    loadComponent: () => import('./pages/activate/activate').then((m) => m.Activate),
+  },
+  {
+    path: 'resend-activation',
+    loadComponent: () =>
+      import('./pages/resend-activation/resend-activation').then((m) => m.ResendActivation),
+  },
+  {
+    path: 'forgot-password',
+    loadComponent: () =>
+      import('./pages/forgot-password/forgot-password').then((m) => m.ForgotPassword),
+  },
+  {
+    path: 'reset-password',
+    loadComponent: () =>
+      import('./pages/reset-password/reset-password').then((m) => m.ResetPassword),
+  },
+  {
     path: 'dashboard',
     canActivate: [authGuard],
     loadComponent: () => import('./pages/dashboard/dashboard').then((m) => m.Dashboard),

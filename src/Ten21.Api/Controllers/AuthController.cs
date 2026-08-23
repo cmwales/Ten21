@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 using Ten21.Api.Auth;
 using Ten21.Api.Contracts.Auth;
 using Ten21.Application.Abstractions;
@@ -48,6 +49,8 @@ public class AuthController : ControllerBase
     private readonly ITenantContext _tenantContext;
     private readonly ITurnstileVerificationService _turnstileVerificationService;
     private readonly IGoogleIdTokenVerifier _googleIdTokenVerifier;
+    private readonly IEmailSender _emailSender;
+    private readonly string _frontendBaseUrl;
     private readonly IWebHostEnvironment _environment;
 
     public AuthController(
@@ -59,6 +62,8 @@ public class AuthController : ControllerBase
         ITenantContext tenantContext,
         ITurnstileVerificationService turnstileVerificationService,
         IGoogleIdTokenVerifier googleIdTokenVerifier,
+        IEmailSender emailSender,
+        IConfiguration configuration,
         IWebHostEnvironment environment)
     {
         _userManager = userManager;
@@ -69,6 +74,8 @@ public class AuthController : ControllerBase
         _tenantContext = tenantContext;
         _turnstileVerificationService = turnstileVerificationService;
         _googleIdTokenVerifier = googleIdTokenVerifier;
+        _emailSender = emailSender;
+        _frontendBaseUrl = configuration["Frontend:BaseUrl"]?.TrimEnd('/') ?? "http://localhost:4200";
         _environment = environment;
     }
 
@@ -139,8 +146,133 @@ public class AuthController : ControllerBase
         var propertyManagerMembership = await ProvisionWorkspaceAsync(
             user.Id, request.WorkspaceName, request.PortfolioSize, cancellationToken);
 
+        await SendActivationEmailAsync(user, cancellationToken);
+
         var response = await IssueTokensAsync(user.Id, propertyManagerMembership, cancellationToken);
         return Ok(response);
+    }
+
+    /// <summary>
+    /// US-16: sends a fresh tokenized confirmation link. Same-generic-response,
+    /// enumeration-safe pattern as forgot-password -- true whether or not the account
+    /// exists or is already confirmed, so a caller can't use this to probe either fact.
+    /// </summary>
+    [HttpPost("resend-activation")]
+    [AllowAnonymous]
+    public async Task<IActionResult> ResendActivation(
+        [FromBody] ResendActivationRequest request, CancellationToken cancellationToken)
+    {
+        var user = await _userManager.FindByEmailAsync(request.Email);
+        if (user is not null && !user.EmailConfirmed)
+        {
+            await SendActivationEmailAsync(user, cancellationToken);
+        }
+
+        return Ok(new GenericAcknowledgementResponse(
+            "If that email exists and isn't already verified, we've sent a new confirmation link."));
+    }
+
+    /// <summary>US-16: confirms the account from an activation link's UserId + Token.</summary>
+    [HttpPost("activate")]
+    [AllowAnonymous]
+    public async Task<IActionResult> Activate(
+        [FromBody] ActivateAccountRequest request, CancellationToken cancellationToken)
+    {
+        var user = await _userManager.FindByIdAsync(request.UserId.ToString());
+        if (user is null)
+        {
+            throw new ValidationException(new Dictionary<string, string[]>
+            {
+                [nameof(request.Token)] = ["This activation link is invalid or has expired."],
+            });
+        }
+
+        var result = await _userManager.ConfirmEmailAsync(user, request.Token);
+        if (!result.Succeeded)
+        {
+            throw new ValidationException(new Dictionary<string, string[]>
+            {
+                [nameof(request.Token)] = ["This activation link is invalid or has expired."],
+            });
+        }
+
+        return Ok(new GenericAcknowledgementResponse("Your email has been verified."));
+    }
+
+    /// <summary>
+    /// US-16: same enumeration-safe pattern as resend-activation -- identical response
+    /// whether or not the email exists, so a caller can't use this to probe valid accounts.
+    /// </summary>
+    [HttpPost("forgot-password")]
+    [AllowAnonymous]
+    public async Task<IActionResult> ForgotPassword(
+        [FromBody] ForgotPasswordRequest request, CancellationToken cancellationToken)
+    {
+        var user = await _userManager.FindByEmailAsync(request.Email);
+        if (user is not null && user.IsActive)
+        {
+            var token = await _userManager.GeneratePasswordResetTokenAsync(user);
+            var link = $"{_frontendBaseUrl}/reset-password?userId={user.Id}&token={Uri.EscapeDataString(token)}";
+
+            await _emailSender.SendAsync(
+                user.Email!,
+                "Reset your Ten21 password",
+                $"<p>Someone requested a password reset for this account. If this was you, " +
+                $"click the link below (expires in 24 hours):</p><p><a href=\"{link}\">{link}</a></p>" +
+                $"<p>If you didn't request this, you can safely ignore this email.</p>",
+                cancellationToken);
+        }
+
+        return Ok(new GenericAcknowledgementResponse(
+            "If that email exists, we've sent password reset instructions."));
+    }
+
+    /// <summary>
+    /// US-16: resets the password from a reset link's UserId + Token, then revokes every
+    /// other active session for the account (RevokeAllForUserAsync) -- a token issued under
+    /// the old password shouldn't silently keep working after a reset.
+    /// </summary>
+    [HttpPost("reset-password")]
+    [AllowAnonymous]
+    public async Task<IActionResult> ResetPassword(
+        [FromBody] ResetPasswordRequest request, CancellationToken cancellationToken)
+    {
+        var user = await _userManager.FindByIdAsync(request.UserId.ToString());
+        if (user is null)
+        {
+            throw new ValidationException(new Dictionary<string, string[]>
+            {
+                [nameof(request.Token)] = ["This password reset link is invalid or has expired."],
+            });
+        }
+
+        var result = await _userManager.ResetPasswordAsync(user, request.Token, request.NewPassword);
+        if (!result.Succeeded)
+        {
+            throw new ValidationException(new Dictionary<string, string[]>
+            {
+                [nameof(request.NewPassword)] = result.Errors.Select(e => e.Description).ToArray(),
+            });
+        }
+
+        await _refreshTokenService.RevokeAllForUserAsync(user.Id, GetClientIp(), cancellationToken);
+
+        return Ok(new GenericAcknowledgementResponse("Your password has been reset. You can now log in."));
+    }
+
+    /// <summary>US-14/US-16: builds and sends the tokenized activation link. Shared by
+    /// Register (first send) and ResendActivation (on-demand).</summary>
+    private async Task SendActivationEmailAsync(ApplicationUser user, CancellationToken cancellationToken)
+    {
+        var token = await _userManager.GenerateEmailConfirmationTokenAsync(user);
+        var link = $"{_frontendBaseUrl}/activate?userId={user.Id}&token={Uri.EscapeDataString(token)}";
+
+        await _emailSender.SendAsync(
+            user.Email!,
+            "Confirm your Ten21 account",
+            $"<p>Welcome to Ten21! Confirm your email address by clicking the link below " +
+            $"(expires in 24 hours):</p><p><a href=\"{link}\">{link}</a></p>",
+            cancellationToken);
     }
 
     /// <summary>
