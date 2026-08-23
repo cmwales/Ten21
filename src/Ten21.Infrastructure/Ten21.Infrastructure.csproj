@@ -1,0 +1,41 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>Ten21.Infrastructure</RootNamespace>
+    <!--
+      Deliberately NOT TreatWarningsAsErrors here (unlike Domain/Application). The
+      reflection-based SetQueryFilter call in Ten21DbContext may trigger an EF Core
+      obsolete-API warning depending on the exact 9.x patch version resolved at restore
+      time, and this was authored without a compiler available to verify against. Once you've
+      built this locally once, if it's clean, feel free to turn this back on.
+    -->
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Ten21.Domain\Ten21.Domain.csproj" />
+    <ProjectReference Include="..\Ten21.Application\Ten21.Application.csproj" />
+  </ItemGroup>
+
+  <!--
+    FrameworkReference (not a NuGet package) pulls in ASP.NET Core types (HttpContext,
+    RequestDelegate, ClaimTypes) for TenantMiddleware, without making this a Web SDK
+    project. Infrastructure is still a plain class library; it just needs these types to
+    implement middleware that Api wires into its pipeline.
+  -->
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="9.0.1" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Relational" Version="9.0.1" />
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="9.0.4" />
+    <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="9.0.1" />
+    <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="9.0.1" />
+    <PackageReference Include="AWSSDK.S3" Version="3.7.410.5" />
+  </ItemGroup>
+
+</Project>

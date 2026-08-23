@@ -1,0 +1,27 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: ten21-postgres
+    restart: unless-stopped
+    environment:
+      # Hardcoded on purpose, not a .env file: this container only ever binds to
+      # localhost and holds throwaway dev data. A secrets-management dance buys nothing
+      # here -- the real secret is the app's own connection string, which lives in
+      # `dotnet user-secrets` (outside the repo entirely, see README). If this container
+      # is ever exposed beyond localhost, that's the actual problem to fix, not this
+      # password.
+      POSTGRES_DB: ten21_dev
+      POSTGRES_USER: ten21_app
+      POSTGRES_PASSWORD: ten21_dev_only_local
+    ports:
+      - "5432:5432"
+    volumes:
+      - ten21_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ten21_app -d ten21_dev"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  ten21_postgres_data:

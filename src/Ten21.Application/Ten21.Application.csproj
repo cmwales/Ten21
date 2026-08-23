@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>Ten21.Application</RootNamespace>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Ten21.Domain\Ten21.Domain.csproj" />
+  </ItemGroup>
+
+  <!--
+    No EF Core, no ASP.NET Core references here either. Application defines *contracts*
+    (ITenantContext, and later: use-case interfaces, DTOs) that Infrastructure implements
+    and Api composes. This is the layer boundary that keeps "swap Postgres for something
+    else" or "swap S3 for R2" from ever touching business rules.
+  -->
+
+</Project>

@@ -1,0 +1,42 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsPackable>false</IsPackable>
+    <RootNamespace>Ten21.UnitTests</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\Ten21.Infrastructure\Ten21.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\Ten21.Api\Ten21.Api.csproj" />
+  </ItemGroup>
+
+  <!--
+    US-03 tests use Microsoft.AspNetCore.Authorization/Authentication types
+    (AuthorizationHandlerContext, IClaimsTransformation) directly. These ship as part of
+    the shared framework, not a separate NuGet package. FrameworkReference likely already
+    flows transitively through Ten21.Infrastructure's own FrameworkReference, but declaring
+    it explicitly here removes any doubt rather than relying on that.
+  -->
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.12.0" />
+    <PackageReference Include="xunit" Version="2.9.2" />
+    <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="9.0.1" />
+    <PackageReference Include="Microsoft.Extensions.Configuration" Version="9.0.1" />
+    <PackageReference Include="AWSSDK.S3" Version="3.7.410.5" />
+    <!--
+      SQLite in-memory is used here purely as a fast, dependency-free stand-in to prove the
+      EF Core query-filter + write-stamping half of isolation (US-01's actual acceptance
+      criteria: query filter + auto-stamping). It does NOT exercise Postgres RLS; that
+      needs a real Postgres instance and belongs in Ten21.IntegrationTests.
+    -->
+  </ItemGroup>
+
+</Project>

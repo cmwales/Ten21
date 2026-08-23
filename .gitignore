@@ -1,0 +1,32 @@
+# Build output
+bin/
+obj/
+out/
+
+# Visual Studio / VS Code
+.vs/
+.vscode/
+*.user
+*.suo
+
+# Rider
+.idea/
+
+# Test results
+TestResults/
+*.trx
+
+# NuGet
+*.nupkg
+**/packages/*
+!**/packages/build/
+
+# User-specific secrets (dotnet user-secrets stores these outside the repo by
+# default, under %APPDATA%/Microsoft/UserSecrets -- this is a defense-in-depth
+# backstop only, matching CLAUDE.md's "zero raw payment data" / secrets posture).
+**/secrets.json
+appsettings.*.local.json
+
+# OS cruft
+.DS_Store
+Thumbs.db

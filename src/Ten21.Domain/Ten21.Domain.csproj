@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>Ten21.Domain</RootNamespace>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+
+  <!--
+    INTENTIONALLY ZERO PACKAGE / PROJECT REFERENCES.
+    Domain is the innermost layer: entities and contracts only.
+    It must never depend on EF Core, ASP.NET Core, or any infrastructure concern.
+    This is what makes ITenantScopedEntity usable from Application, Infrastructure,
+    and Api without those layers depending on each other directly.
+  -->
+
+</Project>
