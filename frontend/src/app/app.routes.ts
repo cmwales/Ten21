@@ -55,6 +55,14 @@ export const routes: Routes = [
     loadComponent: () => import('./pages/ledger/ledger').then((m) => m.Ledger),
   },
   {
+    // US-20: "Prohibited Roles: Non-owner Tenants (Tenant)" -- unlike US-19/21/22, Vendor
+    // is not prohibited here, per that story's own acceptance criteria.
+    path: 'properties',
+    canActivate: [authGuard, denyRolesGuard([RoleNames.Tenant])],
+    loadComponent: () =>
+      import('./pages/properties/property-list/property-list').then((m) => m.PropertyList),
+  },
+  {
     // US-19: "Prohibited Roles: Non-owner Tenants and Vendors" on every Sprint 3 story.
     path: 'properties/new',
     canActivate: [authGuard, denyRolesGuard([RoleNames.Tenant, RoleNames.Vendor])],

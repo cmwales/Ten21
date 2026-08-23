@@ -62,3 +62,31 @@ export interface PropertyResponse {
   defaultTargetRent: number | null;
   units: UnitResponse[];
 }
+
+/** Mirrors Ten21.Api.Contracts.Properties.PropertyListUnitDto (US-20). */
+export interface PropertyListUnitDto {
+  id: string;
+  unitIdentifier: string;
+  occupancyStatus: OccupancyStatusValue;
+  targetRent: number | null;
+}
+
+/** Mirrors Ten21.Api.Contracts.Properties.PropertyListItemDto (US-20). */
+export interface PropertyListItemDto {
+  id: string;
+  name: string;
+  propertyType: PropertyTypeValue;
+  streetAddress1: string;
+  city: string;
+  state: string;
+  postalCode: string;
+  units: PropertyListUnitDto[];
+}
+
+/** Mirrors Ten21.Api.Contracts.Properties.PropertyListResponse (US-20). */
+export interface PropertyListResponse {
+  items: PropertyListItemDto[];
+  totalCount: number;
+  pageNumber: number;
+  pageSize: number;
+}

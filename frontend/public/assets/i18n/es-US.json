@@ -108,10 +108,29 @@
   "nav": {
     "dashboard": "Panel",
     "ledger": "Libro contable",
-    "addProperty": "Agregar propiedad",
+    "properties": "Propiedades",
     "logout": "Cerrar sesión"
   },
   "properties": {
+    "list": {
+      "title": "Propiedades",
+      "addProperty": "Agregar propiedad",
+      "addFirstProperty": "Agregar primera propiedad",
+      "downloadTemplate": "Descargar plantilla de hoja de cálculo",
+      "emptyTitle": "Aún no hay propiedades",
+      "emptySubtitle": "Agregue su primera propiedad para comenzar a rastrear unidades, renta y ocupación.",
+      "searchLabel": "Buscar propiedades",
+      "searchPlaceholder": "Buscar por nombre, dirección, código postal o unidad #",
+      "noResults": "Ninguna propiedad coincide con su búsqueda.",
+      "noUnits": "Aún no hay unidades.",
+      "noTargetRent": "—",
+      "edit": "Editar",
+      "showingRange": "Mostrando {{start}}–{{end}} de {{total}} propiedades",
+      "pageSizeLabel": "Elementos por página",
+      "previous": "Anterior",
+      "next": "Siguiente",
+      "networkError": "Algo salió mal al cargar sus propiedades."
+    },
     "form": {
       "createTitle": "Agregar propiedad",
       "editTitle": "Editar propiedad",

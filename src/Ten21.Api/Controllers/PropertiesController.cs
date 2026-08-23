@@ -13,8 +13,8 @@ namespace Ten21.Api.Controllers;
 /// <summary>
 /// US-19: the real Property/Unit CRUD surface, replacing the throwaway US-01
 /// proof-of-concept this controller used to be (a single unauthenticated GET with no DTO).
-/// US-20 will extend the list action with pagination/search; US-21/US-22 add their own
-/// actions on their own branches.
+/// US-20 (this branch) rebuilds the list action into the lightweight, paginated
+/// PropertyListItemDto shape; US-21/US-22 add their own actions on their own branches.
 /// </summary>
 [ApiController]
 [Route("api/properties")]
@@ -29,20 +29,36 @@ public class PropertiesController : ControllerBase
         _sanitizer = sanitizer;
     }
 
+    /// <summary>
+    /// US-20: pageNumber/pageSize are both optional. Omitting pageSize returns every
+    /// property, unpaginated -- the Angular list view does its own client-side
+    /// search/pagination over that full set (debounced search across a server-paginated
+    /// page wouldn't be able to search rows outside the current page), so this is what the
+    /// frontend actually calls; pageNumber/pageSize exist for direct API consumers that want
+    /// real server-side paging. TotalCount is always the total PROPERTY count, matching the
+    /// "Showing 1-15 of 42 properties" acceptance-criteria wording -- see PropertyListResponse.
+    /// </summary>
     [HttpGet]
     [Authorize(Policy = Permissions.Property.Read)]
-    public async Task<IActionResult> GetProperties(CancellationToken cancellationToken)
+    public async Task<IActionResult> GetProperties(
+        [FromQuery] int? pageNumber, [FromQuery] int? pageSize, CancellationToken cancellationToken)
     {
         // No manual .Where(p => p.TenantId == ...) anywhere in this method -- the global
-        // query filter in Ten21DbContext does it automatically. US-20 replaces this with a
-        // lightweight, paginated, searchable projection; this stays a plain full-shape list
-        // until that branch lands.
-        var properties = await _dbContext.Properties
-            .Include(p => p.Units)
-            .Select(p => ToResponse(p))
-            .ToListAsync(cancellationToken);
+        // query filter in Ten21DbContext does it automatically.
+        var query = _dbContext.Properties.Include(p => p.Units).OrderBy(p => p.Name).AsQueryable();
 
-        return Ok(properties);
+        var totalCount = await query.CountAsync(cancellationToken);
+
+        var effectivePageNumber = pageNumber is > 0 ? pageNumber.Value : 1;
+        if (pageSize is > 0)
+        {
+            query = query.Skip((effectivePageNumber - 1) * pageSize.Value).Take(pageSize.Value);
+        }
+
+        var properties = await query.ToListAsync(cancellationToken);
+        var items = properties.Select(ToListItem).ToList();
+
+        return Ok(new PropertyListResponse(items, totalCount, effectivePageNumber, pageSize ?? totalCount));
     }
 
     [HttpGet("{id:guid}")]
@@ -246,5 +262,18 @@ public class PropertiesController : ControllerBase
             // global query filter would exclude it from a fresh query.
             .Where(u => !u.IsDeleted)
             .Select(u => new UnitResponse(u.Id, u.UnitIdentifier, u.TargetRent, u.OccupancyStatus))
+            .ToList());
+
+    private static PropertyListItemDto ToListItem(Property property) => new(
+        property.Id,
+        property.Name,
+        property.PropertyType,
+        property.StreetAddress1,
+        property.City,
+        property.State,
+        property.PostalCode,
+        property.Units
+            .Where(u => !u.IsDeleted)
+            .Select(u => new PropertyListUnitDto(u.Id, u.UnitIdentifier, u.OccupancyStatus, u.TargetRent))
             .ToList());
 }
