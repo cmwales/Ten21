@@ -18,7 +18,17 @@ namespace Ten21.Infrastructure.Persistence.Interceptors;
 ///
 ///   1. Soft-delete conversion: an EntityState.Deleted entry for an ISoftDelete entity
 ///      becomes EntityState.Modified with IsDeleted = true, so no real DELETE statement is
-///      ever generated for that entity type.
+///      ever generated for that entity type -- UNLESS IHardDeleteOverride (US-22) has
+///      explicitly marked that exact entity instance for a genuine hard delete, in which
+///      case this interceptor leaves it alone. This applies per-entity, independently --
+///      there's no Property-specific cascade to Units here; a caller that wants a Property
+///      and its Units to share the same fate (soft or hard) Remove()s all of them together
+///      in the same SaveChanges call (see PropertiesController.DeleteProperty, US-22) and
+///      this interceptor converts each Deleted entry it's given the same way. (An earlier
+///      version of this interceptor tried to cascade Property -> Units here instead, but
+///      that doesn't work: EF Core's relationship-severance check throws synchronously
+///      inside Remove() -- before this interceptor ever runs -- if a parent is marked
+///      Deleted while an already-tracked, required-FK child is left Unchanged.)
 ///   2. Audit capture: every Added/Modified/Deleted entry for an IAuditableEntity gets a
 ///      corresponding AuditLog row with a JSON diff, added directly to the same
 ///      ChangeTracker mid-flight.
@@ -31,10 +41,12 @@ namespace Ten21.Infrastructure.Persistence.Interceptors;
 public class AuditSaveChangesInterceptor : SaveChangesInterceptor
 {
     private readonly ITenantContext _tenantContext;
+    private readonly IHardDeleteOverride _hardDeleteOverride;
 
-    public AuditSaveChangesInterceptor(ITenantContext tenantContext)
+    public AuditSaveChangesInterceptor(ITenantContext tenantContext, IHardDeleteOverride hardDeleteOverride)
     {
         _tenantContext = tenantContext;
+        _hardDeleteOverride = hardDeleteOverride;
     }
 
     public override InterceptionResult<int> SavingChanges(DbContextEventData eventData, InterceptionResult<int> result)
@@ -70,8 +82,12 @@ public class AuditSaveChangesInterceptor : SaveChangesInterceptor
             // audited -- ISoftDelete and IAuditableEntity are independent contracts.
             if (entry.State == EntityState.Deleted && entry.Entity is ISoftDelete softDeletable)
             {
-                entry.State = EntityState.Modified;
-                softDeletable.IsDeleted = true;
+                // US-22: an explicit, per-instance opt-out -- leave it as a real delete.
+                if (!_hardDeleteOverride.IsMarkedForHardDelete(entry.Entity))
+                {
+                    entry.State = EntityState.Modified;
+                    softDeletable.IsDeleted = true;
+                }
             }
 
             if (entry.Entity is not IAuditableEntity)

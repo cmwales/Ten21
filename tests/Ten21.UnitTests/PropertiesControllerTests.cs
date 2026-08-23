@@ -37,15 +37,16 @@ public class PropertiesControllerTests : IDisposable
     {
         var tenantContext = new TenantContext();
         tenantContext.SetTenant(tenantId);
+        var hardDeleteOverride = new HardDeleteOverride();
 
         var options = new DbContextOptionsBuilder<Ten21DbContext>()
             .UseSqlite(_connection)
-            .AddInterceptors(new AuditSaveChangesInterceptor(tenantContext))
+            .AddInterceptors(new AuditSaveChangesInterceptor(tenantContext, hardDeleteOverride))
             .Options;
         var db = new Ten21DbContext(options, tenantContext);
         db.Database.EnsureCreated();
 
-        return (db, new PropertiesController(db, _sanitizer, _importParser));
+        return (db, new PropertiesController(db, _sanitizer, _importParser, hardDeleteOverride));
     }
 
     private static UpsertPropertyRequest NewRequest(params UnitRequest[] units) => new(
@@ -295,5 +296,39 @@ public class PropertiesControllerTests : IDisposable
 
         await Assert.ThrowsAsync<ValidationException>(
             () => controller.ImportProperties(CreateCsvFormFile("irrelevant", "properties.txt"), CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task DeleteProperty_TodayAlwaysHardDeletes_RemovingBothPropertyAndItsUnits()
+    {
+        // HasAppliedPaymentsAsync is a placeholder that always returns false until Phase 1
+        // ships a real payment ledger (see the Sprint 3 doc's Executive Summary) -- every
+        // delete today takes the hard-delete branch. The soft-delete + cascade branch is
+        // covered directly at the interceptor level instead, since it's genuinely
+        // unreachable through this controller action today by design; see
+        // AuditSaveChangesInterceptorTests.SoftDelete_OfProperty_CascadesToChildUnits.
+        var (db, controller) = CreateController(Guid.NewGuid());
+        var created = await controller.CreateProperty(
+            NewRequest(new UnitRequest(null, "101", null, OccupancyStatus.Vacant)), CancellationToken.None);
+        var propertyId = Assert.IsType<PropertyResponse>(Assert.IsType<CreatedAtActionResult>(created).Value).Id;
+
+        var result = await controller.DeleteProperty(propertyId, CancellationToken.None);
+
+        Assert.IsType<NoContentResult>(result);
+        Assert.Equal(0, await db.Properties.IgnoreQueryFilters().CountAsync());
+        Assert.Equal(0, await db.Units.IgnoreQueryFilters().CountAsync());
+    }
+
+    [Fact]
+    public async Task DeleteProperty_ThrowsNotFound_ForAnotherTenantsProperty()
+    {
+        var (_, controllerA) = CreateController(Guid.NewGuid());
+        var created = await controllerA.CreateProperty(NewRequest(), CancellationToken.None);
+        var propertyId = Assert.IsType<PropertyResponse>(Assert.IsType<CreatedAtActionResult>(created).Value).Id;
+
+        var (_, controllerB) = CreateController(Guid.NewGuid());
+
+        await Assert.ThrowsAsync<NotFoundException>(
+            () => controllerB.DeleteProperty(propertyId, CancellationToken.None));
     }
 }

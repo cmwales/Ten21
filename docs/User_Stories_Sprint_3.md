@@ -241,3 +241,54 @@ manual entry.
   round trip, one render, matching the backend design above. Linked from both the property
   list's toolbar and its own empty-state card's "Download Sample Spreadsheet Template" link
   (added in US-20, now actually consumed here).
+
+### US-22: Conditional Payment-Based Property Deletion
+
+**As a** System Architect, **I want** property deletion requests evaluated against
+financial transaction history, **so that** accidental setups can be purged while preserving
+audit and financial compliance.
+
+- **Primary Role:** Property Manager (`Permissions.Property.Delete`).
+- **Authorized Secondary Roles:** None named in the story.
+- **Prohibited Roles:** Tenant, Vendor.
+- **Required Permission Claims:** `Permissions.Property.Delete`.
+- **No frontend component for this story.** Unlike US-19/20/21, the acceptance criteria for
+  US-22 describe only a backend endpoint — no Angular page or button is specified, and none
+  was added. Deliberately: exposing a delete action in the UI ahead of `HasAppliedPaymentsAsync`
+  becoming a real query (see below) would let a user trigger what looks like a safe,
+  conditional delete but is actually unconditionally a hard delete today. A UI entry point
+  belongs with — or after — Phase 1's payment ledger, not before it.
+
+**What shipped:**
+- `DELETE /api/properties/{id}` — `HasAppliedPaymentsAsync` is the placeholder described in
+  the Executive Summary (always `false` until Phase 1 ships a real payment ledger), so every
+  delete today takes the hard-delete branch. The branching logic itself is built exactly to
+  spec: zero payments → hard delete; applied payments → soft delete
+  (`IsDeleted = true`, excluded via the existing global query filter). Swapping
+  `HasAppliedPaymentsAsync`'s body for the genuine
+  `PaymentLedger.AnyAsync(x => x.PropertyId == id && x.AmountPaid > 0)` query is the only
+  change needed when that ledger exists.
+- **Real bug found and fixed while building this, not by inspection**: the first version of
+  this feature tried to cascade `IsDeleted = true` from `Property` to its `Unit`s *inside*
+  `AuditSaveChangesInterceptor`, triggered by seeing the `Property` transition to
+  `EntityState.Deleted`. That doesn't work — EF Core's own relationship-severance check
+  throws `InvalidOperationException` **synchronously, inside `Remove()`**, before
+  `SaveChanges` (and this interceptor) ever runs, if a parent is marked `Deleted` while an
+  already-tracked child with a required, `DeleteBehavior.Restrict` foreign key
+  (`Unit.PropertyId`, see `UnitConfiguration`) is left `Unchanged`. The fix: both branches of
+  `DeleteProperty` now `Remove()` the `Property` *and* every one of its `Unit`s together, in
+  the same call — `AuditSaveChangesInterceptor` then converts each `Deleted` entry it's
+  given independently (no `Property`-specific cascade code needed there at all). This was
+  caught by `SoftDelete_OfPropertyAndItsUnitsTogether_ConvertsBothToSoftDelete`
+  (`AuditSaveChangesInterceptorTests`) — worth remembering for any future entity with a
+  required, `Restrict` foreign key to a soft-deletable parent: the parent and child must be
+  `Remove()`-d together, not the parent alone with cascade logic deferred to a
+  `SaveChangesInterceptor`.
+- **New mechanism: `IHardDeleteOverride`** (`Ten21.Application.Abstractions`, implemented in
+  `Ten21.Infrastructure.Persistence.HardDeleteOverride`, scoped like `ITenantContext`) — an
+  explicit, per-request, per-entity-*instance* (reference equality, not `Id` equality)
+  opt-out from `AuditSaveChangesInterceptor`'s default soft-delete conversion. Before this
+  story, every `Remove()` call in the codebase was unconditionally converted to a soft
+  delete; US-22 needed a real hard-delete path for the first time, and this is deliberately
+  an explicit, narrow, per-call-site opt-in (via `MarkForHardDelete`) rather than a global
+  setting, so soft-delete stays the safe, silent default everywhere else.
