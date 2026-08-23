@@ -23,7 +23,9 @@
       "rateLimitedError": "Too many attempts. Please wait a moment and try again.",
       "networkError": "Something went wrong. Please try again.",
       "noAccount": "Don't have an account?",
-      "signUp": "Sign up"
+      "signUp": "Sign up",
+      "orContinueWith": "or continue with",
+      "googleError": "We couldn't sign you in with Google. Please try again."
     },
     "register": {
       "title": "Create your workspace",
@@ -49,6 +51,14 @@
       "networkError": "Something went wrong. Please try again.",
       "haveAccount": "Already have an account?",
       "signIn": "Sign in"
+    },
+    "completeProfile": {
+      "title": "Almost there",
+      "subtitle": "Just a few more details to finish setting up your workspace.",
+      "submit": "Finish setup",
+      "submitting": "Finishing setup…",
+      "expiredError": "This link has expired. Please sign in with Google again.",
+      "networkError": "Something went wrong. Please try again."
     }
   },
   "nav": {

@@ -30,6 +30,11 @@ those sections mostly read "N/A (anonymous/public endpoint)" by design, not omis
   carries no `tenant_id`, every existing tenant-scoped endpoint already fail-closes against
   it for free (`Ten21DbContext`'s fail-closed query filter, US-01) — the same
   defense-in-depth property the rest of the codebase relies on, not a new invariant to trust.
+  Implementing this surfaced (and fixed) a real gap: `TenantMiddleware` only ever set
+  `ITenantContext.UserId` when a `tenant_id` claim was ALSO present, so an interim token's
+  audit trail (`AuditSaveChangesInterceptor`, US-07) would have silently recorded no actor
+  at all for the `complete-profile` provisioning it makes. The two claim checks are now
+  independent.
 - **Turnstile ships wired to a real site/secret key pair** (provided directly by the
   Founder for this project — `Turnstile:SecretKey` via `dotnet user-secrets`, never
   committed; the site key is public by design and lives directly in the frontend). Server

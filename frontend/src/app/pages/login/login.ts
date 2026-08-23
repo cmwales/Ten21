@@ -6,10 +6,12 @@ import { TranslatePipe } from '@ngx-translate/core';
 import { AuthService } from '../../core/services/auth.service';
 import { ProblemDetails } from '../../core/models/auth.models';
 import { LanguageSelector } from '../../shared/language-selector/language-selector';
+import { GOOGLE_CLIENT_ID } from '../../core/google-auth/google-auth';
+import { GoogleSignInButton } from '../../shared/google-sign-in-button/google-sign-in-button';
 
 @Component({
   selector: 'app-login',
-  imports: [ReactiveFormsModule, RouterLink, TranslatePipe, LanguageSelector],
+  imports: [ReactiveFormsModule, RouterLink, TranslatePipe, LanguageSelector, GoogleSignInButton],
   templateUrl: './login.html',
 })
 export class Login {
@@ -25,9 +27,26 @@ export class Login {
   protected readonly submitting = signal(false);
   protected readonly errorKey = signal<string | null>(null);
   protected readonly showPassword = signal(false);
+  protected readonly showGoogleButton = !!GOOGLE_CLIENT_ID;
 
   protected togglePasswordVisibility(): void {
     this.showPassword.update((visible) => !visible);
+  }
+
+  protected onGoogleCredential(idToken: string): void {
+    this.errorKey.set(null);
+    this.authService.loginWithGoogle(idToken).subscribe({
+      next: (result) => {
+        if ('requiresProfileCompletion' in result) {
+          void this.router.navigateByUrl('/complete-profile');
+        } else {
+          void this.router.navigateByUrl('/dashboard');
+        }
+      },
+      error: () => {
+        this.errorKey.set('auth.login.googleError');
+      },
+    });
   }
 
   protected submit(): void {

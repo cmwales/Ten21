@@ -23,7 +23,9 @@
       "rateLimitedError": "Demasiados intentos. Espere un momento y vuelva a intentarlo.",
       "networkError": "Algo salió mal. Inténtelo de nuevo.",
       "noAccount": "¿No tiene una cuenta?",
-      "signUp": "Regístrese"
+      "signUp": "Regístrese",
+      "orContinueWith": "o continúe con",
+      "googleError": "No pudimos iniciar su sesión con Google. Inténtelo de nuevo."
     },
     "register": {
       "title": "Cree su espacio de trabajo",
@@ -49,6 +51,14 @@
       "networkError": "Algo salió mal. Inténtelo de nuevo.",
       "haveAccount": "¿Ya tiene una cuenta?",
       "signIn": "Iniciar sesión"
+    },
+    "completeProfile": {
+      "title": "Ya casi está",
+      "subtitle": "Solo unos detalles más para terminar de configurar su espacio de trabajo.",
+      "submit": "Finalizar configuración",
+      "submitting": "Finalizando configuración…",
+      "expiredError": "Este enlace ha expirado. Vuelva a iniciar sesión con Google.",
+      "networkError": "Algo salió mal. Inténtelo de nuevo."
     }
   },
   "nav": {

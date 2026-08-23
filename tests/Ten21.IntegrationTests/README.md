@@ -33,3 +33,24 @@ can't exercise. Two things worth knowing if you touch this file:
   factory is explicitly pinned to `builder.UseEnvironment("Development")` -- otherwise the
   cookie silently never round-trips and every assertion after login fails with a misleading
   "no refresh token" 401.
+- Those env vars are process-wide, so a second `WebApplicationFactory<Program>`-based test
+  class (`GoogleAuthEndToEndTests`) DID race with this one the first time it was added --
+  xUnit runs different test classes in parallel by default, and two classes each setting
+  `ConnectionStrings__Ten21Database` to their own Testcontainers container mid-run can
+  cross-wire which physical database either host actually talks to (surfaced as a spurious
+  "duplicate key" on `RoleNameIndex` from two hosts racing to seed the same container). Both
+  classes now carry `[Collection(SequentialWebApplicationFactoryCollection.Name)]`, which
+  serializes them against each other -- each still gets its own fully isolated Postgres
+  container, they just never run at the literal same moment. **Any future
+  `WebApplicationFactory<Program>`-based test class needs the same `[Collection(...)]`
+  attribute**, or this will resurface.
+
+## GoogleAuthEndToEndTests
+
+US-15's Google Sign-In flow, end to end. A real Google-signed ID token can't be fabricated
+in a test, so `IGoogleIdTokenVerifier` is substituted via
+`WithWebHostBuilder(...).ConfigureTestServices(...)` with a fake returning a canned
+`GoogleIdentity` (or `null`, to simulate an invalid token) -- everything downstream of that
+one seam (user creation/linking via Identity's real external-login store, interim tokens,
+`complete-profile`, workspace provisioning) is the real production code path against a real
+Postgres.

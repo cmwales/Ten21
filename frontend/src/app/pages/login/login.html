@@ -103,6 +103,17 @@
           {{ (submitting() ? 'auth.login.submitting' : 'auth.login.submit') | translate }}
         </button>
 
+        @if (showGoogleButton) {
+          <div class="flex items-center gap-3">
+            <div class="h-px flex-1 bg-slate-navy/10"></div>
+            <span class="text-xs text-slate-navy-light">{{ 'auth.login.orContinueWith' | translate }}</span>
+            <div class="h-px flex-1 bg-slate-navy/10"></div>
+          </div>
+          <div class="flex justify-center">
+            <app-google-sign-in-button (credential)="onGoogleCredential($event)" />
+          </div>
+        }
+
         <p class="text-center text-sm text-slate-navy-light">
           {{ 'auth.login.noAccount' | translate }}
           <a routerLink="/register" class="font-medium text-emerald focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald">

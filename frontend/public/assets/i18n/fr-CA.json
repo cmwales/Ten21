@@ -23,7 +23,9 @@
       "rateLimitedError": "Trop de tentatives. Veuillez patienter un moment avant de réessayer.",
       "networkError": "Une erreur s'est produite. Veuillez réessayer.",
       "noAccount": "Vous n'avez pas de compte?",
-      "signUp": "Inscrivez-vous"
+      "signUp": "Inscrivez-vous",
+      "orContinueWith": "ou continuez avec",
+      "googleError": "Nous n'avons pas pu vous connecter avec Google. Veuillez réessayer."
     },
     "register": {
       "title": "Créez votre espace de travail",
@@ -49,6 +51,14 @@
       "networkError": "Une erreur s'est produite. Veuillez réessayer.",
       "haveAccount": "Vous avez déjà un compte?",
       "signIn": "Se connecter"
+    },
+    "completeProfile": {
+      "title": "Presque terminé",
+      "subtitle": "Encore quelques détails pour terminer la configuration de votre espace de travail.",
+      "submit": "Terminer la configuration",
+      "submitting": "Finalisation en cours…",
+      "expiredError": "Ce lien a expiré. Veuillez vous reconnecter avec Google.",
+      "networkError": "Une erreur s'est produite. Veuillez réessayer."
     }
   },
   "nav": {

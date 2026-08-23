@@ -20,6 +20,11 @@ public class JwtTokenService : IJwtTokenService
     // tuning knob, so it shouldn't be silently different between dev and prod.
     private static readonly TimeSpan AccessTokenLifetime = TimeSpan.FromMinutes(15);
 
+    // Deliberately much shorter than a normal access token: an interim token (US-15/US-17)
+    // exists only to bridge a single next step (complete a profile, submit a 2FA code), not
+    // to be a general-purpose session.
+    private static readonly TimeSpan InterimAccessTokenLifetime = TimeSpan.FromMinutes(10);
+
     private readonly string _issuer;
     private readonly string _audience;
     private readonly SigningCredentials _signingCredentials;
@@ -60,6 +65,31 @@ public class JwtTokenService : IJwtTokenService
         {
             claims.Add(new Claim(TenantMiddleware.OrganizationIdClaimType, organizationId.Value.ToString()));
         }
+
+        var token = new JwtSecurityToken(
+            issuer: _issuer,
+            audience: _audience,
+            claims: claims,
+            expires: expiresAtUtc.UtcDateTime,
+            signingCredentials: _signingCredentials);
+
+        var tokenValue = new JwtSecurityTokenHandler().WriteToken(token);
+        return new AccessToken(tokenValue, expiresAtUtc);
+    }
+
+    public AccessToken GenerateInterimAccessToken(Guid userId, string purpose)
+    {
+        var expiresAtUtc = DateTimeOffset.UtcNow.Add(InterimAccessTokenLifetime);
+
+        // No tenant_id, no organization_id, no role claim -- deliberately. See this
+        // method's interface-level doc comment for why that's the entire point.
+        var claims = new List<Claim>
+        {
+            new(JwtRegisteredClaimNames.Sub, userId.ToString()),
+            new(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
+            new("user_id", userId.ToString()),
+            new(TokenPurposes.ClaimType, purpose),
+        };
 
         var token = new JwtSecurityToken(
             issuer: _issuer,

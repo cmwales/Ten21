@@ -15,6 +15,12 @@
     async
     defer
   ></script>
+  <!-- US-15: Google Identity Services. Safe to load unconditionally even before a real
+       Google:ClientId/GOOGLE_CLIENT_ID is configured -- GoogleSignInButton simply never
+       calls initialize()/renderButton() until GOOGLE_CLIENT_ID is non-empty. Unlike
+       Turnstile's api.js, GIS doesn't document an ?onload= query param, so readiness uses
+       the script tag's own standard DOM load event instead. -->
+  <script src="https://accounts.google.com/gsi/client" async defer onload="window.__ten21GoogleReady && window.__ten21GoogleReady()"></script>
 </head>
 <body>
   <app-root></app-root>
