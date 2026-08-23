@@ -36,6 +36,9 @@
       "emailLabel": "Email address",
       "passwordLabel": "Password",
       "passwordHint": "At least 6 characters, including a mix of letters, a number, and a symbol.",
+      "confirmPasswordLabel": "Confirm password",
+      "confirmPasswordRequired": "Please confirm your password.",
+      "passwordMismatchError": "Passwords do not match.",
       "phoneLabel": "Phone number (optional)",
       "addressLabel": "Mailing address (optional)",
       "workspaceNameLabel": "Workspace name",
@@ -99,6 +102,7 @@
     "verifyTwoFactor": {
       "title": "Two-factor verification",
       "subtitle": "Enter the 6-digit code we emailed you.",
+      "codeHint": "This code expires in 5 minutes.",
       "codeLabel": "Verification code",
       "submit": "Verify",
       "invalidCodeError": "That code is invalid or has expired.",

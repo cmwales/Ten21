@@ -36,6 +36,9 @@
       "emailLabel": "Correo electrónico",
       "passwordLabel": "Contraseña",
       "passwordHint": "Al menos 6 caracteres, incluyendo letras, un número y un símbolo.",
+      "confirmPasswordLabel": "Confirmar contraseña",
+      "confirmPasswordRequired": "Por favor confirme su contraseña.",
+      "passwordMismatchError": "Las contraseñas no coinciden.",
       "phoneLabel": "Número de teléfono (opcional)",
       "addressLabel": "Dirección postal (opcional)",
       "workspaceNameLabel": "Nombre del espacio de trabajo",
@@ -99,6 +102,7 @@
     "verifyTwoFactor": {
       "title": "Verificación en dos pasos",
       "subtitle": "Ingrese el código de 6 dígitos que le enviamos por correo electrónico.",
+      "codeHint": "Este código caduca en 5 minutos.",
       "codeLabel": "Código de verificación",
       "submit": "Verificar",
       "invalidCodeError": "Ese código no es válido o ha expirado.",

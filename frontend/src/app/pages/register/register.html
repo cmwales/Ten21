@@ -75,6 +75,30 @@
         </div>
 
         <div class="flex flex-col gap-1.5">
+          <label for="confirmPassword" class="text-sm font-medium text-slate-navy">
+            {{ 'auth.register.confirmPasswordLabel' | translate }}
+          </label>
+          <input
+            id="confirmPassword"
+            type="password"
+            autocomplete="new-password"
+            formControlName="confirmPassword"
+            [attr.aria-invalid]="
+              (form.controls.confirmPassword.invalid || form.errors?.['passwordMismatch']) &&
+              form.controls.confirmPassword.touched
+            "
+            class="tap-target w-full rounded-md border border-slate-navy/20 px-3 py-2 text-slate-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
+          />
+          @if (form.controls.confirmPassword.touched) {
+            @if (form.controls.confirmPassword.hasError('required')) {
+              <p class="text-sm text-rose">{{ 'auth.register.confirmPasswordRequired' | translate }}</p>
+            } @else if (form.errors?.['passwordMismatch']) {
+              <p class="text-sm text-rose">{{ 'auth.register.passwordMismatchError' | translate }}</p>
+            }
+          }
+        </div>
+
+        <div class="flex flex-col gap-1.5">
           <label for="phoneNumber" class="text-sm font-medium text-slate-navy">
             {{ 'auth.register.phoneLabel' | translate }}
           </label>
@@ -82,7 +106,10 @@
             id="phoneNumber"
             type="tel"
             autocomplete="tel"
+            inputmode="tel"
+            placeholder="(555) 123-4567"
             formControlName="phoneNumber"
+            (input)="onPhoneInput($event)"
             class="tap-target w-full rounded-md border border-slate-navy/20 px-3 py-2 text-slate-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
           />
         </div>

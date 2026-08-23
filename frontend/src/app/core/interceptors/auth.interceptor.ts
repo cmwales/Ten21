@@ -8,7 +8,14 @@ import { AuthService } from '../services/auth.service';
  * Login is deliberately excluded from this interceptor's error handling (US-11 AC3):
  * a 401 there is expected application flow (bad password, lockout) that the login page
  * itself must display, not a session-expiry signal that should bounce the user back to
- * /login they're already on.
+ * /login they're already on. /login/verify-2fa (US-17) falls under this same exclusion
+ * today only because its URL happens to start with LOGIN_URL's string ('/api/auth/login') --
+ * confirmed intentional-enough to leave as is, but fragile: if LOGIN_URL's matching logic
+ * or value ever changes, verify-2fa's 401s (an invalid/expired code -- also expected
+ * application flow, not a session-expiry signal) would silently start being caught here,
+ * triggering a doomed silent-refresh attempt (there is no session yet at this point in the
+ * flow) and bouncing the user to /login instead of showing an inline error on the page
+ * they're on.
  */
 const LOGIN_URL = '/api/auth/login';
 const REFRESH_URL = '/api/auth/refresh-token';
