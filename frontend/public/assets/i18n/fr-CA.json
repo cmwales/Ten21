@@ -108,7 +108,57 @@
   "nav": {
     "dashboard": "Tableau de bord",
     "ledger": "Grand livre",
+    "addProperty": "Ajouter une propriété",
     "logout": "Déconnexion"
+  },
+  "properties": {
+    "form": {
+      "createTitle": "Ajouter une propriété",
+      "editTitle": "Modifier la propriété",
+      "name": "Nom de la propriété",
+      "propertyType": "Type de propriété",
+      "streetAddress1": "Adresse",
+      "streetAddress2": "Adresse 2 (facultatif)",
+      "city": "Ville",
+      "state": "État/Province",
+      "postalCode": "Code postal",
+      "country": "Pays",
+      "defaultTargetRent": "Loyer cible par défaut",
+      "defaultTargetRentHint": "Appliqué aux nouvelles unités sauf substitution par unité.",
+      "nameRequired": "Le nom de la propriété est requis.",
+      "streetAddress1Required": "L'adresse est requise.",
+      "cityRequired": "La ville est requise.",
+      "stateRequired": "L'état/la province est requis.",
+      "postalCodeRequired": "Le code postal est requis.",
+      "countryRequired": "Le pays est requis.",
+      "unitsHeading": "Unités",
+      "addUnit": "Ajouter une unité",
+      "removeUnit": "Supprimer",
+      "noUnits": "Aucune unité pour le moment. Ajoutez-en une pour commencer.",
+      "unitIdentifier": "Unité/Suite #",
+      "targetRent": "Loyer cible",
+      "occupancyStatus": "Statut d'occupation",
+      "save": "Enregistrer",
+      "saving": "Enregistrement…",
+      "apply": "Appliquer",
+      "cancel": "Annuler",
+      "savedToast": "Propriété enregistrée.",
+      "validationError": "Veuillez vérifier les champs surlignés et réessayer.",
+      "notFoundError": "Cette propriété est introuvable.",
+      "loadError": "Une erreur s'est produite lors du chargement de cette propriété.",
+      "networkError": "Une erreur s'est produite. Veuillez réessayer."
+    },
+    "propertyTypes": {
+      "SingleFamily": "Unifamiliale",
+      "MultiFamily": "Multifamiliale",
+      "Duplex": "Duplex",
+      "Commercial": "Commerciale"
+    },
+    "occupancyStatuses": {
+      "Vacant": "Vacante",
+      "Occupied": "Occupée",
+      "Maintenance": "Entretien"
+    }
   },
   "dashboard": {
     "welcome": "Content de vous revoir",

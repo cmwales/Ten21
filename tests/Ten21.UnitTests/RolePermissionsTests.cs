@@ -54,4 +54,29 @@ public class RolePermissionsTests
 
         Assert.DoesNotContain(permissions, p => p.StartsWith("Permissions.Voting.", StringComparison.Ordinal));
     }
+
+    [Fact]
+    public void PropertyManagerBundle_HasFullPropertyAccess()
+    {
+        // Sprint 3 (US-19-22): "Primary Role: Property Manager" on every property-setup
+        // story, no other role named as an authorized secondary.
+        var permissions = RolePermissions.Bundles[RoleNames.PropertyManager];
+
+        Assert.Contains(Permissions.Property.Manage, permissions);
+        Assert.Contains(Permissions.Property.Read, permissions);
+        Assert.Contains(Permissions.Property.Import, permissions);
+        Assert.Contains(Permissions.Property.Delete, permissions);
+    }
+
+    [Theory]
+    [InlineData(RoleNames.Tenant)]
+    [InlineData(RoleNames.Vendor)]
+    public void ProhibitedRoleBundles_HaveNoPropertyPermission(string roleName)
+    {
+        // Sprint 3 (US-19-22): "Prohibited Roles: Non-owner Tenants and Vendors" on every
+        // property-setup story.
+        var permissions = RolePermissions.Bundles[roleName];
+
+        Assert.DoesNotContain(permissions, p => p.StartsWith("Permissions.Property.", StringComparison.Ordinal));
+    }
 }

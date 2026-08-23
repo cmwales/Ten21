@@ -108,7 +108,57 @@
   "nav": {
     "dashboard": "Panel",
     "ledger": "Libro contable",
+    "addProperty": "Agregar propiedad",
     "logout": "Cerrar sesión"
+  },
+  "properties": {
+    "form": {
+      "createTitle": "Agregar propiedad",
+      "editTitle": "Editar propiedad",
+      "name": "Nombre de la propiedad",
+      "propertyType": "Tipo de propiedad",
+      "streetAddress1": "Dirección",
+      "streetAddress2": "Dirección 2 (opcional)",
+      "city": "Ciudad",
+      "state": "Estado",
+      "postalCode": "Código postal",
+      "country": "País",
+      "defaultTargetRent": "Renta objetivo predeterminada",
+      "defaultTargetRentHint": "Se aplica a las nuevas unidades salvo que se anule por unidad.",
+      "nameRequired": "El nombre de la propiedad es obligatorio.",
+      "streetAddress1Required": "La dirección es obligatoria.",
+      "cityRequired": "La ciudad es obligatoria.",
+      "stateRequired": "El estado es obligatorio.",
+      "postalCodeRequired": "El código postal es obligatorio.",
+      "countryRequired": "El país es obligatorio.",
+      "unitsHeading": "Unidades",
+      "addUnit": "Agregar unidad",
+      "removeUnit": "Eliminar",
+      "noUnits": "Aún no hay unidades. Agregue una para comenzar.",
+      "unitIdentifier": "Unidad/Suite #",
+      "targetRent": "Renta objetivo",
+      "occupancyStatus": "Estado de ocupación",
+      "save": "Guardar",
+      "saving": "Guardando…",
+      "apply": "Aplicar",
+      "cancel": "Cancelar",
+      "savedToast": "Propiedad guardada.",
+      "validationError": "Verifique los campos resaltados e inténtelo de nuevo.",
+      "notFoundError": "No se pudo encontrar esta propiedad.",
+      "loadError": "Algo salió mal al cargar esta propiedad.",
+      "networkError": "Algo salió mal. Inténtelo de nuevo."
+    },
+    "propertyTypes": {
+      "SingleFamily": "Unifamiliar",
+      "MultiFamily": "Multifamiliar",
+      "Duplex": "Dúplex",
+      "Commercial": "Comercial"
+    },
+    "occupancyStatuses": {
+      "Vacant": "Vacante",
+      "Occupied": "Ocupada",
+      "Maintenance": "Mantenimiento"
+    }
   },
   "dashboard": {
     "welcome": "Bienvenido de nuevo",

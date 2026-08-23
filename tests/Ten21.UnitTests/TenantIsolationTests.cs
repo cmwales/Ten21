@@ -67,7 +67,7 @@ public class TenantIsolationTests : IDisposable
         var results = await readDb.Properties.ToListAsync();
 
         Assert.Single(results);
-        Assert.Equal("1 Tenant A Way", results[0].StreetAddress);
+        Assert.Equal("1 Tenant A Way", results[0].StreetAddress1);
     }
 
     [Fact]
@@ -129,10 +129,12 @@ public class TenantIsolationTests : IDisposable
     private static Property NewProperty(string streetAddress, string city) => new()
     {
         Id = Guid.NewGuid(),
-        StreetAddress = streetAddress,
+        Name = "Tenant Isolation Test Property",
+        StreetAddress1 = streetAddress,
         City = city,
-        StateProvince = "UT",
+        State = "UT",
         PostalCode = "84000",
+        Country = "USA",
         CreatedAt = DateTimeOffset.UtcNow
     };
 }

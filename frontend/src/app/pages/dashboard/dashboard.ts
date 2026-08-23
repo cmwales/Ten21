@@ -15,6 +15,10 @@ export class Dashboard {
 
   protected readonly session = this.authService.session;
   protected readonly isTenant = () => this.authService.role() === RoleNames.Tenant;
+  protected readonly canManageProperties = () => {
+    const role = this.authService.role();
+    return role !== null && role !== RoleNames.Tenant && role !== RoleNames.Vendor;
+  };
 
   protected logout(): void {
     this.authService.logout().subscribe(() => void this.router.navigateByUrl('/login'));

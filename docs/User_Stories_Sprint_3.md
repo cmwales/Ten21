@@ -62,3 +62,61 @@ Roles, Prohibited Roles, and Required Permission Claims.
 
 _Filled in per story as each branch lands — see the Executive Summary above for the
 cross-cutting decisions that apply to all four._
+
+### US-19: Unified Single Property & Unit Form Editor
+
+**As a** Property Manager, **I want** a single unified form to create or update a property
+and its child units, **so that** physical assets can be configured without navigating
+duplicate wizard screens.
+
+- **Primary Role:** Property Manager (`Permissions.Property.Manage`).
+- **Authorized Secondary Roles:** None named in the story — see the Executive Summary's
+  least-privilege note.
+- **Prohibited Roles:** Tenant, Vendor (denied both at the route via `denyRolesGuard` and at
+  the API via the `Permissions.Property.Manage`/`Read` policies).
+- **Required Permission Claims:** `Permissions.Property.Manage` (create/update),
+  `Permissions.Property.Read` (fetch for edit mode).
+
+**What shipped:**
+- `PropertiesController` (`src/Ten21.Api/Controllers/PropertiesController.cs`) replaces the
+  US-01 throwaway proof-of-concept with real `GET /api/properties/{id}`,
+  `POST /api/properties`, and `PUT /api/properties/{id}` actions. `GET /api/properties`
+  (list, no pagination yet) stays temporarily minimal — US-20 owns turning it into the real
+  paginated/searchable endpoint.
+- `Property` gained `Name`, `PropertyType`, `StreetAddress2`, `Country`, `DefaultTargetRent`,
+  and a `Units` collection; `StreetAddress`/`StateProvince` were renamed to
+  `StreetAddress1`/`State` (migration `AddPropertyUnitSprint3Fields` uses `RenameColumn`, not
+  drop/recreate, so no data loss). `Unit` is a brand-new tenant-scoped entity (see Executive
+  Summary).
+- `DefaultTargetRent` cascades to a new unit's `TargetRent` only when the unit doesn't
+  specify its own value (`unitRequest.TargetRent ?? request.DefaultTargetRent`) — a one-time
+  default applied server-side at create/add time, not a live formula recalculated later.
+- **Real bug found and fixed during testing, not by inspection**: adding a brand-new `Unit`
+  to an already-tracked `Property`'s `Units` navigation collection
+  (`property.Units.Add(new Unit {...})`) inside `UpdateProperty` — mixed in the same
+  `SaveChanges` call as an edited sibling unit and a removed one — left that new `Unit`'s
+  entry out of `Ten21DbContext.ApplyTenantStamping()`'s pass entirely, so it never got its
+  `TenantId` stamped and failed the tenant-ownership check. Fixed by adding new units
+  explicitly via `_dbContext.Units.Add(...)` with `PropertyId` set directly, rather than
+  relying on navigation-collection fixup, in the update path (`CreateProperty`'s all-new
+  graph doesn't hit this — only the update path's mixed Added/Modified/Deleted batch does).
+  If touching `Unit` reconciliation logic again, prefer explicit `DbSet.Add()` over
+  navigation-collection `.Add()` for anything sharing a `SaveChanges` call with edits to
+  sibling entities.
+- Server-side sanitization (`IInputSanitizer`/`HtmlInputSanitizer`, Executive Summary) is
+  applied to every free-text field before persistence in both create and update.
+- Frontend: `PropertyFormContainer` (`/properties/new`, `/properties/:id`) with
+  `PropertyInfoForm` and `UnitListEditor` sub-components, typed Angular reactive forms
+  (`property-form.types.ts` — a bare `FormGroup`/`FormArray` type falls back to an
+  index-signature `controls` object that the project's `noPropertyAccessFromIndexSignature`
+  TypeScript setting then rejects for every `form.controls.name`-style template access).
+  Save persists then navigates to `/properties` (not yet a real route until US-20 lands —
+  falls through to the wildcard `dashboard` redirect in the meantime) and shows a toast via a
+  new small app-wide `ToastService`/`ToastHost` (the first feature needing one). Apply
+  persists and stays on the page, converting the route to `/properties/:id` via
+  `router.navigate(..., { replaceUrl: true })`. Cancel and any other navigation away from a
+  dirty form go through a new generic `unsavedChangesGuard` (`CanDeactivateFn`) — generic
+  rather than component-specific so a future form page can reuse it.
+
+**Deliberately deferred to US-20:** the `/properties` list page itself, pagination, search,
+and the occupancy-status badge styling.

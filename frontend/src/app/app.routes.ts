@@ -1,6 +1,7 @@
 import { Routes } from '@angular/router';
 import { authGuard } from './core/guards/auth.guard';
 import { denyRolesGuard } from './core/guards/role.guard';
+import { unsavedChangesGuard } from './core/guards/unsaved-changes.guard';
 import { RoleNames } from './core/constants/roles';
 
 export const routes: Routes = [
@@ -52,6 +53,25 @@ export const routes: Routes = [
     path: 'ledger',
     canActivate: [authGuard, denyRolesGuard([RoleNames.Tenant])],
     loadComponent: () => import('./pages/ledger/ledger').then((m) => m.Ledger),
+  },
+  {
+    // US-19: "Prohibited Roles: Non-owner Tenants and Vendors" on every Sprint 3 story.
+    path: 'properties/new',
+    canActivate: [authGuard, denyRolesGuard([RoleNames.Tenant, RoleNames.Vendor])],
+    canDeactivate: [unsavedChangesGuard],
+    loadComponent: () =>
+      import('./pages/properties/property-form-container/property-form-container').then(
+        (m) => m.PropertyFormContainer,
+      ),
+  },
+  {
+    path: 'properties/:id',
+    canActivate: [authGuard, denyRolesGuard([RoleNames.Tenant, RoleNames.Vendor])],
+    canDeactivate: [unsavedChangesGuard],
+    loadComponent: () =>
+      import('./pages/properties/property-form-container/property-form-container').then(
+        (m) => m.PropertyFormContainer,
+      ),
   },
   { path: '', pathMatch: 'full', redirectTo: 'dashboard' },
   { path: '**', redirectTo: 'dashboard' },

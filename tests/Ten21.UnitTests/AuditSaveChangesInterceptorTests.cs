@@ -46,10 +46,12 @@ public class AuditSaveChangesInterceptorTests : IDisposable
     private static Property NewProperty() => new()
     {
         Id = Guid.NewGuid(),
-        StreetAddress = "1 Audit Test Way",
+        Name = "Audit Test Property",
+        StreetAddress1 = "1 Audit Test Way",
         City = "Provo",
-        StateProvince = "UT",
+        State = "UT",
         PostalCode = "84601",
+        Country = "USA",
         CreatedAt = DateTimeOffset.UtcNow,
     };
 
@@ -70,7 +72,7 @@ public class AuditSaveChangesInterceptorTests : IDisposable
         Assert.Equal(tenantId, auditRow.TenantId);
         Assert.Null(auditRow.OriginalValuesJson);
         Assert.NotNull(auditRow.NewValuesJson);
-        Assert.Contains(property.StreetAddress, auditRow.NewValuesJson);
+        Assert.Contains(property.StreetAddress1, auditRow.NewValuesJson);
     }
 
     [Fact]
