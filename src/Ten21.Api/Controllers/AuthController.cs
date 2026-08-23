@@ -437,8 +437,136 @@ public class AuthController : ControllerBase
             throw new UnauthorizedException("This account has no property/tenant access configured.");
         }
 
+        // US-17: password alone isn't enough for SuperAdmin/PropertyManager/BoardMember
+        // (SECURITY.docx §1's mandatory-MFA roles) or any account that has opted into TOTP
+        // (ApplicationUser.TwoFactorEnabled -- see MandatoryTwoFactorRoles's class comment
+        // for why TwoFactorEnabled=true implies "has completed TOTP setup" specifically,
+        // not just "wants 2FA someday"). Resolve the role BEFORE issuing tokens so this
+        // check can run ahead of IssueTokensAsync, not after.
+        var role = await _roleManager.FindByIdAsync(membership.RoleId.ToString())
+            ?? throw new InvalidOperationException(
+                $"Role {membership.RoleId} referenced by a TenantMembership no longer exists.");
+
+        var requiresTwoFactor = user.TwoFactorEnabled || MandatoryTwoFactorRoles.Values.Contains(role.Name);
+        if (requiresTwoFactor)
+        {
+            // TOTP only once the account has actually completed setup (TwoFactorEnabled);
+            // every mandatory-role account that HASN'T falls back to email OTP -- exactly
+            // the "without... authenticator app lockouts" reasoning from the user story.
+            var provider = user.TwoFactorEnabled
+                ? TokenOptions.DefaultAuthenticatorProvider
+                : TokenOptions.DefaultEmailProvider;
+
+            if (provider == TokenOptions.DefaultEmailProvider)
+            {
+                var code = await _userManager.GenerateTwoFactorTokenAsync(user, provider);
+                await _emailSender.SendAsync(
+                    user.Email!,
+                    "Your Ten21 sign-in code",
+                    $"<p>Your sign-in code is: <strong>{code}</strong></p>" +
+                    $"<p>Enter it to finish signing in. This code expires shortly.</p>",
+                    cancellationToken);
+            }
+            // Authenticator codes are never emailed -- the user reads the current code
+            // straight from their own authenticator app.
+
+            var challenge = _jwtTokenService.GenerateTwoFactorChallengeToken(user.Id, provider);
+            return Ok(new TwoFactorRequiredResponse(true, provider, challenge.Value, challenge.ExpiresAtUtc));
+        }
+
         var response = await IssueTokensAsync(user.Id, membership, cancellationToken);
         return Ok(response);
+    }
+
+    /// <summary>
+    /// US-17: the second half of a 2FA-gated login. Requires a TwoFactorPending challenge
+    /// token -- checked explicitly (not just relied on structurally), and verified against
+    /// the SPECIFIC provider that token's challenge was issued for (TwoFactorProviderClaimType),
+    /// so an email code can't be replayed as an authenticator code or vice versa.
+    /// </summary>
+    [HttpPost("login/verify-2fa")]
+    public async Task<IActionResult> VerifyTwoFactor(
+        [FromBody] VerifyTwoFactorRequest request, CancellationToken cancellationToken)
+    {
+        var purpose = User.FindFirst(TokenPurposes.ClaimType)?.Value;
+        var provider = User.FindFirst(TokenPurposes.TwoFactorProviderClaimType)?.Value;
+        if (purpose != TokenPurposes.TwoFactorPending || string.IsNullOrEmpty(provider))
+        {
+            throw new ForbiddenException("This endpoint requires a two-factor challenge token.");
+        }
+
+        var user = await GetCurrentUserAsync();
+
+        if (!await _userManager.VerifyTwoFactorTokenAsync(user, provider, request.Code))
+        {
+            throw new UnauthorizedException("Invalid or expired code.");
+        }
+
+        var membership = await ResolvePrimaryMembershipAsync(user.Id, cancellationToken)
+            ?? throw new UnauthorizedException("This account has no property/tenant access configured.");
+
+        var response = await IssueTokensAsync(user.Id, membership, cancellationToken);
+        return Ok(response);
+    }
+
+    /// <summary>
+    /// US-17: begins (or resumes) TOTP enrollment for the CURRENT account, available to any
+    /// role -- mandatory-2FA roles get email OTP automatically at login regardless of this,
+    /// so TOTP here is purely an opt-in upgrade, not something only mandatory roles can use.
+    /// Returns the existing key if setup was already started but never confirmed, rather
+    /// than silently rotating it out from under an in-progress enrollment.
+    /// </summary>
+    [HttpPost("2fa/totp/setup")]
+    public async Task<IActionResult> SetupTotp(CancellationToken cancellationToken)
+    {
+        EnsureFullSession();
+        var user = await GetCurrentUserAsync();
+
+        var key = await _userManager.GetAuthenticatorKeyAsync(user);
+        if (string.IsNullOrEmpty(key))
+        {
+            await _userManager.ResetAuthenticatorKeyAsync(user);
+            key = await _userManager.GetAuthenticatorKeyAsync(user);
+        }
+
+        return Ok(new TotpSetupResponse(key!, BuildOtpAuthUri(user.Email!, key!)));
+    }
+
+    /// <summary>US-17: confirms TOTP setup with a code from the app and turns it on.
+    /// Nothing changes for the account until this succeeds -- SetupTotp alone doesn't
+    /// enable anything.</summary>
+    [HttpPost("2fa/totp/enable")]
+    public async Task<IActionResult> EnableTotp(
+        [FromBody] VerifyTwoFactorRequest request, CancellationToken cancellationToken)
+    {
+        EnsureFullSession();
+        var user = await GetCurrentUserAsync();
+
+        if (!await _userManager.VerifyTwoFactorTokenAsync(user, TokenOptions.DefaultAuthenticatorProvider, request.Code))
+        {
+            throw new ValidationException(new Dictionary<string, string[]>
+            {
+                [nameof(request.Code)] = ["That code didn't match. Please try again."],
+            });
+        }
+
+        await _userManager.SetTwoFactorEnabledAsync(user, true);
+        return Ok(new GenericAcknowledgementResponse("Two-factor authentication is now enabled."));
+    }
+
+    /// <summary>
+    /// US-17: turns TOTP off. For a mandatory-2FA role this doesn't remove 2FA entirely --
+    /// Login's requiresTwoFactor check falls back to email OTP for those roles regardless
+    /// of TwoFactorEnabled, so this only changes WHICH factor is used, never whether one is
+    /// required at all for those accounts.
+    /// </summary>
+    [HttpPost("2fa/totp/disable")]
+    public async Task<IActionResult> DisableTotp(CancellationToken cancellationToken)
+    {
+        EnsureFullSession();
+        var user = await GetCurrentUserAsync();
+        await _userManager.SetTwoFactorEnabledAsync(user, false);
+        return Ok(new GenericAcknowledgementResponse("Two-factor authentication has been disabled."));
     }
 
     [HttpPost("refresh-token")]
@@ -629,4 +757,42 @@ public class AuthController : ControllerBase
     }
 
     private string? GetClientIp() => HttpContext.Connection.RemoteIpAddress?.ToString();
+
+    /// <summary>
+    /// US-17: rejects an interim token (profile-incomplete OR 2fa-pending) from account
+    /// security actions -- TOTP setup/enable/disable specifically. Without this, a caller
+    /// who only knows the password (enough to obtain a 2fa-pending challenge token, before
+    /// ever proving the second factor) could disable an account's 2FA outright, defeating
+    /// the entire point of requiring it. GetCurrentUserAsync alone doesn't guard against
+    /// this -- both token kinds carry the same user_id claim it reads.
+    /// </summary>
+    private void EnsureFullSession()
+    {
+        if (User.FindFirst(TokenPurposes.ClaimType) is not null)
+        {
+            throw new ForbiddenException("This action requires a fully authenticated session.");
+        }
+    }
+
+    /// <summary>US-15/US-17 shared helper: resolves the caller's ApplicationUser from the
+    /// user_id claim, valid for both full sessions and interim (profile-incomplete /
+    /// 2fa-pending) tokens alike, since both carry that one claim.</summary>
+    private async Task<ApplicationUser> GetCurrentUserAsync()
+    {
+        var userId = User.FindFirst("user_id")?.Value
+            ?? throw new InvalidOperationException("Authenticated request is missing the user_id claim.");
+
+        return await _userManager.FindByIdAsync(userId)
+            ?? throw new UnauthorizedException("Account no longer exists.");
+    }
+
+    /// <summary>Standard otpauth:// URI shape (RFC-informal, but universally recognized by
+    /// Google/Microsoft Authenticator and similar apps) for rendering a TOTP setup QR code
+    /// client-side. "Ten21" as the issuer is what shows up as the account's label in the app.</summary>
+    private static string BuildOtpAuthUri(string email, string unformattedKey)
+    {
+        const string issuer = "Ten21";
+        return $"otpauth://totp/{Uri.EscapeDataString(issuer)}:{Uri.EscapeDataString(email)}" +
+               $"?secret={unformattedKey}&issuer={Uri.EscapeDataString(issuer)}&digits=6";
+    }
 }

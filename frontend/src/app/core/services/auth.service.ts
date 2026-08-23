@@ -9,6 +9,8 @@ import {
   LoginRequest,
   ProfileCompletionRequiredResponse,
   RegisterRequest,
+  TotpSetupResponse,
+  TwoFactorRequiredResponse,
 } from '../models/auth.models';
 
 const SESSION_STORAGE_KEY = 'ten21_auth_session';
@@ -35,6 +37,14 @@ export class AuthService {
   private readonly _interimToken = signal<string | null>(null);
   readonly interimToken = this._interimToken.asReadonly();
 
+  /** US-17: holds the pending 2FA challenge between login() returning
+   * TwoFactorRequiredResponse and the VerifyTwoFactor page submitting a code -- same
+   * memory-only, single-purpose reasoning as _interimToken above. Kept as its own signal
+   * (not folded into _interimToken) since the challenge carries `method`, which the UI
+   * needs to know which prompt to show. */
+  private readonly _twoFactorChallenge = signal<TwoFactorRequiredResponse | null>(null);
+  readonly twoFactorChallenge = this._twoFactorChallenge.asReadonly();
+
   readonly isAuthenticated = computed(() => {
     const session = this._session();
     return session !== null && new Date(session.expiresAtUtc).getTime() > Date.now();
@@ -45,13 +55,69 @@ export class AuthService {
   readonly organizationId = computed(() => this._session()?.organizationId ?? null);
   readonly accessToken = computed(() => this._session()?.accessToken ?? null);
 
-  login(request: LoginRequest): Observable<AuthResponse> {
+  /** US-17: returns either a full AuthResponse (session set immediately, as before) or a
+   * TwoFactorRequiredResponse (mandatory-role account, or TOTP opted in -- the challenge
+   * is stashed for VerifyTwoFactor to use next; no session is set yet). */
+  login(request: LoginRequest): Observable<AuthResponse | TwoFactorRequiredResponse> {
     return this.http
-      .post<ApiResponse<AuthResponse>>('/api/auth/login', request, { withCredentials: true })
+      .post<ApiResponse<AuthResponse | TwoFactorRequiredResponse>>('/api/auth/login', request, {
+        withCredentials: true,
+      })
       .pipe(
         map((response) => response.data!),
-        tap((session) => this.setSession(session)),
+        tap((result) => {
+          if ('requiresTwoFactor' in result) {
+            this._twoFactorChallenge.set(result);
+          } else {
+            this.setSession(result);
+          }
+        }),
       );
+  }
+
+  /** US-17: submits a code against the stashed challenge -- the challenge token is used
+   * directly as the Authorization header, same pattern as completeProfile(), since there's
+   * no session yet to drive the normal interceptor path. */
+  verifyTwoFactor(code: string): Observable<AuthResponse> {
+    const challenge = this._twoFactorChallenge();
+    if (!challenge) {
+      throw new Error('verifyTwoFactor() called with no pending challenge -- start over at /login.');
+    }
+
+    return this.http
+      .post<ApiResponse<AuthResponse>>(
+        '/api/auth/login/verify-2fa',
+        { code },
+        { withCredentials: true, headers: new HttpHeaders({ Authorization: `Bearer ${challenge.challengeToken}` }) },
+      )
+      .pipe(
+        map((response) => response.data!),
+        tap((session) => {
+          this._twoFactorChallenge.set(null);
+          this.setSession(session);
+        }),
+      );
+  }
+
+  /** US-17: begins/resumes TOTP enrollment for the current (full-session) account. */
+  setupTotp(): Observable<TotpSetupResponse> {
+    return this.http
+      .post<ApiResponse<TotpSetupResponse>>('/api/auth/2fa/totp/setup', {})
+      .pipe(map((response) => response.data!));
+  }
+
+  /** US-17: confirms TOTP setup with a code from the app and turns it on. */
+  enableTotp(code: string): Observable<GenericAcknowledgementResponse> {
+    return this.http
+      .post<ApiResponse<GenericAcknowledgementResponse>>('/api/auth/2fa/totp/enable', { code })
+      .pipe(map((response) => response.data!));
+  }
+
+  /** US-17: turns TOTP off (mandatory-role accounts still get email OTP regardless). */
+  disableTotp(): Observable<GenericAcknowledgementResponse> {
+    return this.http
+      .post<ApiResponse<GenericAcknowledgementResponse>>('/api/auth/2fa/totp/disable', {})
+      .pipe(map((response) => response.data!));
   }
 
   /** US-14: workspace registration. Instant provisioning -- succeeds with the same

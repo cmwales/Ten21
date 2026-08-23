@@ -195,19 +195,40 @@ authenticator app lockouts.
 **Acceptance Criteria:**
 
 - After password verification, if the caller's primary role is one of the mandatory-MFA
-  roles, or the account has `TwoFactorEnabled = true`, login does **not** yet return an
-  `AuthResponse`. It generates a 6-digit code
-  (`UserManager.GenerateTwoFactorTokenAsync(user, TokenOptions.DefaultEmailProvider)`),
-  emails it via `IEmailSender`, and returns `{ requiresTwoFactor: true, challengeToken }`
-  (interim, tenant-less token — see Executive Summary).
-- `POST /api/auth/login/verify-2fa` (`challengeToken` + `code`) verifies via
-  `UserManager.VerifyTwoFactorTokenAsync` and, on success, issues the normal full
+  roles, or the account has `TwoFactorEnabled = true` (which, per `MandatoryTwoFactorRoles`'s
+  class comment, only ever becomes true via a completed TOTP enrollment — never toggled by
+  the mandatory-role check itself), login does **not** yet return an `AuthResponse`. It picks
+  a provider — `Authenticator` if `TwoFactorEnabled`, else `Email` — generates the code
+  (email only: `UserManager.GenerateTwoFactorTokenAsync(user, provider)`; a real
+  authenticator code is never emailed, the user reads it from their own app), and returns
+  `TwoFactorRequiredResponse { requiresTwoFactor: true, method, challengeToken, expiresAtUtc }`.
+  The challenge token (`IJwtTokenService.GenerateTwoFactorChallengeToken`) carries the chosen
+  provider as an extra claim, so `verify-2fa` checks the code against that SPECIFIC provider
+  — an email code can't be replayed as an authenticator code or vice versa.
+- `POST /api/auth/login/verify-2fa` (`challengeToken` as bearer + `code` in body) verifies
+  via `UserManager.VerifyTwoFactorTokenAsync` and, on success, issues the normal full
   `AuthResponse` via the same `IssueTokensAsync` path as a direct login.
 - `POST /api/auth/2fa/totp/setup`, `/enable`, `/disable` let any user optionally enroll an
   authenticator app instead of email OTP (Identity's built-in `Authenticator` token
-  provider — no third-party TOTP library needed).
-- Frontend: an OTP-entry step shown whenever login responds with `requiresTwoFactor`, and a
-  minimal account-settings view for TOTP enrollment (QR/manual key + confirm code).
+  provider — no third-party TOTP library needed). All three call a new `EnsureFullSession()`
+  guard rejecting any token carrying a `purpose` claim (profile-incomplete OR 2fa-pending) —
+  added after this story's own integration tests surfaced that without it, a caller holding
+  only a password-derived 2fa-pending challenge token (i.e. who has NOT yet proven the
+  second factor) could call `disable` and strip 2FA outright. `GetCurrentUserAsync` alone
+  doesn't catch this since both token kinds carry the same `user_id` claim it reads.
+- **A real gotcha worth flagging for anyone testing this by hand**:
+  `UserManager.GenerateTwoFactorTokenAsync(user, TokenOptions.DefaultAuthenticatorProvider)`
+  always returns `""` — `AuthenticatorTokenProvider.GenerateAsync` is a deliberate no-op
+  (displaying a TOTP code server-side isn't meaningful; only the app shows it), confirmed by
+  direct probe. `TotpEndToEndTests` computes real RFC 6238 codes by hand (HMAC-SHA1, 30s
+  step, 6 digits) against the real shared key instead, the same way a physical authenticator
+  app would.
+- Frontend: an OTP-entry step (`/verify-2fa`) shown whenever login responds with
+  `requiresTwoFactor`, and a `/security` settings page for TOTP enrollment (setup key +
+  confirm code, plus a disable action). That page doesn't display live "is TOTP currently
+  enabled" status — no `GET` status endpoint exists yet — it just offers both actions
+  honestly rather than showing a state it can't back up; a real status query is a reasonable
+  follow-up, not built here.
 
 ### US-18: Bot Defense & Registration Rate Limiting
 

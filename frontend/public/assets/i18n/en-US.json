@@ -95,12 +95,40 @@
       "invalidLinkError": "This password reset link is invalid or has expired.",
       "requestNewLink": "Request a new link",
       "networkError": "Something went wrong. Please try again."
+    },
+    "verifyTwoFactor": {
+      "title": "Two-factor verification",
+      "subtitleEmail": "Enter the 6-digit code we emailed you.",
+      "subtitleAuthenticator": "Enter the 6-digit code from your authenticator app.",
+      "codeLabel": "Verification code",
+      "submit": "Verify",
+      "invalidCodeError": "That code is invalid or has expired.",
+      "networkError": "Something went wrong. Please try again."
+    },
+    "security": {
+      "title": "Security",
+      "subtitle": "Manage two-factor authentication for your account.",
+      "enableTitle": "Authenticator app",
+      "enableDescription": "Use an app like Google Authenticator or Microsoft Authenticator for two-factor sign-in.",
+      "beginSetupButton": "Set up authenticator app",
+      "scanInstructions": "Add this key to your authenticator app, then enter the 6-digit code it shows.",
+      "sharedKeyLabel": "Setup key",
+      "confirmButton": "Confirm",
+      "enableSuccess": "Two-factor authentication is now enabled.",
+      "setupError": "Something went wrong setting up two-factor authentication. Please try again.",
+      "wrongCodeError": "That code didn't match. Please try again.",
+      "disableTitle": "Turn off authenticator app",
+      "disableDescription": "Administrative accounts will still receive an emailed code at sign-in even after this is off.",
+      "disableButton": "Disable authenticator app",
+      "disableSuccess": "Two-factor authentication has been disabled.",
+      "disableError": "Something went wrong. Please try again."
     }
   },
   "nav": {
     "dashboard": "Dashboard",
     "ledger": "Ledger",
-    "logout": "Log out"
+    "logout": "Log out",
+    "security": "Security"
   },
   "dashboard": {
     "welcome": "Welcome back",

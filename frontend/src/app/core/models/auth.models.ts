@@ -65,6 +65,22 @@ export interface GenericAcknowledgementResponse {
   message: string;
 }
 
+/** Mirrors Ten21.Api.Contracts.Auth.TwoFactorRequiredResponse (US-17). Returned by
+ * POST /api/auth/login instead of AuthResponse when the password check succeeds but a
+ * code is still required. */
+export interface TwoFactorRequiredResponse {
+  requiresTwoFactor: true;
+  method: 'Email' | 'Authenticator';
+  challengeToken: string;
+  expiresAtUtc: string;
+}
+
+/** Mirrors Ten21.Api.Contracts.Auth.TotpSetupResponse (US-17). */
+export interface TotpSetupResponse {
+  sharedKey: string;
+  otpAuthUri: string;
+}
+
 /** Mirrors the RFC 7807 ProblemDetails shape produced by GlobalExceptionHandler (US-09). */
 export interface ProblemDetails {
   status: number;

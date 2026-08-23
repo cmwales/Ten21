@@ -1,0 +1,60 @@
+<div class="flex min-h-screen flex-col bg-slate-navy">
+  <header class="flex items-center justify-between px-4 py-4 sm:px-8">
+    <span class="text-lg font-semibold text-white">{{ 'app.name' | translate }}</span>
+    <app-language-selector />
+  </header>
+
+  <main class="flex flex-1 items-center justify-center px-4 pb-12">
+    <div class="w-full max-w-md rounded-xl bg-surface-card p-6 shadow-xl sm:p-8">
+      <h1 class="text-2xl font-bold text-slate-navy">{{ 'auth.verifyTwoFactor.title' | translate }}</h1>
+      <p class="mt-1 text-sm text-slate-navy-light">
+        {{
+          (challenge()?.method === 'Authenticator'
+            ? 'auth.verifyTwoFactor.subtitleAuthenticator'
+            : 'auth.verifyTwoFactor.subtitleEmail'
+          ) | translate
+        }}
+      </p>
+
+      @if (errorKey()) {
+        <div
+          role="alert"
+          class="mt-6 rounded-md border border-rose bg-rose/10 px-4 py-3 text-sm font-medium text-rose"
+        >
+          {{ errorKey()! | translate }}
+        </div>
+      }
+
+      <form class="mt-6 flex flex-col gap-5" [formGroup]="form" (ngSubmit)="submit()" novalidate>
+        <div class="flex flex-col gap-1.5">
+          <label for="code" class="text-sm font-medium text-slate-navy">
+            {{ 'auth.verifyTwoFactor.codeLabel' | translate }}
+          </label>
+          <input
+            id="code"
+            type="text"
+            inputmode="numeric"
+            autocomplete="one-time-code"
+            maxlength="6"
+            formControlName="code"
+            class="tap-target w-full rounded-md border border-slate-navy/20 px-3 py-2 text-center text-lg tracking-[0.5em] text-slate-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
+          />
+        </div>
+
+        <button
+          type="submit"
+          [disabled]="submitting()"
+          class="tap-target mt-2 flex w-full items-center justify-center gap-2 rounded-md bg-emerald px-4 py-2 font-semibold text-white transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald disabled:opacity-60"
+        >
+          @if (submitting()) {
+            <span
+              class="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white"
+              aria-hidden="true"
+            ></span>
+          }
+          {{ 'auth.verifyTwoFactor.submit' | translate }}
+        </button>
+      </form>
+    </div>
+  </main>
+</div>

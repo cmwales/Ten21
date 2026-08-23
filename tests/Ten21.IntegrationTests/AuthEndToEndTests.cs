@@ -96,8 +96,9 @@ public class AuthEndToEndTests : IAsyncLifetime
     /// <summary>
     /// DevSeeder is retired as of US-14 -- POST /api/auth/register (dogfooded here, not a
     /// direct DB insert) is now the real way any test in this class gets a usable account.
+    /// Returns the response so callers can pull the AuthResponse straight out of it.
     /// </summary>
-    private async Task RegisterTestUserAsync()
+    private async Task<HttpResponseMessage> RegisterTestUserAsync()
     {
         var response = await _client.PostAsJsonAsync("/api/auth/register", new
         {
@@ -114,6 +115,7 @@ public class AuthEndToEndTests : IAsyncLifetime
         });
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        return response;
     }
 
     private const string TestEmail = "integration-test@ten21.io";
@@ -127,18 +129,16 @@ public class AuthEndToEndTests : IAsyncLifetime
     }
 
     [Fact]
-    public async Task Login_Refresh_Revoke_ThenRefreshFails()
+    public async Task Register_Refresh_Revoke_ThenRefreshFails()
     {
-        await RegisterTestUserAsync();
-
-        var loginResponse = await _client.PostAsJsonAsync("/api/auth/login", new
-        {
-            email = TestEmail,
-            password = TestPassword,
-        });
-
-        Assert.Equal(HttpStatusCode.OK, loginResponse.StatusCode);
-        var loginAccessToken = await ExtractAccessTokenAsync(loginResponse);
+        // Uses register's own issued tokens rather than a separate /api/auth/login call --
+        // both go through the identical IssueTokensAsync/BuildAuthResponseAsync code path,
+        // and a self-registered account is always PropertyManager (US-14), one of US-17's
+        // mandatory-2FA roles, so a plain password login here would return
+        // TwoFactorRequiredResponse instead of a token to refresh/revoke. See
+        // TwoFactorEndToEndTests for the dedicated proof of that gate.
+        var registerResponse = await RegisterTestUserAsync();
+        var loginAccessToken = await ExtractAccessTokenAsync(registerResponse);
         Assert.False(string.IsNullOrEmpty(loginAccessToken));
 
         var refreshResponse = await _client.PostAsync("/api/auth/refresh-token", content: null);

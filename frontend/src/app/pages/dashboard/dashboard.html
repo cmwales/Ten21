@@ -10,6 +10,9 @@
           {{ 'nav.ledger' | translate }}
         </a>
       }
+      <a routerLink="/security" class="tap-target flex items-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald">
+        {{ 'nav.security' | translate }}
+      </a>
       <button
         type="button"
         (click)="logout()"
