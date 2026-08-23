@@ -1,7 +1,7 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { Router } from '@angular/router';
+import { Router, RouterLink } from '@angular/router';
 import { TranslatePipe } from '@ngx-translate/core';
 import { AuthService } from '../../core/services/auth.service';
 import { ProblemDetails } from '../../core/models/auth.models';
@@ -9,7 +9,7 @@ import { LanguageSelector } from '../../shared/language-selector/language-select
 
 @Component({
   selector: 'app-login',
-  imports: [ReactiveFormsModule, TranslatePipe, LanguageSelector],
+  imports: [ReactiveFormsModule, RouterLink, TranslatePipe, LanguageSelector],
   templateUrl: './login.html',
 })
 export class Login {

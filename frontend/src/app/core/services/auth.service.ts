@@ -1,7 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { Injectable, computed, inject, signal } from '@angular/core';
 import { Observable, catchError, map, of, tap } from 'rxjs';
-import { ApiResponse, AuthResponse, LoginRequest } from '../models/auth.models';
+import { ApiResponse, AuthResponse, LoginRequest, RegisterRequest } from '../models/auth.models';
 
 const SESSION_STORAGE_KEY = 'ten21_auth_session';
 
@@ -33,6 +33,18 @@ export class AuthService {
   login(request: LoginRequest): Observable<AuthResponse> {
     return this.http
       .post<ApiResponse<AuthResponse>>('/api/auth/login', request, { withCredentials: true })
+      .pipe(
+        map((response) => response.data!),
+        tap((session) => this.setSession(session)),
+      );
+  }
+
+  /** US-14: workspace registration. Instant provisioning -- succeeds with the same
+   * full-session shape as login(), no separate confirmation step required to start using
+   * the product. */
+  register(request: RegisterRequest): Observable<AuthResponse> {
+    return this.http
+      .post<ApiResponse<AuthResponse>>('/api/auth/register', request, { withCredentials: true })
       .pipe(
         map((response) => response.data!),
         tap((session) => this.setSession(session)),

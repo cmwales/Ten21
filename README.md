@@ -240,8 +240,9 @@ All 9 Phase 0 user stories are now written. What's still genuinely open:
   available locally — see that file's header.
 - **No real Postgres integration test.** `Ten21.IntegrationTests` is still scaffolded but
   empty — see its README.
-- **No user registration/onboarding endpoint.** `DevSeeder` remains the Development-only
-  stopgap. Real self-service signup is Phase 5.
+- ~~No user registration/onboarding endpoint.~~ **Done as of Phase 5 / US-14** —
+  `POST /api/auth/register` now provisions a real account + workspace; `DevSeeder` has been
+  deleted. See `docs/User_Stories_Phase_5.md`.
 - **Permission catalog stays intentionally minimal.** Grows feature-by-feature through
   Phase 2, per FEATURES.docx §1.
 
@@ -311,19 +312,25 @@ This is deliberately never enabled outside Development — see the comment in `P
 for why auto-migrating (and auto-seeding) in production is a real footgun the moment you
 run more than one instance.
 
-**Try the login flow** once the app is running:
+**Try the registration + login flow** once the app is running. `DevSeeder` is retired as of
+US-14 (`docs/User_Stories_Phase_5.md`) — `POST /api/auth/register` is now the real way to
+get a usable account on a fresh database, no seeded test user required:
 
 ```bash
+curl -i http://localhost:5080/api/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{"firstName":"Dev","lastName":"User","email":"dev@ten21.io","password":"Dev-Only-Passw0rd!1","phoneNumber":null,"address":null,"workspaceName":"Dev Test HOA","portfolioSize":1,"agreedToTerms":true}'
+
 curl -i http://localhost:5080/api/auth/login \
   -H "Content-Type: application/json" \
   -d '{"email":"dev@ten21.io","password":"Dev-Only-Passw0rd!1"}'
 ```
 
-(Test credentials are `DevSeeder`'s constants — see "What US-02 delivers" above. The
-default `launchSettings.json` profile is plain HTTP on `localhost:5080`, which is why the
-refresh-token cookie's `Secure` flag is relaxed in Development — see the comment in
-`AuthController.SetRefreshTokenCookie`.) You should get back a JSON body with an
-`accessToken` and a `ten21_refresh_token` cookie in the response headers.
+(The default `launchSettings.json` profile is plain HTTP on `localhost:5080`, which is why
+the refresh-token cookie's `Secure` flag is relaxed in Development — see the comment in
+`RefreshTokenCookie.Set`.) Both calls return a JSON body with an `accessToken` and a
+`ten21_refresh_token` cookie in the response headers — registration already logs you in, so
+the follow-up `/login` call above is only there to prove the account persisted.
 
 ## Getting this into GitLab
 

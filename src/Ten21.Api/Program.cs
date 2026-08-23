@@ -7,7 +7,6 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
 using Ten21.Api.ExceptionHandling;
 using Ten21.Api.Filters;
-using Ten21.Application.Abstractions;
 using Ten21.Infrastructure;
 using Ten21.Infrastructure.Authorization;
 using Ten21.Infrastructure.Identity;
@@ -137,12 +136,10 @@ if (app.Environment.IsDevelopment())
     // the same call, and EF's migration history table keeps it from re-running on every
     // restart.
 
+    // DevSeeder retired as of US-14: POST /api/auth/register is now the real, self-service
+    // way to get a usable account on a fresh database -- see User_Stories_Phase_5.md.
     var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<ApplicationRole>>();
     await RoleSeeder.SeedAsync(roleManager);
-
-    var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
-    var tenantContext = scope.ServiceProvider.GetRequiredService<ITenantContext>();
-    await DevSeeder.SeedAsync(db, userManager, roleManager, tenantContext);
 }
 
 // TenantMiddleware reads claims off HttpContext.User, which UseAuthentication() populates

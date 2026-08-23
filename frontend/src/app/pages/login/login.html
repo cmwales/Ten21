@@ -102,6 +102,13 @@
           }
           {{ (submitting() ? 'auth.login.submitting' : 'auth.login.submit') | translate }}
         </button>
+
+        <p class="text-center text-sm text-slate-navy-light">
+          {{ 'auth.login.noAccount' | translate }}
+          <a routerLink="/register" class="font-medium text-emerald focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald">
+            {{ 'auth.login.signUp' | translate }}
+          </a>
+        </p>
       </form>
     </div>
   </main>

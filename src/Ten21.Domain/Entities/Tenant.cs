@@ -19,5 +19,12 @@ public class Tenant
     /// </summary>
     public Guid? OrganizationId { get; set; }
 
+    /// <summary>
+    /// Unit count captured at self-service registration (US-14). Onboarding metadata today
+    /// (segmentation, future billing-tier bucketing per Phase 1) -- not yet load-bearing for
+    /// any business rule.
+    /// </summary>
+    public int PortfolioSize { get; set; }
+
     public DateTimeOffset CreatedAt { get; set; }
 }

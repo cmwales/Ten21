@@ -102,10 +102,16 @@ public class OrganizationController : ControllerBase
     {
         var userId = GetCurrentUserId();
 
-        var membership = await _dbContext.TenantMemberships
+        // A list, not SingleOrDefaultAsync: a user can hold more than one role in the SAME
+        // target tenant (SECURITY.docx's multi-role support; as of US-14 every self-service
+        // registrant is both PropertyManager and PropertyOwner on their own workspace).
+        // Prefer whichever membership is IsPrimary, same tie-break Login/RefreshToken use.
+        var memberships = await _dbContext.TenantMemberships
             .IgnoreQueryFilters() // same reasoning as GetTenants above
-            .SingleOrDefaultAsync(
-                tm => tm.UserId == userId && tm.TenantId == request.TenantId, cancellationToken);
+            .Where(tm => tm.UserId == userId && tm.TenantId == request.TenantId)
+            .ToListAsync(cancellationToken);
+
+        var membership = memberships.FirstOrDefault(m => m.IsPrimary) ?? memberships.FirstOrDefault();
 
         if (membership is null)
         {
