@@ -19,8 +19,6 @@ export class VerifyTwoFactor {
   private readonly authService = inject(AuthService);
   private readonly router = inject(Router);
 
-  protected readonly challenge = this.authService.twoFactorChallenge;
-
   protected readonly form = this.fb.nonNullable.group({
     code: ['', [Validators.required, Validators.pattern(/^\d{6}$/)]],
   });

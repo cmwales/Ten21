@@ -52,17 +52,12 @@ public record ResetPasswordRequest(Guid UserId, string Token, string NewPassword
 public record GenericAcknowledgementResponse(string Message);
 
 /// <summary>US-17: returned instead of AuthResponse when Login's password check succeeds
-/// but a 6-digit (or authenticator) code is still required. Method is the Identity token
-/// provider name ("Email" or "Authenticator") the client should prompt for.</summary>
-public record TwoFactorRequiredResponse(
-    bool RequiresTwoFactor, string Method, string ChallengeToken, DateTimeOffset ExpiresAtUtc);
+/// but a 6-digit emailed code is still required (email-only -- TOTP/authenticator-app
+/// support was built and then deliberately removed per Founder decision).</summary>
+public record TwoFactorRequiredResponse(bool RequiresTwoFactor, string ChallengeToken, DateTimeOffset ExpiresAtUtc);
 
 /// <summary>US-17: submitted against a TwoFactorPending challenge token.</summary>
 public record VerifyTwoFactorRequest(string Code);
-
-/// <summary>US-17: the shared TOTP key + otpauth:// URI (for a QR code) returned by
-/// POST /api/auth/2fa/totp/setup, to be confirmed via POST /api/auth/2fa/totp/enable.</summary>
-public record TotpSetupResponse(string SharedKey, string OtpAuthUri);
 
 /// <summary>
 /// The refresh token deliberately never appears here -- it only ever travels as an

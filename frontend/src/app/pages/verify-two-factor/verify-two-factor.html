@@ -7,14 +7,7 @@
   <main class="flex flex-1 items-center justify-center px-4 pb-12">
     <div class="w-full max-w-md rounded-xl bg-surface-card p-6 shadow-xl sm:p-8">
       <h1 class="text-2xl font-bold text-slate-navy">{{ 'auth.verifyTwoFactor.title' | translate }}</h1>
-      <p class="mt-1 text-sm text-slate-navy-light">
-        {{
-          (challenge()?.method === 'Authenticator'
-            ? 'auth.verifyTwoFactor.subtitleAuthenticator'
-            : 'auth.verifyTwoFactor.subtitleEmail'
-          ) | translate
-        }}
-      </p>
+      <p class="mt-1 text-sm text-slate-navy-light">{{ 'auth.verifyTwoFactor.subtitle' | translate }}</p>
 
       @if (errorKey()) {
         <div

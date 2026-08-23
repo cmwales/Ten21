@@ -5,7 +5,7 @@
 - Core Framework: Built on standard ASP.NET Core Identity (`Microsoft.AspNetCore.Identity`) utilizing native secure password hashing (PBKDF2 / Argon2).
 - Token Model: Web API issues stateless JWT Access Tokens and secure HTTP-Only Refresh Tokens containing `tenant_id`, `user_id`, and `role` claims.
 - Multi-Factor Authentication (MFA) Policy:
-  - Mandatory MFA: Enforced for SuperAdmins, Board Members, and Property Managers via TOTP Authenticator apps (Google / Microsoft Authenticator).
+  - Mandatory MFA: Enforced for SuperAdmins, Board Members, and Property Managers via a 6-digit code emailed at sign-in (Identity's built-in email token provider). No authenticator-app (TOTP) option — see `User_Stories_Phase_5.md` US-17 for why.
   - Optional / Adaptive MFA: Optional for Residents by default; triggered automatically on high-risk actions (modifying bank/payment details, updating primary email/password, or logging in from unrecognized devices).
 - Account Lockout & Rate Limiting:
   - Account Lockout: Configured via `IdentityOptions` (5 consecutive failed login attempts locks the account for a 15-minute window).

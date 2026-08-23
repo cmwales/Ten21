@@ -9,7 +9,6 @@ import {
   LoginRequest,
   ProfileCompletionRequiredResponse,
   RegisterRequest,
-  TotpSetupResponse,
   TwoFactorRequiredResponse,
 } from '../models/auth.models';
 
@@ -40,8 +39,7 @@ export class AuthService {
   /** US-17: holds the pending 2FA challenge between login() returning
    * TwoFactorRequiredResponse and the VerifyTwoFactor page submitting a code -- same
    * memory-only, single-purpose reasoning as _interimToken above. Kept as its own signal
-   * (not folded into _interimToken) since the challenge carries `method`, which the UI
-   * needs to know which prompt to show. */
+   * (not folded into _interimToken) purely to keep the two flows' state distinct. */
   private readonly _twoFactorChallenge = signal<TwoFactorRequiredResponse | null>(null);
   readonly twoFactorChallenge = this._twoFactorChallenge.asReadonly();
 
@@ -56,8 +54,8 @@ export class AuthService {
   readonly accessToken = computed(() => this._session()?.accessToken ?? null);
 
   /** US-17: returns either a full AuthResponse (session set immediately, as before) or a
-   * TwoFactorRequiredResponse (mandatory-role account, or TOTP opted in -- the challenge
-   * is stashed for VerifyTwoFactor to use next; no session is set yet). */
+   * TwoFactorRequiredResponse (mandatory-role account -- the challenge is stashed for
+   * VerifyTwoFactor to use next; no session is set yet). */
   login(request: LoginRequest): Observable<AuthResponse | TwoFactorRequiredResponse> {
     return this.http
       .post<ApiResponse<AuthResponse | TwoFactorRequiredResponse>>('/api/auth/login', request, {
@@ -97,27 +95,6 @@ export class AuthService {
           this.setSession(session);
         }),
       );
-  }
-
-  /** US-17: begins/resumes TOTP enrollment for the current (full-session) account. */
-  setupTotp(): Observable<TotpSetupResponse> {
-    return this.http
-      .post<ApiResponse<TotpSetupResponse>>('/api/auth/2fa/totp/setup', {})
-      .pipe(map((response) => response.data!));
-  }
-
-  /** US-17: confirms TOTP setup with a code from the app and turns it on. */
-  enableTotp(code: string): Observable<GenericAcknowledgementResponse> {
-    return this.http
-      .post<ApiResponse<GenericAcknowledgementResponse>>('/api/auth/2fa/totp/enable', { code })
-      .pipe(map((response) => response.data!));
-  }
-
-  /** US-17: turns TOTP off (mandatory-role accounts still get email OTP regardless). */
-  disableTotp(): Observable<GenericAcknowledgementResponse> {
-    return this.http
-      .post<ApiResponse<GenericAcknowledgementResponse>>('/api/auth/2fa/totp/disable', {})
-      .pipe(map((response) => response.data!));
   }
 
   /** US-14: workspace registration. Instant provisioning -- succeeds with the same

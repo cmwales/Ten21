@@ -11,7 +11,7 @@
 ## 2. Identity, Security & Access Control
 
 - ASP.NET Core Identity & JWT Pipeline: Stateless authentication issuing access tokens and HTTP-Only refresh tokens carrying tenant and role claims.
-- Role-Based Multi-Factor Authentication (MFA): Mandatory TOTP enrollment for administrative roles and adaptive MFA prompts for sensitive account changes.
+- Role-Based Multi-Factor Authentication (MFA): Mandatory email one-time-code verification for administrative roles and adaptive MFA prompts for sensitive account changes.
 - Brute-Force Lockout & Rate Throttling: 5-strike failed login lockout (15-minute freeze) paired with sliding-window IP rate limiting on authentication endpoints.
 - 9-Tier Additive Claims RBAC: Fine-grained permission matrix mapping 9 system roles (SuperAdmin, Property Manager, Board Member, Property Owner, Tenant, Vendor, Committee Member, On-Site Staff, Accountant) to additive claim bundles.
 - Hardened Owner vs. Tenant Isolation: Policy-layer authorization handlers strictly blocking non-owner renters (`Tenant`) from accessing financial ledgers, legal notices, or owner voting workflows.

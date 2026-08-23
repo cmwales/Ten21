@@ -63,7 +63,7 @@ those sections mostly read "N/A (anonymous/public endpoint)" by design, not omis
 | **US-14** | Workspace Registration & Onboarding | As a Property Manager or Landlord, I want to sign up by providing my full name, email, phone number, address, workspace identity, and portfolio size, so that my account and primary workspace are provisioned. | `POST /api/auth/register` validates a unique email, records `AgreedToTermsAt`, creates the `ApplicationUser` + a new `Tenant`, seeds a root `TenantMembership` (`IsPrimary = true`) with both `PropertyManager` and `PropertyOwner` role claims, and returns a full `AuthResponse` immediately. |
 | **US-15** | Google OAuth & Post-Login Profile Completion | As a User, I want to authenticate using Google Sign-On, so that I can access my workspace without creating a manual password. | `POST /api/auth/google` verifies the Google ID token server-side, auto-links to an existing `ApplicationUser` by email via Identity's external-login store, and — for a brand-new Google signup with no workspace yet — issues an interim token and routes the client to "Complete Your Profile" (phone, address, workspace title, portfolio size) before any tenant-scoped JWT is issued. |
 | **US-16** | Email Activation & Self-Service Password Recovery | As a User, I want to receive an email confirmation link and access password reset tools, so that my account identity is verified and recoverable. | Dispatches a tokenized, 24-hour-expiring confirmation link via `IEmailSender`; `POST /api/auth/resend-activation` and the full forgot/reset-password pipeline (`POST /api/auth/forgot-password`, `POST /api/auth/reset-password`) round out the flow, both enumeration-safe (generic response regardless of whether the email exists). |
-| **US-17** | Email 6-Digit OTP Dual Authentication (2FA) | As a Security Lead, I want email 6-digit OTP verification for administrative logins, so that account security is enforced without SMS gateway costs or authenticator app lockouts. | Login for `SuperAdmin`/`PropertyManager`/`BoardMember` (SECURITY.md §1's mandatory-MFA roles) or any user with 2FA enabled pauses after password verification, emails a 6-digit code (Identity's built-in `Email` token provider), and requires `POST /api/auth/login/verify-2fa` before a full JWT is issued. Optional TOTP authenticator-app enrollment (`/api/auth/2fa/totp/*`) is available to any user regardless of role. |
+| **US-17** | Email 6-Digit OTP Dual Authentication (2FA) | As a Security Lead, I want email 6-digit OTP verification for administrative logins, so that account security is enforced without SMS gateway costs or authenticator app lockouts. | Login for `SuperAdmin`/`PropertyManager`/`BoardMember` (SECURITY.md §1's mandatory-MFA roles) pauses after password verification, emails a 6-digit code (Identity's built-in `Email` token provider), and requires `POST /api/auth/login/verify-2fa` before a full JWT is issued. Email-only — a TOTP/authenticator-app option was built, then deliberately removed; see the detailed section below before touching 2FA code. |
 | **US-18** | Bot Defense & Registration Rate Limiting | As a CISO, I want bot verification and IP rate limiting on sign-up endpoints, so that automated account creation spam and email flooding are blocked. | `POST /api/auth/register` requires a valid Cloudflare Turnstile token, verified server-side against Cloudflare's `siteverify` endpoint before any account is created. The existing US-05 sliding-window limiter (5 req/min/IP on `/api/auth/*`) already covers every endpoint this phase adds, since they all live under that same policy. |
 
 ## 3. Detailed User Stories & Implementation Guidance
@@ -185,9 +185,8 @@ authenticator app lockouts.
 
 - **Primary Role:** SuperAdmin, PropertyManager, BoardMember (SECURITY.md §1's mandatory-MFA
   roles) — 2FA is required at login for these roles regardless of individual preference.
-- **Authorized Secondary Roles:** Any role, opt-in — `TwoFactorEnabled` can be turned on by
-  any user for their own account (SECURITY.md §1's "optional/adaptive MFA... for Residents
-  by default").
+- **Authorized Secondary Roles:** N/A — email-only, no per-user opt-in mechanism exists (see
+  below).
 - **Prohibited Roles:** N/A.
 - **Required Permission Claims:** N/A — this gates *login itself*, before any permission
   claim would apply.
@@ -195,40 +194,33 @@ authenticator app lockouts.
 **Acceptance Criteria:**
 
 - After password verification, if the caller's primary role is one of the mandatory-MFA
-  roles, or the account has `TwoFactorEnabled = true` (which, per `MandatoryTwoFactorRoles`'s
-  class comment, only ever becomes true via a completed TOTP enrollment — never toggled by
-  the mandatory-role check itself), login does **not** yet return an `AuthResponse`. It picks
-  a provider — `Authenticator` if `TwoFactorEnabled`, else `Email` — generates the code
-  (email only: `UserManager.GenerateTwoFactorTokenAsync(user, provider)`; a real
-  authenticator code is never emailed, the user reads it from their own app), and returns
-  `TwoFactorRequiredResponse { requiresTwoFactor: true, method, challengeToken, expiresAtUtc }`.
-  The challenge token (`IJwtTokenService.GenerateTwoFactorChallengeToken`) carries the chosen
-  provider as an extra claim, so `verify-2fa` checks the code against that SPECIFIC provider
-  — an email code can't be replayed as an authenticator code or vice versa.
+  roles, login does **not** yet return an `AuthResponse`. It generates a 6-digit code
+  (`UserManager.GenerateTwoFactorTokenAsync(user, TokenOptions.DefaultEmailProvider)`),
+  emails it, and returns `TwoFactorRequiredResponse { requiresTwoFactor: true,
+  challengeToken, expiresAtUtc }` (an interim, tenant-less token — reuses
+  `IJwtTokenService.GenerateInterimAccessToken`, the same mechanism US-15's
+  profile-incomplete flow uses, just with `TokenPurposes.TwoFactorPending`).
 - `POST /api/auth/login/verify-2fa` (`challengeToken` as bearer + `code` in body) verifies
-  via `UserManager.VerifyTwoFactorTokenAsync` and, on success, issues the normal full
-  `AuthResponse` via the same `IssueTokensAsync` path as a direct login.
-- `POST /api/auth/2fa/totp/setup`, `/enable`, `/disable` let any user optionally enroll an
-  authenticator app instead of email OTP (Identity's built-in `Authenticator` token
-  provider — no third-party TOTP library needed). All three call a new `EnsureFullSession()`
-  guard rejecting any token carrying a `purpose` claim (profile-incomplete OR 2fa-pending) —
-  added after this story's own integration tests surfaced that without it, a caller holding
-  only a password-derived 2fa-pending challenge token (i.e. who has NOT yet proven the
-  second factor) could call `disable` and strip 2FA outright. `GetCurrentUserAsync` alone
-  doesn't catch this since both token kinds carry the same `user_id` claim it reads.
-- **A real gotcha worth flagging for anyone testing this by hand**:
-  `UserManager.GenerateTwoFactorTokenAsync(user, TokenOptions.DefaultAuthenticatorProvider)`
-  always returns `""` — `AuthenticatorTokenProvider.GenerateAsync` is a deliberate no-op
-  (displaying a TOTP code server-side isn't meaningful; only the app shows it), confirmed by
-  direct probe. `TotpEndToEndTests` computes real RFC 6238 codes by hand (HMAC-SHA1, 30s
-  step, 6 digits) against the real shared key instead, the same way a physical authenticator
-  app would.
+  via `UserManager.VerifyTwoFactorTokenAsync(user, TokenOptions.DefaultEmailProvider, code)`
+  and, on success, issues the normal full `AuthResponse` via the same `IssueTokensAsync`
+  path as a direct login.
+- **Email-only, by deliberate later correction — read this before touching 2FA code.**
+  TOTP/authenticator-app support (`POST /api/auth/2fa/totp/setup`/`/enable`/`/disable`,
+  Identity's built-in `Authenticator` token provider, a `/security` settings page, an
+  `EnsureFullSession()` guard, a `Method`/provider-claim distinction on the challenge token)
+  was built as part of this story's first pass, then **removed entirely** once built and
+  demoed — the Founder's call was email-only, full stop, no authenticator-app option at all.
+  `ApplicationUser.TwoFactorEnabled` is consequently dead weight now: nothing in this
+  codebase ever sets it to `true`, so `MandatoryTwoFactorRoles` membership is the *only*
+  thing that ever triggers a 2FA challenge. If TOTP is ever revisited, start from this
+  story's git history (the commit that ADDED the TOTP endpoints, before the follow-up commit
+  that removed them) rather than reinventing the RFC 6238 test-code-generation approach
+  from scratch — that part (hand-computed HMAC-SHA1 codes, since
+  `UserManager.GenerateTwoFactorTokenAsync(user, "Authenticator")` always returns `""`) was
+  real, hard-won debugging and is worth not repeating blind.
 - Frontend: an OTP-entry step (`/verify-2fa`) shown whenever login responds with
-  `requiresTwoFactor`, and a `/security` settings page for TOTP enrollment (setup key +
-  confirm code, plus a disable action). That page doesn't display live "is TOTP currently
-  enabled" status — no `GET` status endpoint exists yet — it just offers both actions
-  honestly rather than showing a state it can't back up; a real status query is a reasonable
-  follow-up, not built here.
+  `requiresTwoFactor`. No account-settings page exists for 2FA — there is nothing for a user
+  to configure.
 
 ### US-18: Bot Defense & Registration Rate Limiting
 
