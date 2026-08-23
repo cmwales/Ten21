@@ -35,10 +35,20 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
     return next(req);
   }
 
+  // verifyTwoFactor() and completeProfile() (AuthService) deliberately set their OWN
+  // Authorization header on the request they build -- a short-lived interim/challenge
+  // token, not the stored full session. req.clone({ setHeaders }) OVERWRITES an existing
+  // header of the same name, so blindly setting the CURRENT session's access token here
+  // would clobber that on-purpose header whenever a stale (possibly long-expired, since
+  // accessToken() doesn't check expiry) session happens to already be sitting in
+  // localStorage -- exactly the case for any browser that has ever completed a login
+  // before. The server would then validate the wrong token entirely (no 2fa_pending/
+  // profile_incomplete purpose claim), rejecting a genuinely correct, unexpired code.
+  const callerSetItsOwnAuthHeader = req.headers.has('Authorization');
   const token = authService.accessToken();
   const authReq = req.clone({
     withCredentials: true,
-    setHeaders: token ? { Authorization: `Bearer ${token}` } : {},
+    setHeaders: !callerSetItsOwnAuthHeader && token ? { Authorization: `Bearer ${token}` } : {},
   });
 
   if (req.url.includes(LOGIN_URL)) {
