@@ -21,7 +21,32 @@
       "genericError": "Invalid email or password.",
       "lockedOutError": "Your account is temporarily locked after too many failed attempts. Please try again in 15 minutes.",
       "rateLimitedError": "Too many attempts. Please wait a moment and try again.",
-      "networkError": "Something went wrong. Please try again."
+      "networkError": "Something went wrong. Please try again.",
+      "noAccount": "Don't have an account?",
+      "signUp": "Sign up"
+    },
+    "register": {
+      "title": "Create your workspace",
+      "subtitle": "Set up your Ten21 account and property workspace in a couple of minutes.",
+      "firstNameLabel": "First name",
+      "lastNameLabel": "Last name",
+      "emailLabel": "Email address",
+      "passwordLabel": "Password",
+      "passwordHint": "At least 6 characters, including a mix of letters, a number, and a symbol.",
+      "phoneLabel": "Phone number (optional)",
+      "addressLabel": "Mailing address (optional)",
+      "workspaceNameLabel": "Workspace name",
+      "workspaceNamePlaceholder": "e.g. Riverside Properties",
+      "portfolioSizeLabel": "Number of units you manage",
+      "agreeToTerms": "I agree to the Terms of Service and Privacy Policy.",
+      "submit": "Create workspace",
+      "submitting": "Creating your workspace…",
+      "emailTakenError": "An account with this email already exists.",
+      "validationError": "Please check the highlighted fields and try again.",
+      "rateLimitedError": "Too many attempts. Please wait a moment and try again.",
+      "networkError": "Something went wrong. Please try again.",
+      "haveAccount": "Already have an account?",
+      "signIn": "Sign in"
     }
   },
   "nav": {

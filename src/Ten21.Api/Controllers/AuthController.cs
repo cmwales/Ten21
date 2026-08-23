@@ -7,6 +7,7 @@ using Microsoft.EntityFrameworkCore;
 using Ten21.Api.Auth;
 using Ten21.Api.Contracts.Auth;
 using Ten21.Application.Abstractions;
+using Ten21.Domain.Common;
 using Ten21.Domain.Entities;
 using Ten21.Domain.Exceptions;
 using Ten21.Infrastructure.Authorization;
@@ -43,6 +44,7 @@ public class AuthController : ControllerBase
     private readonly Ten21DbContext _dbContext;
     private readonly IJwtTokenService _jwtTokenService;
     private readonly IRefreshTokenService _refreshTokenService;
+    private readonly ITenantContext _tenantContext;
     private readonly IWebHostEnvironment _environment;
 
     public AuthController(
@@ -51,6 +53,7 @@ public class AuthController : ControllerBase
         Ten21DbContext dbContext,
         IJwtTokenService jwtTokenService,
         IRefreshTokenService refreshTokenService,
+        ITenantContext tenantContext,
         IWebHostEnvironment environment)
     {
         _userManager = userManager;
@@ -58,7 +61,108 @@ public class AuthController : ControllerBase
         _dbContext = dbContext;
         _jwtTokenService = jwtTokenService;
         _refreshTokenService = refreshTokenService;
+        _tenantContext = tenantContext;
         _environment = environment;
+    }
+
+    /// <summary>
+    /// US-14: Workspace Registration & Onboarding. Creates the ApplicationUser, a brand-new
+    /// Tenant (the "workspace"), and a root TenantMembership with BOTH PropertyManager and
+    /// PropertyOwner claims -- a self-service landlord is both the operator and the deed
+    /// owner of their own portfolio (see User_Stories_Phase_5.md for the full reasoning).
+    /// Issues a full AuthResponse immediately (instant provisioning, no separate
+    /// "now go log in" step) -- email confirmation (US-16) is a status flag layered on top
+    /// later, never a login gate.
+    /// </summary>
+    [HttpPost("register")]
+    [AllowAnonymous]
+    public async Task<IActionResult> Register([FromBody] RegisterRequest request, CancellationToken cancellationToken)
+    {
+        if (!request.AgreedToTerms)
+        {
+            throw new ValidationException(new Dictionary<string, string[]>
+            {
+                [nameof(request.AgreedToTerms)] = ["You must agree to the Terms of Service to register."],
+            });
+        }
+
+        if (await _userManager.FindByEmailAsync(request.Email) is not null)
+        {
+            throw new ValidationException(new Dictionary<string, string[]>
+            {
+                [nameof(request.Email)] = ["An account with this email already exists."],
+            });
+        }
+
+        var user = new ApplicationUser
+        {
+            Id = Guid.NewGuid(),
+            UserName = request.Email,
+            Email = request.Email,
+            PhoneNumber = request.PhoneNumber,
+            Address = request.Address,
+            FirstName = request.FirstName,
+            LastName = request.LastName,
+            IsActive = true,
+            EmailConfirmed = false,
+            AgreedToTermsAt = DateTimeOffset.UtcNow,
+            CreatedAt = DateTimeOffset.UtcNow,
+        };
+
+        var createResult = await _userManager.CreateAsync(user, request.Password);
+        if (!createResult.Succeeded)
+        {
+            throw new ValidationException(new Dictionary<string, string[]>
+            {
+                [nameof(request.Password)] = createResult.Errors.Select(e => e.Description).ToArray(),
+            });
+        }
+
+        var tenant = new Tenant
+        {
+            Id = Guid.NewGuid(),
+            Name = request.WorkspaceName,
+            PortfolioSize = request.PortfolioSize,
+            OrganizationId = null,
+            CreatedAt = DateTimeOffset.UtcNow,
+        };
+        // Tenant is not ITenantScopedEntity (it sits above the tenant boundary) -- no active
+        // tenant context is needed for its own insert.
+        _dbContext.Tenants.Add(tenant);
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        var propertyManagerRole = await _roleManager.FindByNameAsync(RoleNames.PropertyManager)
+            ?? throw new InvalidOperationException("PropertyManager role not seeded -- has RoleSeeder run?");
+        var propertyOwnerRole = await _roleManager.FindByNameAsync(RoleNames.PropertyOwner)
+            ?? throw new InvalidOperationException("PropertyOwner role not seeded -- has RoleSeeder run?");
+
+        // TenantMembership IS ITenantScopedEntity -- the fail-closed insert guard (US-01)
+        // requires an active tenant context before either row below can be added.
+        _tenantContext.SetTenant(tenant.Id);
+
+        var propertyManagerMembership = new TenantMembership
+        {
+            Id = Guid.NewGuid(),
+            TenantId = tenant.Id,
+            UserId = user.Id,
+            RoleId = propertyManagerRole.Id,
+            IsPrimary = true,
+            CreatedAt = DateTimeOffset.UtcNow,
+        };
+        _dbContext.TenantMemberships.Add(propertyManagerMembership);
+        _dbContext.TenantMemberships.Add(new TenantMembership
+        {
+            Id = Guid.NewGuid(),
+            TenantId = tenant.Id,
+            UserId = user.Id,
+            RoleId = propertyOwnerRole.Id,
+            IsPrimary = false,
+            CreatedAt = DateTimeOffset.UtcNow,
+        });
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        var response = await IssueTokensAsync(user.Id, propertyManagerMembership, cancellationToken);
+        return Ok(response);
     }
 
     [HttpPost("login")]
@@ -123,11 +227,19 @@ public class AuthController : ControllerBase
         // IgnoreQueryFilters is required and deliberate: no ITenantContext is resolved for
         // this request (there's no valid access token yet -- that's the entire point of
         // refresh), so the fail-closed filter from US-01 would otherwise return zero rows.
-        var membership = await _dbContext.TenantMemberships
+        //
+        // A list, not SingleOrDefaultAsync: SECURITY.docx explicitly supports a user holding
+        // more than one role in the SAME tenant (e.g. an Owner who is also a Board Member;
+        // as of US-14, every self-service registrant is both PropertyManager and
+        // PropertyOwner on their own workspace). Prefer whichever membership is IsPrimary,
+        // same tie-break Login already uses, so a refreshed token keeps the same role the
+        // original login issued.
+        var memberships = await _dbContext.TenantMemberships
             .IgnoreQueryFilters()
-            .SingleOrDefaultAsync(
-                tm => tm.UserId == rotation.UserId && tm.TenantId == rotation.TenantId,
-                cancellationToken);
+            .Where(tm => tm.UserId == rotation.UserId && tm.TenantId == rotation.TenantId)
+            .ToListAsync(cancellationToken);
+
+        var membership = memberships.FirstOrDefault(m => m.IsPrimary) ?? memberships.FirstOrDefault();
 
         if (membership is null)
         {

@@ -19,4 +19,13 @@ public class ApplicationUser : IdentityUser<Guid>
     public required string LastName { get; set; }
     public bool IsActive { get; set; } = true;
     public DateTimeOffset CreatedAt { get; set; }
+
+    /// <summary>Freeform mailing address captured at registration (US-14). No structured
+    /// address schema exists yet in DATA_MODEL.md -- kept as a single field rather than
+    /// inventing one speculatively.</summary>
+    public string? Address { get; set; }
+
+    /// <summary>Set exactly once, at the moment of registration -- never inferred or
+    /// defaulted. Null for any account that predates US-14 (e.g. seeded directly).</summary>
+    public DateTimeOffset? AgreedToTermsAt { get; set; }
 }

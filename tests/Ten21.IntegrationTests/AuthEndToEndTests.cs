@@ -6,7 +6,6 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
-using Ten21.Application.Abstractions;
 using Ten21.Infrastructure.Identity;
 using Ten21.Infrastructure.Persistence;
 using Testcontainers.PostgreSql;
@@ -15,11 +14,12 @@ using Xunit;
 namespace Ten21.IntegrationTests;
 
 /// <summary>
-/// End-to-end proof of US-02's refresh-token lifecycle through the real HTTP pipeline: real
-/// Postgres (via Testcontainers), real ASP.NET Core Identity, real HTTP-only cookies. This is
-/// the one thing tests/Ten21.UnitTests/RefreshTokenServiceTests.cs can't exercise -- the
-/// actual AuthController actions wired to a real database end to end, including cookie
-/// round-tripping through an HttpClient the way a browser would.
+/// End-to-end proof of US-02's refresh-token lifecycle, plus US-14's registration/workspace
+/// provisioning, through the real HTTP pipeline: real Postgres (via Testcontainers), real
+/// ASP.NET Core Identity, real HTTP-only cookies. This is the one thing
+/// tests/Ten21.UnitTests can't exercise -- the actual AuthController actions wired to a
+/// real database end to end, including cookie round-tripping through an HttpClient the way
+/// a browser would.
 /// </summary>
 public class AuthEndToEndTests : IAsyncLifetime
 {
@@ -63,10 +63,10 @@ public class AuthEndToEndTests : IAsyncLifetime
             builder.UseEnvironment("Development");
         });
 
-        // Migrate + seed explicitly here rather than relying on Program.cs's own
+        // Migrate + seed roles explicitly here rather than relying on Program.cs's own
         // Development-gated bootstrap block to have run by the time .Services is touched --
-        // RoleSeeder/DevSeeder are both idempotent, so this is safe even if that block also
-        // ran (it may or may not, depending on WebApplicationFactory's host interception).
+        // RoleSeeder is idempotent, so this is safe even if that block also ran (it may or
+        // may not, depending on WebApplicationFactory's host interception).
         await using (var scope = _factory.Services.CreateAsyncScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<Ten21DbContext>();
@@ -74,10 +74,6 @@ public class AuthEndToEndTests : IAsyncLifetime
 
             var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<ApplicationRole>>();
             await RoleSeeder.SeedAsync(roleManager);
-
-            var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
-            var tenantContext = scope.ServiceProvider.GetRequiredService<ITenantContext>();
-            await DevSeeder.SeedAsync(db, userManager, roleManager, tenantContext);
         }
 
         // WebApplicationFactoryClientOptions.HandleCookies defaults to true, so the
@@ -85,6 +81,31 @@ public class AuthEndToEndTests : IAsyncLifetime
         // HttpClient on the /refresh-token and /revoke-token calls below, same as a browser.
         _client = _factory.CreateClient();
     }
+
+    /// <summary>
+    /// DevSeeder is retired as of US-14 -- POST /api/auth/register (dogfooded here, not a
+    /// direct DB insert) is now the real way any test in this class gets a usable account.
+    /// </summary>
+    private async Task RegisterTestUserAsync()
+    {
+        var response = await _client.PostAsJsonAsync("/api/auth/register", new
+        {
+            firstName = "Test",
+            lastName = "User",
+            email = TestEmail,
+            password = TestPassword,
+            phoneNumber = (string?)null,
+            address = (string?)null,
+            workspaceName = "Test Workspace",
+            portfolioSize = 3,
+            agreedToTerms = true,
+        });
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    private const string TestEmail = "integration-test@ten21.io";
+    private const string TestPassword = "Integration-Test-Passw0rd!1";
 
     public async Task DisposeAsync()
     {
@@ -96,10 +117,12 @@ public class AuthEndToEndTests : IAsyncLifetime
     [Fact]
     public async Task Login_Refresh_Revoke_ThenRefreshFails()
     {
+        await RegisterTestUserAsync();
+
         var loginResponse = await _client.PostAsJsonAsync("/api/auth/login", new
         {
-            email = DevSeeder.TestEmail,
-            password = DevSeeder.TestPassword,
+            email = TestEmail,
+            password = TestPassword,
         });
 
         Assert.Equal(HttpStatusCode.OK, loginResponse.StatusCode);
@@ -120,6 +143,73 @@ public class AuthEndToEndTests : IAsyncLifetime
         // revoke-token actually killed the live token rather than being a no-op.
         var refreshAfterRevoke = await _client.PostAsync("/api/auth/refresh-token", content: null);
         Assert.Equal(HttpStatusCode.Unauthorized, refreshAfterRevoke.StatusCode);
+    }
+
+    [Fact]
+    public async Task Register_ProvisionsWorkspaceAndReturnsPropertyManagerAsPrimaryRole()
+    {
+        var response = await _client.PostAsJsonAsync("/api/auth/register", new
+        {
+            firstName = "New",
+            lastName = "Landlord",
+            email = "new-landlord@ten21.io",
+            password = "Landlord-Passw0rd!1",
+            phoneNumber = "555-0100",
+            address = "123 Main St",
+            workspaceName = "New Landlord Properties",
+            portfolioSize = 5,
+            agreedToTerms = true,
+        });
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+
+        var json = await response.Content.ReadAsStringAsync();
+        using var document = JsonDocument.Parse(json);
+        var data = document.RootElement.GetProperty("data");
+
+        Assert.Equal("PropertyManager", data.GetProperty("role").GetString());
+        Assert.False(string.IsNullOrEmpty(data.GetProperty("accessToken").GetString()));
+        Assert.NotEqual(Guid.Empty, data.GetProperty("tenantId").GetGuid());
+    }
+
+    [Fact]
+    public async Task Register_DuplicateEmail_ReturnsValidationProblem()
+    {
+        await RegisterTestUserAsync();
+
+        var response = await _client.PostAsJsonAsync("/api/auth/register", new
+        {
+            firstName = "Duplicate",
+            lastName = "User",
+            email = TestEmail, // already registered above
+            password = "Another-Passw0rd!1",
+            phoneNumber = (string?)null,
+            address = (string?)null,
+            workspaceName = "Someone Else's Workspace",
+            portfolioSize = 1,
+            agreedToTerms = true,
+        });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+    }
+
+    [Fact]
+    public async Task Register_WithoutAgreeingToTerms_ReturnsValidationProblem()
+    {
+        var response = await _client.PostAsJsonAsync("/api/auth/register", new
+        {
+            firstName = "No",
+            lastName = "Consent",
+            email = "no-consent@ten21.io",
+            password = "No-Consent-Passw0rd!1",
+            phoneNumber = (string?)null,
+            address = (string?)null,
+            workspaceName = "Workspace",
+            portfolioSize = 1,
+            agreedToTerms = false,
+        });
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 
     private static async Task<string?> ExtractAccessTokenAsync(HttpResponseMessage response)

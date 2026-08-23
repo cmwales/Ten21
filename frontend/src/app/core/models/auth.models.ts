@@ -16,6 +16,19 @@ export interface LoginRequest {
   password: string;
 }
 
+/** Mirrors Ten21.Api.Contracts.Auth.RegisterRequest (US-14). */
+export interface RegisterRequest {
+  firstName: string;
+  lastName: string;
+  email: string;
+  password: string;
+  phoneNumber: string | null;
+  address: string | null;
+  workspaceName: string;
+  portfolioSize: number;
+  agreedToTerms: boolean;
+}
+
 /**
  * Mirrors Ten21.Api.Contracts.Auth.AuthResponse. The refresh token never appears here —
  * it only ever travels as the ten21_refresh_token HTTP-only cookie (SECURITY.md §2).

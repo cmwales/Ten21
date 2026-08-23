@@ -21,7 +21,32 @@
       "genericError": "Correo electrónico o contraseña incorrectos.",
       "lockedOutError": "Su cuenta está bloqueada temporalmente tras varios intentos fallidos. Inténtelo de nuevo en 15 minutos.",
       "rateLimitedError": "Demasiados intentos. Espere un momento y vuelva a intentarlo.",
-      "networkError": "Algo salió mal. Inténtelo de nuevo."
+      "networkError": "Algo salió mal. Inténtelo de nuevo.",
+      "noAccount": "¿No tiene una cuenta?",
+      "signUp": "Regístrese"
+    },
+    "register": {
+      "title": "Cree su espacio de trabajo",
+      "subtitle": "Configure su cuenta de Ten21 y el espacio de trabajo de su propiedad en pocos minutos.",
+      "firstNameLabel": "Nombre",
+      "lastNameLabel": "Apellido",
+      "emailLabel": "Correo electrónico",
+      "passwordLabel": "Contraseña",
+      "passwordHint": "Al menos 6 caracteres, incluyendo letras, un número y un símbolo.",
+      "phoneLabel": "Número de teléfono (opcional)",
+      "addressLabel": "Dirección postal (opcional)",
+      "workspaceNameLabel": "Nombre del espacio de trabajo",
+      "workspaceNamePlaceholder": "p. ej. Propiedades Riverside",
+      "portfolioSizeLabel": "Número de unidades que administra",
+      "agreeToTerms": "Acepto los Términos de Servicio y la Política de Privacidad.",
+      "submit": "Crear espacio de trabajo",
+      "submitting": "Creando su espacio de trabajo…",
+      "emailTakenError": "Ya existe una cuenta con este correo electrónico.",
+      "validationError": "Verifique los campos resaltados e inténtelo de nuevo.",
+      "rateLimitedError": "Demasiados intentos. Espere un momento y vuelva a intentarlo.",
+      "networkError": "Algo salió mal. Inténtelo de nuevo.",
+      "haveAccount": "¿Ya tiene una cuenta?",
+      "signIn": "Iniciar sesión"
     }
   },
   "nav": {

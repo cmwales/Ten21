@@ -21,6 +21,7 @@ public class ApplicationUserConfiguration : IEntityTypeConfiguration<Application
         builder.Property(u => u.FirstName).IsRequired().HasMaxLength(100);
         builder.Property(u => u.LastName).IsRequired().HasMaxLength(100);
         builder.Property(u => u.CreatedAt).IsRequired();
+        builder.Property(u => u.Address).HasMaxLength(300);
 
         builder.HasIndex(u => u.NormalizedEmail).IsUnique();
     }

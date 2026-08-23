@@ -21,7 +21,32 @@
       "genericError": "Courriel ou mot de passe invalide.",
       "lockedOutError": "Votre compte est temporairement verrouillé après plusieurs tentatives infructueuses. Réessayez dans 15 minutes.",
       "rateLimitedError": "Trop de tentatives. Veuillez patienter un moment avant de réessayer.",
-      "networkError": "Une erreur s'est produite. Veuillez réessayer."
+      "networkError": "Une erreur s'est produite. Veuillez réessayer.",
+      "noAccount": "Vous n'avez pas de compte?",
+      "signUp": "Inscrivez-vous"
+    },
+    "register": {
+      "title": "Créez votre espace de travail",
+      "subtitle": "Configurez votre compte Ten21 et l'espace de travail de votre propriété en quelques minutes.",
+      "firstNameLabel": "Prénom",
+      "lastNameLabel": "Nom de famille",
+      "emailLabel": "Adresse courriel",
+      "passwordLabel": "Mot de passe",
+      "passwordHint": "Au moins 6 caractères, incluant des lettres, un chiffre et un symbole.",
+      "phoneLabel": "Numéro de téléphone (facultatif)",
+      "addressLabel": "Adresse postale (facultatif)",
+      "workspaceNameLabel": "Nom de l'espace de travail",
+      "workspaceNamePlaceholder": "p. ex. Propriétés Riverside",
+      "portfolioSizeLabel": "Nombre d'unités que vous gérez",
+      "agreeToTerms": "J'accepte les Conditions d'utilisation et la Politique de confidentialité.",
+      "submit": "Créer l'espace de travail",
+      "submitting": "Création de votre espace de travail…",
+      "emailTakenError": "Un compte avec ce courriel existe déjà.",
+      "validationError": "Veuillez vérifier les champs surlignés et réessayer.",
+      "rateLimitedError": "Trop de tentatives. Veuillez patienter un moment avant de réessayer.",
+      "networkError": "Une erreur s'est produite. Veuillez réessayer.",
+      "haveAccount": "Vous avez déjà un compte?",
+      "signIn": "Se connecter"
     }
   },
   "nav": {
