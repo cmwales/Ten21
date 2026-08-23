@@ -38,6 +38,8 @@
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="9.0.1" />
     <PackageReference Include="AWSSDK.S3" Version="3.7.410.5" />
     <PackageReference Include="HtmlSanitizer" Version="9.2.995" />
+    <PackageReference Include="CsvHelper" Version="33.1.0" />
+    <PackageReference Include="ClosedXML" Version="0.105.1" />
   </ItemGroup>
 
 </Project>

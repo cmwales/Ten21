@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
@@ -5,6 +6,8 @@ using Ten21.Api.Contracts.Properties;
 using Ten21.Api.Controllers;
 using Ten21.Domain.Enums;
 using Ten21.Domain.Exceptions;
+using Ten21.Application.Abstractions;
+using Ten21.Infrastructure.Import;
 using Ten21.Infrastructure.Persistence;
 using Ten21.Infrastructure.Persistence.Interceptors;
 using Ten21.Infrastructure.Security;
@@ -20,6 +23,7 @@ public class PropertiesControllerTests : IDisposable
 {
     private readonly SqliteConnection _connection;
     private readonly HtmlInputSanitizer _sanitizer = new();
+    private readonly IPropertyImportFileParser _importParser = new PropertyImportFileParser();
 
     public PropertiesControllerTests()
     {
@@ -41,7 +45,7 @@ public class PropertiesControllerTests : IDisposable
         var db = new Ten21DbContext(options, tenantContext);
         db.Database.EnsureCreated();
 
-        return (db, new PropertiesController(db, _sanitizer));
+        return (db, new PropertiesController(db, _sanitizer, _importParser));
     }
 
     private static UpsertPropertyRequest NewRequest(params UnitRequest[] units) => new(
@@ -200,5 +204,96 @@ public class PropertiesControllerTests : IDisposable
         Assert.Equal(2, response.PageNumber);
         Assert.Equal(2, response.PageSize);
         Assert.Single(response.Items);
+    }
+
+    private static IFormFile CreateCsvFormFile(string content, string fileName = "properties.csv")
+    {
+        var bytes = System.Text.Encoding.UTF8.GetBytes(content);
+        return new FormFile(new MemoryStream(bytes), 0, bytes.Length, "file", fileName)
+        {
+            Headers = new HeaderDictionary(),
+            ContentType = "text/csv",
+        };
+    }
+
+    [Fact]
+    public async Task ImportProperties_ValidFile_GroupsRowsByPropertyAndCommitsInOneBatch()
+    {
+        const string csv = """
+            PropertyName,PropertyType,StreetAddress1,City,State,PostalCode,Country,UnitIdentifier,TargetRent
+            Riverside Apartments,MultiFamily,100 Main St,Provo,UT,84601,USA,101,1200
+            Riverside Apartments,MultiFamily,100 Main St,Provo,UT,84601,USA,102,1250
+            Downtown Lofts,Commercial,5 Center St,Ogden,UT,84401,USA,A,
+            """;
+
+        var (db, controller) = CreateController(Guid.NewGuid());
+        var result = await controller.ImportProperties(CreateCsvFormFile(csv), CancellationToken.None);
+
+        var ok = Assert.IsType<OkObjectResult>(result);
+        var response = Assert.IsType<ImportPropertiesResponse>(ok.Value);
+
+        Assert.True(response.Success);
+        Assert.Equal(3, response.TotalRows);
+        Assert.Equal(0, response.InvalidRowCount);
+        Assert.Equal(2, response.PropertiesCreated);
+        Assert.Equal(3, response.UnitsCreated);
+
+        Assert.Equal(2, await db.Properties.CountAsync());
+        Assert.Equal(3, await db.Units.CountAsync());
+
+        var riverside = await db.Properties.Include(p => p.Units).SingleAsync(p => p.Name == "Riverside Apartments");
+        Assert.Equal(2, riverside.Units.Count);
+    }
+
+    [Fact]
+    public async Task ImportProperties_OneInvalidRow_PersistsNothingAtAll()
+    {
+        const string csv = """
+            PropertyName,PropertyType,StreetAddress1,City,State,PostalCode,Country,UnitIdentifier,TargetRent
+            Riverside Apartments,MultiFamily,100 Main St,Provo,UT,84601,USA,101,1200
+            Riverside Apartments,MultiFamily,100 Main St,Provo,UT,84601,USA,102,not-a-number
+            """;
+
+        var (db, controller) = CreateController(Guid.NewGuid());
+        var result = await controller.ImportProperties(CreateCsvFormFile(csv), CancellationToken.None);
+
+        var ok = Assert.IsType<OkObjectResult>(result);
+        var response = Assert.IsType<ImportPropertiesResponse>(ok.Value);
+
+        Assert.False(response.Success);
+        Assert.Equal(1, response.InvalidRowCount);
+        Assert.Equal(0, response.PropertiesCreated);
+        Assert.Contains(response.Rows, r => r.RowNumber == 3 && !r.IsValid && r.Errors.Contains("Target Rent must be a positive number."));
+        Assert.Contains(response.Rows, r => r.RowNumber == 2 && r.IsValid);
+
+        // The whole batch is rejected, including the otherwise-valid row 2 -- nothing is
+        // written to the database at all.
+        Assert.Equal(0, await db.Properties.CountAsync());
+        Assert.Equal(0, await db.Units.CountAsync());
+    }
+
+    [Fact]
+    public async Task ImportProperties_SanitizesFormulaInjectionAndHtmlInTextFields()
+    {
+        const string csv = """
+            PropertyName,PropertyType,StreetAddress1,City,State,PostalCode,Country,UnitIdentifier,TargetRent
+            =cmd|'/c calc'!A1,MultiFamily,100 Main St,Provo,UT,84601,USA,<script>alert(1)</script>101,1200
+            """;
+
+        var (db, controller) = CreateController(Guid.NewGuid());
+        await controller.ImportProperties(CreateCsvFormFile(csv), CancellationToken.None);
+
+        var property = await db.Properties.Include(p => p.Units).SingleAsync();
+        Assert.StartsWith("'=", property.Name);
+        Assert.DoesNotContain('<', property.Units.Single().UnitIdentifier);
+    }
+
+    [Fact]
+    public async Task ImportProperties_RejectsUnsupportedFileExtension()
+    {
+        var (_, controller) = CreateController(Guid.NewGuid());
+
+        await Assert.ThrowsAsync<ValidationException>(
+            () => controller.ImportProperties(CreateCsvFormFile("irrelevant", "properties.txt"), CancellationToken.None));
     }
 }

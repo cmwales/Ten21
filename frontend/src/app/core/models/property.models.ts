@@ -90,3 +90,29 @@ export interface PropertyListResponse {
   pageNumber: number;
   pageSize: number;
 }
+
+/** Mirrors Ten21.Api.Contracts.Properties.ImportRowResult (US-21). */
+export interface ImportRowResult {
+  rowNumber: number;
+  propertyName: string;
+  propertyType: string;
+  streetAddress1: string;
+  city: string;
+  state: string;
+  postalCode: string;
+  country: string;
+  unitIdentifier: string;
+  targetRent: string;
+  isValid: boolean;
+  errors: string[];
+}
+
+/** Mirrors Ten21.Api.Contracts.Properties.ImportPropertiesResponse (US-21). */
+export interface ImportPropertiesResponse {
+  success: boolean;
+  totalRows: number;
+  invalidRowCount: number;
+  propertiesCreated: number;
+  unitsCreated: number;
+  rows: ImportRowResult[];
+}

@@ -63,6 +63,13 @@ export const routes: Routes = [
       import('./pages/properties/property-list/property-list').then((m) => m.PropertyList),
   },
   {
+    // US-21: "Prohibited Roles: Non-owner Tenants (Tenant) and Vendors (Vendor)."
+    path: 'properties/import',
+    canActivate: [authGuard, denyRolesGuard([RoleNames.Tenant, RoleNames.Vendor])],
+    loadComponent: () =>
+      import('./pages/properties/property-import/property-import').then((m) => m.PropertyImport),
+  },
+  {
     // US-19: "Prohibited Roles: Non-owner Tenants and Vendors" on every Sprint 3 story.
     path: 'properties/new',
     canActivate: [authGuard, denyRolesGuard([RoleNames.Tenant, RoleNames.Vendor])],

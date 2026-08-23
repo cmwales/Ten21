@@ -2,7 +2,12 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable, map } from 'rxjs';
 import { ApiResponse } from '../models/auth.models';
-import { PropertyListResponse, PropertyResponse, UpsertPropertyRequest } from '../models/property.models';
+import {
+  ImportPropertiesResponse,
+  PropertyListResponse,
+  PropertyResponse,
+  UpsertPropertyRequest,
+} from '../models/property.models';
 
 /** US-19: Property/Unit CRUD calls. The auth interceptor attaches the bearer token to every
  * /api/* request automatically, so no manual headers are needed here (unlike the
@@ -35,6 +40,17 @@ export class PropertyService {
   updateProperty(id: string, request: UpsertPropertyRequest): Observable<PropertyResponse> {
     return this.http
       .put<ApiResponse<PropertyResponse>>(`/api/properties/${id}`, request)
+      .pipe(map((response) => response.data!));
+  }
+
+  /** US-21: multipart upload -- the browser sets its own Content-Type with the multipart
+   * boundary, so no explicit header is set here. */
+  importProperties(file: File): Observable<ImportPropertiesResponse> {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    return this.http
+      .post<ApiResponse<ImportPropertiesResponse>>('/api/properties/import', formData)
       .pipe(map((response) => response.data!));
   }
 }

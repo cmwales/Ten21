@@ -112,9 +112,29 @@
     "logout": "Cerrar sesión"
   },
   "properties": {
+    "import": {
+      "title": "Importar propiedades",
+      "subtitle": "Arrastre y suelte un archivo .csv o .xlsx para agregar propiedades y unidades en lote.",
+      "dropzoneLabel": "Arrastre y suelte un archivo aquí, o",
+      "browseButton": "Buscar un archivo",
+      "constraints": ".csv o .xlsx, hasta 10MB",
+      "uploading": "Subiendo {{fileName}}…",
+      "successSummary": "Se importaron {{properties}} propiedades y {{units}} unidades.",
+      "failureSummary": "{{count}} fila(s) tuvieron errores — no se importó nada. Corrija el archivo e inténtelo de nuevo.",
+      "rowErrorPrefix": "Fila {{row}}:",
+      "tryAnotherFile": "Probar otro archivo",
+      "viewProperties": "Ver propiedades",
+      "invalidExtensionError": "Solo se admiten archivos .csv y .xlsx.",
+      "tooLargeError": "El tamaño del archivo no debe superar los 10MB.",
+      "networkError": "Algo salió mal. Inténtelo de nuevo.",
+      "columns": {
+        "row": "Fila"
+      }
+    },
     "list": {
       "title": "Propiedades",
       "addProperty": "Agregar propiedad",
+      "importProperties": "Importar propiedades",
       "addFirstProperty": "Agregar primera propiedad",
       "downloadTemplate": "Descargar plantilla de hoja de cálculo",
       "emptyTitle": "Aún no hay propiedades",

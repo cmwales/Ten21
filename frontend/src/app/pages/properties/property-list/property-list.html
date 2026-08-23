@@ -3,12 +3,20 @@
     <div class="w-full max-w-5xl">
       <div class="flex flex-wrap items-center justify-between gap-3">
         <h1 class="text-2xl font-bold text-white">{{ 'properties.list.title' | translate }}</h1>
-        <a
-          routerLink="/properties/new"
-          class="tap-target flex items-center rounded-md bg-emerald px-4 py-2 font-semibold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
-        >
-          {{ 'properties.list.addProperty' | translate }}
-        </a>
+        <div class="flex flex-wrap gap-3">
+          <a
+            routerLink="/properties/import"
+            class="tap-target flex items-center rounded-md border border-white/40 px-4 py-2 font-semibold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
+          >
+            {{ 'properties.list.importProperties' | translate }}
+          </a>
+          <a
+            routerLink="/properties/new"
+            class="tap-target flex items-center rounded-md bg-emerald px-4 py-2 font-semibold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
+          >
+            {{ 'properties.list.addProperty' | translate }}
+          </a>
+        </div>
       </div>
 
       @if (errorKey()) {
