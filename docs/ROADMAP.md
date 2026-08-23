@@ -8,10 +8,12 @@
 | **Phase 1** | Monetization & Billing Logic | SaaS pricing models, ACH convenience fee margins, double-entry ledgers, recurring auto-pay, statutory late fee application. | `BUSINESS_RULES`, `FEATURES` | **PENDING (NEXT UP)** |
 | **Phase 2** | Core Operational Modules | Maintenance work orders, vendor dispatching, ARC alteration requests, amenity bookings, official board elections. | `FEATURES` | **PENDING** |
 | **Phase 3** | Complete Database Schema | Complete EF Core entity maps, indexes, soft-delete filters, temporal audit logging. | `DATA_MODEL` | **PENDING** |
-| **Phase 4** | UI/UX & Design System | Angular layout standards, Tailwind CSS design tokens, mobile-first resident view, accessibility (a11y). | `DESIGN_SYSTEM` | **PENDING** |
-| **Phase 5** | Zero-Touch Self Onboarding | Self-service signup portal, instant tenant provisioning, automated seed roles, payment vault initialization. | `BUSINESS_RULES`, `ARCHITECTURE` | **PENDING** |
+| **Phase 4** | UI/UX & Design System | Angular layout standards, Tailwind CSS design tokens, mobile-first resident view, accessibility (a11y). | `DESIGN_SYSTEM` | **COMPLETED** |
+| **Phase 5** | Zero-Touch Self Onboarding | Self-service signup portal, instant tenant provisioning, automated seed roles, payment vault initialization. | `BUSINESS_RULES`, `ARCHITECTURE` | **IN PROGRESS** |
 | **Phase 6** | Micro-Task Backlog Execution | Deconstructing features into 15-minute executable vertical slices (DTO + C# Service + Angular Component + Unit Test). | `TASKS` | **PENDING** |
 
 ## 2. Phase Execution Log
 
 - **Phase 0 Completed:** Locked in .NET 9 + Angular stack, single shared database with EF Core filters & RLS, ASP.NET Core Identity with self-hosted Data Protection, tokenized ACH payment security, 9-tier role taxonomy, and PMC parent organization context switching.
+- **Phase 4 Completed (out of roadmap order, ahead of Phase 1–3):** Built the Angular standalone SPA, Tailwind design tokens, `@ngx-translate` (en-US/es-US/fr-CA), a JWT `AuthService` + refresh-and-retry interceptor, and functional route guards enforcing the Tenant financial/ledger hard-block at the UI layer — pulled forward because Phase 1–3's backend work has no way to be manually exercised or demoed without a working login and UI shell first. See `User_Stories_Phase_0.md`'s sibling frontend stories (US-00, US-10–US-13) for the detailed record.
+- **Phase 5 Kicked Off:** Sprint covering US-14 (Workspace Registration & Onboarding), US-15 (Google OAuth & Post-Login Profile Completion), US-16 (Email Activation & Self-Service Password Recovery), US-17 (Email 6-Digit OTP Dual Authentication), and US-18 (Bot Defense & Registration Rate Limiting). Full acceptance criteria and design decisions in `User_Stories_Phase_5.md`. Each story is built on its own branch and merged into `main` once its own build/tests are green, before the next branch is cut.
