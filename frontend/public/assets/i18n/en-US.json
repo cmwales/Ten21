@@ -108,7 +108,57 @@
   "nav": {
     "dashboard": "Dashboard",
     "ledger": "Ledger",
+    "addProperty": "Add Property",
     "logout": "Log out"
+  },
+  "properties": {
+    "form": {
+      "createTitle": "Add Property",
+      "editTitle": "Edit Property",
+      "name": "Property Name",
+      "propertyType": "Property Type",
+      "streetAddress1": "Street Address",
+      "streetAddress2": "Street Address 2 (optional)",
+      "city": "City",
+      "state": "State",
+      "postalCode": "Postal Code",
+      "country": "Country",
+      "defaultTargetRent": "Default Target Rent",
+      "defaultTargetRentHint": "Applied to new units unless overridden per unit.",
+      "nameRequired": "Property name is required.",
+      "streetAddress1Required": "Street address is required.",
+      "cityRequired": "City is required.",
+      "stateRequired": "State is required.",
+      "postalCodeRequired": "Postal code is required.",
+      "countryRequired": "Country is required.",
+      "unitsHeading": "Units",
+      "addUnit": "Add Unit",
+      "removeUnit": "Remove",
+      "noUnits": "No units yet. Add one to get started.",
+      "unitIdentifier": "Unit/Suite #",
+      "targetRent": "Target Rent",
+      "occupancyStatus": "Occupancy Status",
+      "save": "Save",
+      "saving": "Saving…",
+      "apply": "Apply",
+      "cancel": "Cancel",
+      "savedToast": "Property saved.",
+      "validationError": "Please check the highlighted fields and try again.",
+      "notFoundError": "This property could not be found.",
+      "loadError": "Something went wrong loading this property.",
+      "networkError": "Something went wrong. Please try again."
+    },
+    "propertyTypes": {
+      "SingleFamily": "Single Family",
+      "MultiFamily": "Multi-Family",
+      "Duplex": "Duplex",
+      "Commercial": "Commercial"
+    },
+    "occupancyStatuses": {
+      "Vacant": "Vacant",
+      "Occupied": "Occupied",
+      "Maintenance": "Maintenance"
+    }
   },
   "dashboard": {
     "welcome": "Welcome back",

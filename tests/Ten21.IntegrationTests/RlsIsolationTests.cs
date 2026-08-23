@@ -93,9 +93,9 @@ public class RlsIsolationTests : IAsyncLifetime
         {
             insert.CommandText = """
                 INSERT INTO properties
-                    ("Id", "TenantId", "StreetAddress", "City", "StateProvince", "PostalCode", "CreatedAt", "IsDeleted")
+                    ("Id", "TenantId", "Name", "PropertyType", "StreetAddress1", "City", "State", "PostalCode", "Country", "CreatedAt", "IsDeleted")
                 VALUES
-                    (@id, @tenantId, '1 Tenant A Way', 'Salt Lake City', 'UT', '84000', now(), false);
+                    (@id, @tenantId, 'RLS Test Property', 'SingleFamily', '1 Tenant A Way', 'Salt Lake City', 'UT', '84000', 'USA', now(), false);
                 """;
             insert.Parameters.AddWithValue("id", Guid.NewGuid());
             insert.Parameters.AddWithValue("tenantId", tenantA);

@@ -41,6 +41,14 @@ public static class Permissions
         public const string Write = "Permissions.Announcements.Write";
     }
 
+    public static class Property
+    {
+        public const string Manage = "Permissions.Property.Manage";
+        public const string Read = "Permissions.Property.Read";
+        public const string Import = "Permissions.Property.Import";
+        public const string Delete = "Permissions.Property.Delete";
+    }
+
     /// <summary>
     /// Every permission constant above, discovered via reflection rather than hand-maintained.
     /// This is what lets policy registration (Infrastructure.AuthorizationConfiguration) and

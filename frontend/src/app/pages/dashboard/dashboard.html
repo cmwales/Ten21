@@ -10,6 +10,11 @@
           {{ 'nav.ledger' | translate }}
         </a>
       }
+      @if (canManageProperties()) {
+        <a routerLink="/properties/new" class="tap-target flex items-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald">
+          {{ 'nav.addProperty' | translate }}
+        </a>
+      }
       <button
         type="button"
         (click)="logout()"

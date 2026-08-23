@@ -1,0 +1,57 @@
+<div class="flex min-h-screen flex-col bg-slate-navy">
+  <main class="flex flex-1 justify-center px-4 py-8">
+    <div class="w-full max-w-3xl rounded-xl bg-surface-card p-6 shadow-xl sm:p-8">
+      <h1 class="text-2xl font-bold text-slate-navy">
+        {{ (propertyId() ? 'properties.form.editTitle' : 'properties.form.createTitle') | translate }}
+      </h1>
+
+      @if (errorKey()) {
+        <div
+          role="alert"
+          class="mt-6 rounded-md border border-rose bg-rose/10 px-4 py-3 text-sm font-medium text-rose"
+        >
+          {{ errorKey()! | translate }}
+        </div>
+      }
+
+      @if (loading()) {
+        <p class="mt-6 text-sm text-slate-navy-light">{{ 'common.loading' | translate }}</p>
+      } @else {
+        <form class="mt-6 flex flex-col gap-8" (ngSubmit)="save()" novalidate>
+          <app-property-info-form [form]="form" />
+
+          <app-unit-list-editor
+            [unitsArray]="unitsArray"
+            (addUnit)="addUnit()"
+            (removeUnit)="removeUnit($event)"
+          />
+
+          <div class="flex flex-wrap items-center justify-end gap-3 border-t border-slate-navy/10 pt-6">
+            <button
+              type="button"
+              (click)="cancel()"
+              class="tap-target rounded-md border border-slate-navy/20 px-4 py-2 font-semibold text-slate-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
+            >
+              {{ 'properties.form.cancel' | translate }}
+            </button>
+            <button
+              type="button"
+              [disabled]="submitting()"
+              (click)="apply()"
+              class="tap-target rounded-md border border-emerald px-4 py-2 font-semibold text-emerald focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald disabled:opacity-60"
+            >
+              {{ 'properties.form.apply' | translate }}
+            </button>
+            <button
+              type="submit"
+              [disabled]="submitting()"
+              class="tap-target rounded-md bg-emerald px-4 py-2 font-semibold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald disabled:opacity-60"
+            >
+              {{ (submitting() ? 'properties.form.saving' : 'properties.form.save') | translate }}
+            </button>
+          </div>
+        </form>
+      }
+    </div>
+  </main>
+</div>

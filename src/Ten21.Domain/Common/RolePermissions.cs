@@ -41,11 +41,17 @@ public static class RolePermissions
             // Cannot cast HOA board votes" -- deliberately no Voting.* grant. Ledger.Read
             // only (operational visibility) -- BUSINESS_RULES §1 reserves ledger statements
             // and financial write authority to Property Owner / Board / Accountant, not PM.
+            // Sprint 3 (US-19-22): "Primary Role: Property Manager" on every property-setup
+            // story, and no other role is named as an authorized secondary -- least
+            // privilege, so only PropertyManager (and SuperAdmin, via Permissions.All) gets
+            // these until a future story explicitly says otherwise.
             [RoleNames.PropertyManager] =
             [
                 Permissions.WorkOrders.Read, Permissions.WorkOrders.Write,
                 Permissions.Announcements.Read, Permissions.Announcements.Write,
                 Permissions.Ledger.Read,
+                Permissions.Property.Manage, Permissions.Property.Read,
+                Permissions.Property.Import, Permissions.Property.Delete,
             ],
 
             // "Restricted strictly to maintenance tickets, amenity booking, and community

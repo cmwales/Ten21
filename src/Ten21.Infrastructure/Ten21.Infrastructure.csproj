@@ -37,6 +37,7 @@
     <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="9.0.1" />
     <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="9.0.1" />
     <PackageReference Include="AWSSDK.S3" Version="3.7.410.5" />
+    <PackageReference Include="HtmlSanitizer" Version="9.2.995" />
   </ItemGroup>
 
 </Project>
