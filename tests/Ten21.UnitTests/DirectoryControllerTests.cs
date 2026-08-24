@@ -1,0 +1,206 @@
+using System.Security.Claims;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.Data.Sqlite;
+using Microsoft.EntityFrameworkCore;
+using Ten21.Api.Contracts.Directory;
+using Ten21.Api.Controllers;
+using Ten21.Domain.Entities;
+using Ten21.Domain.Enums;
+using Ten21.Infrastructure.Persistence;
+using Ten21.Infrastructure.Persistence.Interceptors;
+using Ten21.Infrastructure.Security;
+using Xunit;
+
+namespace Ten21.UnitTests;
+
+/// <summary>US-25: Tenant Access &amp; Directory Privacy -- the dual-consent community
+/// directory (Property.AllowTenantDirectory AND ResidentProfile.ShowInDirectory). No
+/// propertyId route parameter exists to tamper with (BOLA-safe by construction): the
+/// caller's own occupancy, resolved from their user_id claim, is what scopes every
+/// query.</summary>
+public class DirectoryControllerTests : IDisposable
+{
+    private readonly SqliteConnection _connection;
+
+    public DirectoryControllerTests()
+    {
+        _connection = new SqliteConnection("DataSource=:memory:");
+        _connection.Open();
+    }
+
+    public void Dispose() => _connection.Dispose();
+
+    private (Ten21DbContext Db, DirectoryController Controller) CreateController(Guid tenantId, Guid callerUserId)
+    {
+        var tenantContext = new TenantContext();
+        tenantContext.SetTenant(tenantId);
+        var hardDeleteOverride = new HardDeleteOverride();
+
+        var options = new DbContextOptionsBuilder<Ten21DbContext>()
+            .UseSqlite(_connection)
+            .AddInterceptors(new AuditSaveChangesInterceptor(tenantContext, hardDeleteOverride))
+            .Options;
+        var db = new Ten21DbContext(options, tenantContext);
+        db.Database.EnsureCreated();
+
+        var controller = new DirectoryController(db)
+        {
+            ControllerContext = new ControllerContext
+            {
+                HttpContext = new DefaultHttpContext
+                {
+                    User = new ClaimsPrincipal(new ClaimsIdentity(
+                        [new Claim("user_id", callerUserId.ToString())], "TestAuth")),
+                },
+            },
+        };
+
+        return (db, controller);
+    }
+
+    private static Property NewProperty(Guid tenantId, string streetAddress1, bool allowTenantDirectory, string? unitIdentifier = null) => new()
+    {
+        Id = Guid.NewGuid(),
+        TenantId = tenantId,
+        Name = "Riverside Apartments",
+        PropertyType = PropertyType.MultiFamily,
+        StreetAddress1 = streetAddress1,
+        City = "Provo",
+        State = "UT",
+        PostalCode = "84601",
+        Country = "USA",
+        UnitIdentifier = unitIdentifier,
+        OccupancyStatus = OccupancyStatus.Occupied,
+        AllowTenantDirectory = allowTenantDirectory,
+        CreatedAt = DateTimeOffset.UtcNow,
+    };
+
+    private static ResidentProfile NewResident(Guid tenantId, Guid propertyId, Guid? userId, bool showInDirectory, string firstName = "Jamie") => new()
+    {
+        Id = Guid.NewGuid(),
+        TenantId = tenantId,
+        PropertyId = propertyId,
+        UserId = userId,
+        OccupantType = OccupantType.Primary,
+        FirstName = firstName,
+        LastName = "Rivera",
+        ShowInDirectory = showInDirectory,
+        CreatedAt = DateTimeOffset.UtcNow,
+    };
+
+    [Fact]
+    public async Task GetDirectory_ReturnsSiblingResident_WhenBothPropertyAndResidentOptIn()
+    {
+        var tenantId = Guid.NewGuid();
+        var callerId = Guid.NewGuid();
+        var (db, controller) = CreateController(tenantId, callerId);
+
+        var callerProperty = NewProperty(tenantId, "100 Main St", allowTenantDirectory: true, unitIdentifier: "Suite A");
+        var siblingProperty = NewProperty(tenantId, "100 Main St", allowTenantDirectory: true, unitIdentifier: "Suite B");
+        db.Properties.AddRange(callerProperty, siblingProperty);
+        db.ResidentProfiles.AddRange(
+            NewResident(tenantId, callerProperty.Id, callerId, showInDirectory: true),
+            NewResident(tenantId, siblingProperty.Id, Guid.NewGuid(), showInDirectory: true, firstName: "Sam"));
+        await db.SaveChangesAsync();
+
+        var result = await controller.GetDirectory(CancellationToken.None);
+
+        var entries = Assert.IsAssignableFrom<IEnumerable<DirectoryEntryResponse>>(Assert.IsType<OkObjectResult>(result).Value);
+        var entry = Assert.Single(entries);
+        Assert.Equal("Sam", entry.FirstName);
+        Assert.Equal("Suite B", entry.UnitIdentifier);
+    }
+
+    [Fact]
+    public async Task GetDirectory_ExcludesSibling_WhenSiblingPropertyDoesNotAllowDirectory()
+    {
+        var tenantId = Guid.NewGuid();
+        var callerId = Guid.NewGuid();
+        var (db, controller) = CreateController(tenantId, callerId);
+
+        var callerProperty = NewProperty(tenantId, "100 Main St", allowTenantDirectory: true);
+        var siblingProperty = NewProperty(tenantId, "100 Main St", allowTenantDirectory: false);
+        db.Properties.AddRange(callerProperty, siblingProperty);
+        db.ResidentProfiles.AddRange(
+            NewResident(tenantId, callerProperty.Id, callerId, showInDirectory: true),
+            NewResident(tenantId, siblingProperty.Id, Guid.NewGuid(), showInDirectory: true));
+        await db.SaveChangesAsync();
+
+        var result = await controller.GetDirectory(CancellationToken.None);
+
+        var entries = Assert.IsAssignableFrom<IEnumerable<DirectoryEntryResponse>>(Assert.IsType<OkObjectResult>(result).Value);
+        Assert.Empty(entries);
+    }
+
+    [Fact]
+    public async Task GetDirectory_ExcludesResident_WhenResidentOptedOut()
+    {
+        var tenantId = Guid.NewGuid();
+        var callerId = Guid.NewGuid();
+        var (db, controller) = CreateController(tenantId, callerId);
+
+        var callerProperty = NewProperty(tenantId, "100 Main St", allowTenantDirectory: true);
+        var siblingProperty = NewProperty(tenantId, "100 Main St", allowTenantDirectory: true);
+        db.Properties.AddRange(callerProperty, siblingProperty);
+        db.ResidentProfiles.AddRange(
+            NewResident(tenantId, callerProperty.Id, callerId, showInDirectory: true),
+            NewResident(tenantId, siblingProperty.Id, Guid.NewGuid(), showInDirectory: false));
+        await db.SaveChangesAsync();
+
+        var result = await controller.GetDirectory(CancellationToken.None);
+
+        var entries = Assert.IsAssignableFrom<IEnumerable<DirectoryEntryResponse>>(Assert.IsType<OkObjectResult>(result).Value);
+        Assert.Empty(entries);
+    }
+
+    [Fact]
+    public async Task GetDirectory_ExcludesTheCallersOwnEntry()
+    {
+        var tenantId = Guid.NewGuid();
+        var callerId = Guid.NewGuid();
+        var (db, controller) = CreateController(tenantId, callerId);
+
+        var callerProperty = NewProperty(tenantId, "100 Main St", allowTenantDirectory: true);
+        db.Properties.Add(callerProperty);
+        db.ResidentProfiles.Add(NewResident(tenantId, callerProperty.Id, callerId, showInDirectory: true));
+        await db.SaveChangesAsync();
+
+        var result = await controller.GetDirectory(CancellationToken.None);
+
+        var entries = Assert.IsAssignableFrom<IEnumerable<DirectoryEntryResponse>>(Assert.IsType<OkObjectResult>(result).Value);
+        Assert.Empty(entries);
+    }
+
+    [Fact]
+    public async Task GetDirectory_ExcludesResidentsAtADifferentAddress()
+    {
+        var tenantId = Guid.NewGuid();
+        var callerId = Guid.NewGuid();
+        var (db, controller) = CreateController(tenantId, callerId);
+
+        var callerProperty = NewProperty(tenantId, "100 Main St", allowTenantDirectory: true);
+        var unrelatedProperty = NewProperty(tenantId, "999 Other Ave", allowTenantDirectory: true);
+        db.Properties.AddRange(callerProperty, unrelatedProperty);
+        db.ResidentProfiles.AddRange(
+            NewResident(tenantId, callerProperty.Id, callerId, showInDirectory: true),
+            NewResident(tenantId, unrelatedProperty.Id, Guid.NewGuid(), showInDirectory: true));
+        await db.SaveChangesAsync();
+
+        var result = await controller.GetDirectory(CancellationToken.None);
+
+        var entries = Assert.IsAssignableFrom<IEnumerable<DirectoryEntryResponse>>(Assert.IsType<OkObjectResult>(result).Value);
+        Assert.Empty(entries);
+    }
+
+    [Fact]
+    public async Task GetDirectory_ReturnsEmpty_WhenCallerHasNoResidentProfile()
+    {
+        var (_, controller) = CreateController(Guid.NewGuid(), Guid.NewGuid());
+
+        var result = await controller.GetDirectory(CancellationToken.None);
+
+        var entries = Assert.IsAssignableFrom<IEnumerable<DirectoryEntryResponse>>(Assert.IsType<OkObjectResult>(result).Value);
+        Assert.Empty(entries);
+    }
+}

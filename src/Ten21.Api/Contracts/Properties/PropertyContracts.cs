@@ -20,7 +20,11 @@ public record UpsertPropertyRequest(
     string Country,
     string? UnitIdentifier,
     decimal? TargetRent,
-    OccupancyStatus OccupancyStatus);
+    OccupancyStatus OccupancyStatus,
+    // US-25: defaults false (trailing, with a default) so existing callers that predate
+    // this field don't need to change -- a PM must opt a property into the community
+    // directory explicitly.
+    bool AllowTenantDirectory = false);
 
 public record PropertyResponse(
     Guid Id,
@@ -34,7 +38,8 @@ public record PropertyResponse(
     string Country,
     string? UnitIdentifier,
     decimal? TargetRent,
-    OccupancyStatus OccupancyStatus);
+    OccupancyStatus OccupancyStatus,
+    bool AllowTenantDirectory);
 
 /// <summary>US-20: the "lightweight PropertyListDto" the acceptance criteria calls for --
 /// drops StreetAddress2/Country (not shown in the flat list view) relative to the full

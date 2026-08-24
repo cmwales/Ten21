@@ -61,9 +61,14 @@ public static class RolePermissions
             // "Restricted strictly to maintenance tickets, amenity booking, and community
             // announcements. Zero access to financial ledgers or voting." No Ledger.*, no
             // Voting.*, no ARC.* (ARC alteration requests are owner-only per BUSINESS_RULES §1).
+            // Directory.Read added in Sprint 4 (US-25) -- the community directory is a
+            // Tenant-facing feature by definition (residents viewing opted-in neighbors),
+            // no other role needs it: a PM already sees every resident of their own
+            // properties unfiltered via Permissions.Resident.Read, dual-consent privacy
+            // doesn't apply to their own management view.
             [RoleNames.Tenant] =
             [
-                Permissions.WorkOrders.Write, Permissions.Announcements.Read,
+                Permissions.WorkOrders.Write, Permissions.Announcements.Read, Permissions.Directory.Read,
             ],
 
             // "External contractor handling assigned work order status."

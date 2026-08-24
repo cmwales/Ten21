@@ -194,3 +194,56 @@ portal URL, **so that** onboarding a resident needs no separate invitation/token
   tests) plus 1 new integration test (`ResidentProvisioningEndToEndTests`) proving the whole
   login -> forced-change -> session flow through the real HTTP pipeline. 3 new frontend
   `AuthService` tests.
+
+### US-25: Tenant Access & Directory Privacy
+
+**As a** Security Lead, **I want** policy-layer authorization rules enforcing tenant data
+isolation and directory privacy, **so that** non-owner renters cannot access unauthorized
+property data.
+
+- **Primary Role:** Security Lead (policy design), enforced against Tenant (the role being
+  restricted) and consumed by Tenant (the directory endpoint's caller).
+- **Authorized Secondary Roles:** None.
+- **Prohibited Roles:** N/A -- this story restricts Tenant, it doesn't grant a new
+  capability to any other role.
+- **Required Permission Claims:** `Permissions.Directory.Read` (new, granted to Tenant only
+  -- a PM already sees every resident of their own properties unfiltered via
+  `Permissions.Resident.Read`; dual-consent privacy is specifically a Tenant-facing
+  concern, not a management one).
+
+**What shipped:**
+- **The financial-ledger/property-settings hard-block was already true by construction**
+  (see the Executive Summary) -- `RolePermissions.Bundles[RoleNames.Tenant]` has never
+  granted any `Permissions.Property.*` claim, so every `PropertiesController`/
+  `ResidentsController` action already 403s a Tenant-role caller. What US-24 made possible
+  for the first time is a *real* Tenant-role session to prove it with, so
+  `TenantAccessEndToEndTests` (`tests/Ten21.IntegrationTests`) does exactly that: a
+  resident logs all the way in (through the real `MustChangePassword` gate) and gets 403 on
+  `GET /api/properties`, `POST /api/properties`, and `GET
+  /api/properties/{propertyId}/residents`.
+- **New: `Property.AllowTenantDirectory`** (`src/Ten21.Domain/Entities/Property.cs`) --
+  defaults false; a PM must opt each property into the community directory explicitly, not
+  have it on by default. Exposed on `UpsertPropertyRequest`/`PropertyResponse` (trailing
+  parameter with a C# default, so it doesn't force every existing caller to change) and on
+  the property edit form as a checkbox.
+- **New: `DirectoryController`** (`GET /api/directory`) -- deliberately **not**
+  parameterized by `propertyId`. The caller's own occupancy (`ResidentProfile.UserId ==
+  their user_id claim`) is what scopes the whole query, so there is no client-suppliable
+  property/tenant identifier to tamper with for BOLA purposes; a Tenant simply cannot ask
+  "show me the directory for property X." Resolves the caller's occupied Property/Properties,
+  finds sibling Property rows sharing the exact same street address with
+  `AllowTenantDirectory = true` ("neighboring units" in the flat model, where a suite is its
+  own independent Property row rather than a child of a shared parent), and returns
+  `DirectoryEntryResponse` (`FirstName`, `LastName`, `UnitIdentifier` only -- never email,
+  phone, or emergency contacts) for residents at those siblings with `ShowInDirectory =
+  true`, excluding the caller's own entry.
+- Verified live end-to-end: a PM created two properties sharing an address (both
+  `AllowTenantDirectory = true`), added an opted-in resident to each, one resident logged
+  all the way in as Tenant -- confirmed 403 on every property-management endpoint and a
+  200 on `/api/directory` containing exactly the sibling's entry (correct name and unit
+  identifier), never the caller's own.
+- 6 new backend unit tests (`DirectoryControllerTests`) covering the dual-consent matrix
+  (both sides opt in / property opts out / resident opts out / different address / no
+  profile at all) plus 1 new integration test proving the hard-block-plus-directory flow
+  live. 1 frontend assertion strengthened to prove `allowTenantDirectory` actually reaches
+  the wire.

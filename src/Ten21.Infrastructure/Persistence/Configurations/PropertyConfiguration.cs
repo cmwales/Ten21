@@ -22,6 +22,7 @@ public class PropertyConfiguration : IEntityTypeConfiguration<Property>
         builder.Property(p => p.UnitIdentifier).HasMaxLength(50);
         builder.Property(p => p.TargetRent).HasColumnType("decimal(12,2)");
         builder.Property(p => p.OccupancyStatus).IsRequired().HasConversion<string>().HasMaxLength(20);
+        builder.Property(p => p.AllowTenantDirectory).IsRequired();
         builder.Property(p => p.CreatedAt).IsRequired();
 
         // TenantId index is also added generically for every ITenantScopedEntity in

@@ -55,6 +55,11 @@ public static class Permissions
         public const string Read = "Permissions.Resident.Read";
     }
 
+    public static class Directory
+    {
+        public const string Read = "Permissions.Directory.Read";
+    }
+
     /// <summary>
     /// Every permission constant above, discovered via reflection rather than hand-maintained.
     /// This is what lets policy registration (Infrastructure.AuthorizationConfiguration) and

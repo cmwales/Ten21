@@ -49,6 +49,7 @@ export class PropertyFormContainer implements OnInit, ComponentWithUnsavedChange
     unitIdentifier: this.fb.control<string | null>(null, Validators.maxLength(50)),
     targetRent: this.fb.control<number | null>(null),
     occupancyStatus: ['Vacant' as OccupancyStatusValue, Validators.required],
+    allowTenantDirectory: [false],
   });
 
   ngOnInit(): void {
@@ -107,6 +108,7 @@ export class PropertyFormContainer implements OnInit, ComponentWithUnsavedChange
       unitIdentifier: raw.unitIdentifier,
       targetRent: raw.targetRent,
       occupancyStatus: raw.occupancyStatus,
+      allowTenantDirectory: raw.allowTenantDirectory,
     };
     const id = this.propertyId();
     const call = id ? this.propertyService.updateProperty(id, request) : this.propertyService.createProperty(request);
@@ -141,6 +143,7 @@ export class PropertyFormContainer implements OnInit, ComponentWithUnsavedChange
           unitIdentifier: property.unitIdentifier,
           targetRent: property.targetRent,
           occupancyStatus: property.occupancyStatus,
+          allowTenantDirectory: property.allowTenantDirectory,
         });
         this.form.markAsPristine();
       },

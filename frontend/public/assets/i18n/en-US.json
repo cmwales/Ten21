@@ -193,6 +193,8 @@
       "unitIdentifierMaxLength": "Unit identifier must be 50 characters or fewer.",
       "targetRent": "Target Rent",
       "occupancyStatus": "Occupancy Status",
+      "allowTenantDirectory": "Show this property in the community directory",
+      "allowTenantDirectoryHint": "Lets opted-in residents see each other's name and unit -- never contact info.",
       "save": "Save",
       "saving": "Saving…",
       "apply": "Apply",
