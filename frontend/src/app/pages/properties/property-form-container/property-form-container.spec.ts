@@ -27,6 +27,7 @@ describe('PropertyFormContainer', () => {
     unitIdentifier: 'Suite A',
     targetRent: 1200,
     occupancyStatus: 'Vacant',
+    allowTenantDirectory: false,
   };
 
   function createComponent(routeId: string | null): PropertyFormContainer {
@@ -81,6 +82,7 @@ describe('PropertyFormContainer', () => {
       postalCode: '84601',
       unitIdentifier: 'Suite A',
       targetRent: 1200,
+      allowTenantDirectory: true,
     });
 
     component['save']();
@@ -89,6 +91,7 @@ describe('PropertyFormContainer', () => {
     expect(req.request.method).toBe('POST');
     expect(req.request.body.name).toBe('Riverside Apartments - Suite A');
     expect(req.request.body.unitIdentifier).toBe('Suite A');
+    expect(req.request.body.allowTenantDirectory).toBe(true);
     expect(req.request.body.units).toBeUndefined();
     req.flush({ success: true, data: property, message: null, statusCode: 201, traceId: 't1' } satisfies ApiResponse<PropertyResponse>);
 

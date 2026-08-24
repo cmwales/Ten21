@@ -36,6 +36,10 @@ export interface UpsertPropertyRequest {
   unitIdentifier: string | null;
   targetRent: number | null;
   occupancyStatus: OccupancyStatusValue;
+  /** US-25: one half of the community directory's dual-consent gate -- a resident of this
+   * property only appears in a neighbor's directory query when this AND their own
+   * ResidentProfile.showInDirectory are both true. */
+  allowTenantDirectory: boolean;
 }
 
 /** Mirrors Ten21.Api.Contracts.Properties.PropertyResponse. */
@@ -52,6 +56,7 @@ export interface PropertyResponse {
   unitIdentifier: string | null;
   targetRent: number | null;
   occupancyStatus: OccupancyStatusValue;
+  allowTenantDirectory: boolean;
 }
 
 /** Mirrors Ten21.Api.Contracts.Properties.PropertyListItemDto (US-20) -- one flat row per

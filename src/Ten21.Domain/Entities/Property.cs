@@ -34,6 +34,13 @@ public class Property : ITenantScopedEntity, IAuditableEntity, ISoftDelete
     public decimal? TargetRent { get; set; }
     public OccupancyStatus OccupancyStatus { get; set; }
 
+    /// <summary>US-25: one half of the community directory's dual-consent gate -- a
+    /// resident of THIS property only appears in another resident's directory query when
+    /// this AND that ResidentProfile's own ShowInDirectory are both true. Defaults false --
+    /// a PM must opt a property into the directory explicitly, per-property, not have it on
+    /// by default.</summary>
+    public bool AllowTenantDirectory { get; set; }
+
     public DateTimeOffset CreatedAt { get; set; }
     public bool IsDeleted { get; set; }
 }

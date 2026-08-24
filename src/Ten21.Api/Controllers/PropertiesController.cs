@@ -121,6 +121,7 @@ public class PropertiesController : ControllerBase
             UnitIdentifier = fields.UnitIdentifier,
             TargetRent = request.TargetRent,
             OccupancyStatus = request.OccupancyStatus,
+            AllowTenantDirectory = request.AllowTenantDirectory,
             CreatedAt = DateTimeOffset.UtcNow,
         };
 
@@ -155,6 +156,7 @@ public class PropertiesController : ControllerBase
         property.UnitIdentifier = fields.UnitIdentifier;
         property.TargetRent = request.TargetRent;
         property.OccupancyStatus = request.OccupancyStatus;
+        property.AllowTenantDirectory = request.AllowTenantDirectory;
 
         await _dbContext.SaveChangesAsync(cancellationToken);
 
@@ -595,5 +597,6 @@ public class PropertiesController : ControllerBase
         property.Country,
         property.UnitIdentifier,
         property.TargetRent,
-        property.OccupancyStatus);
+        property.OccupancyStatus,
+        property.AllowTenantDirectory);
 }

@@ -18,5 +18,6 @@ export interface PropertyFormControls {
   unitIdentifier: FormControl<string | null>;
   targetRent: FormControl<number | null>;
   occupancyStatus: FormControl<OccupancyStatusValue>;
+  allowTenantDirectory: FormControl<boolean>;
 }
 export type PropertyFormGroup = FormGroup<PropertyFormControls>;

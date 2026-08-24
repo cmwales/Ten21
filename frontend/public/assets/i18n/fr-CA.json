@@ -193,6 +193,8 @@
       "unitIdentifierMaxLength": "L'identifiant d'unité doit comporter 50 caractères ou moins.",
       "targetRent": "Loyer cible",
       "occupancyStatus": "Statut d'occupation",
+      "allowTenantDirectory": "Afficher cette propriété dans l'annuaire communautaire",
+      "allowTenantDirectoryHint": "Permet aux résidents inscrits de voir le nom et l'unité des autres -- jamais leurs coordonnées.",
       "save": "Enregistrer",
       "saving": "Enregistrement…",
       "apply": "Appliquer",
