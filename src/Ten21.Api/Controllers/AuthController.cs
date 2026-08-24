@@ -433,6 +433,28 @@ public class AuthController : ControllerBase
 
         await _userManager.ResetAccessFailedCountAsync(user);
 
+        // US-24: checked BEFORE membership/2FA -- an account provisioned with a temporary
+        // password (e.g. a resident invited via ResidentsController) must change it before
+        // anything else happens, including a 2FA challenge for a role that would otherwise
+        // need one. Mirrors US-17's 2FA challenge-token pattern, but reuses
+        // GenerateInterimAccessToken directly (US-15's own mechanism) rather than a new
+        // dedicated method -- there's no "code" here, just a boolean gate.
+        if (user.MustChangePassword)
+        {
+            var passwordChallenge = _jwtTokenService.GenerateInterimAccessToken(user.Id, TokenPurposes.PasswordChangePending);
+            return Ok(new PasswordChangeRequiredResponse(true, passwordChallenge.Value, passwordChallenge.ExpiresAtUtc));
+        }
+
+        return await CompleteLoginAsync(user, cancellationToken);
+    }
+
+    /// <summary>
+    /// The shared tail of both a normal Login (once MustChangePassword is confirmed false)
+    /// and ChangeTempPassword's successful completion: resolve tenant membership, gate on
+    /// mandatory 2FA if this role requires it, otherwise issue a real session.
+    /// </summary>
+    private async Task<IActionResult> CompleteLoginAsync(ApplicationUser user, CancellationToken cancellationToken)
+    {
         var membership = await ResolvePrimaryMembershipAsync(user.Id, cancellationToken);
         if (membership is null)
         {
@@ -473,6 +495,50 @@ public class AuthController : ControllerBase
 
         var response = await IssueTokensAsync(user.Id, membership, cancellationToken);
         return Ok(response);
+    }
+
+    /// <summary>
+    /// US-24: the second half of a MustChangePassword-gated login. Requires a
+    /// PasswordChangePending challenge token -- checked explicitly, not just relied on
+    /// structurally (same defensive pattern as VerifyTwoFactor). No CurrentPassword field on
+    /// the request: the challenge token itself already proves knowledge of the current
+    /// (temporary) password. Uses RemovePasswordAsync + AddPasswordAsync rather than
+    /// ChangePasswordAsync for exactly that reason -- there's nothing left to re-verify.
+    /// </summary>
+    [HttpPost("change-temp-password")]
+    public async Task<IActionResult> ChangeTempPassword(
+        [FromBody] ChangeTempPasswordRequest request, CancellationToken cancellationToken)
+    {
+        var purpose = User.FindFirst(TokenPurposes.ClaimType)?.Value;
+        if (purpose != TokenPurposes.PasswordChangePending)
+        {
+            throw new ForbiddenException("This endpoint requires a password-change challenge token.");
+        }
+
+        var user = await GetCurrentUserAsync();
+
+        var removeResult = await _userManager.RemovePasswordAsync(user);
+        if (!removeResult.Succeeded)
+        {
+            throw new ValidationException(new Dictionary<string, string[]>
+            {
+                ["NewPassword"] = removeResult.Errors.Select(e => e.Description).ToArray(),
+            });
+        }
+
+        var addResult = await _userManager.AddPasswordAsync(user, request.NewPassword);
+        if (!addResult.Succeeded)
+        {
+            throw new ValidationException(new Dictionary<string, string[]>
+            {
+                ["NewPassword"] = addResult.Errors.Select(e => e.Description).ToArray(),
+            });
+        }
+
+        user.MustChangePassword = false;
+        await _userManager.UpdateAsync(user);
+
+        return await CompleteLoginAsync(user, cancellationToken);
     }
 
     /// <summary>US-17: the second half of a 2FA-gated login. Requires a TwoFactorPending

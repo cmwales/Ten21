@@ -62,6 +62,13 @@ public static class TokenPurposes
     /// POST /api/auth/login/verify-2fa.</summary>
     public const string TwoFactorPending = "2fa_pending";
 
+    /// <summary>US-24: password verified, but ApplicationUser.MustChangePassword is true --
+    /// awaiting a new password before a real session issues. Only valid against
+    /// POST /api/auth/change-temp-password. Uses GenerateInterimAccessToken directly (no
+    /// dedicated generation method, unlike TwoFactorPending) since there's no "code" to
+    /// carry as a claim -- just a boolean gate.</summary>
+    public const string PasswordChangePending = "password_change_pending";
+
     /// <summary>US-17 (fix): SHA-256 hex hash of the one-time code, carried on a
     /// TwoFactorPending challenge token. See GenerateTwoFactorChallengeToken.</summary>
     public const string CodeHashClaimType = "code_hash";

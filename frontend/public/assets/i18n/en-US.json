@@ -107,6 +107,17 @@
       "submit": "Verify",
       "invalidCodeError": "That code is invalid or has expired.",
       "networkError": "Something went wrong. Please try again."
+    },
+    "changeTempPassword": {
+      "title": "Set a new password",
+      "subtitle": "You're using a temporary password. Choose a new one to continue.",
+      "newPasswordLabel": "New password",
+      "confirmPasswordLabel": "Confirm new password",
+      "passwordMismatch": "Passwords do not match.",
+      "submit": "Set password",
+      "validationError": "That password doesn't meet the requirements. Try a longer password with a mix of letters, numbers, and symbols.",
+      "expiredChallengeError": "This link has expired. Please log in again.",
+      "networkError": "Something went wrong. Please try again."
     }
   },
   "nav": {

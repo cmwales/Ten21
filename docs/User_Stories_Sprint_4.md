@@ -117,3 +117,80 @@ and populate the property detail drawer.
 **Deliberately deferred to US-24:** login provisioning for a resident with an email --
 `ResidentProfile.UserId` stays null for every resident created in this story; the next
 branch layers provisioning on top of `CreateResident`.
+
+### US-24: Zero-Token Tenant Welcome & Provisioning
+
+**As a** Property Manager, **I want** tenant emails recorded so the system provisions
+credentials and sends a welcome notification directing residents to log in at the main
+portal URL, **so that** onboarding a resident needs no separate invitation/token step.
+
+- **Primary Role:** Property Manager (triggers provisioning as a side effect of
+  `Permissions.Resident.Manage`, no separate permission claim of its own).
+- **Authorized Secondary Roles:** None.
+- **Prohibited Roles:** N/A -- this story's actor-facing surface is entirely the resident's
+  own login (`/api/auth/login`, `/api/auth/change-temp-password`), open to whichever
+  ApplicationUser the challenge token names.
+- **Required Permission Claims:** None new -- reuses `Permissions.Resident.Manage`.
+
+**What shipped:**
+- `ApplicationUser.MustChangePassword` (`src/Ten21.Infrastructure/Identity/ApplicationUser.cs`) --
+  false for every self-registered (US-14) or Google (US-15) account, true only for an
+  account `ResidentsController.CreateResident` provisions.
+- **Login gate**: `AuthController.Login` checks `MustChangePassword` immediately after the
+  password check, *before* resolving tenant membership or checking mandatory 2FA. If true,
+  it short-circuits into a `PasswordChangeRequiredResponse` using
+  `IJwtTokenService.GenerateInterimAccessToken` with a new `TokenPurposes.PasswordChangePending`
+  purpose claim -- reusing US-15's existing interim-token mechanism rather than building a
+  parallel one, since there's no "code" to carry as a claim here, just a boolean gate (unlike
+  US-17's 2FA challenge, which does need code_hash/code_exp claims).
+- **`POST /api/auth/change-temp-password`**: requires a `PasswordChangePending` token
+  (checked explicitly, same defensive pattern as `VerifyTwoFactor`). No `CurrentPassword`
+  field -- the challenge token itself already proves knowledge of the current (temporary)
+  password, so `UserManager.RemovePasswordAsync` + `AddPasswordAsync` replace it directly.
+  On success, falls through to the same `CompleteLoginAsync` tail `Login` itself uses
+  (resolve membership -> 2FA if the role needs it -> issue a real session) -- extracted as a
+  shared private method so both paths stay in sync.
+- **Provisioning** (`ResidentsController.ProvisionResidentLoginAsync`, called from
+  `CreateResident` whenever `Email` is set): **every occupant with an email is provisioned,
+  primary or secondary alike** -- confirmed explicitly with the founder, reversing this doc's
+  own first-draft assumption of primary-only. A brand-new email gets a fresh
+  `ApplicationUser` (`MustChangePassword = true`, `EmailConfirmed = true` -- the PM entering
+  it directly stands in for self-confirmation), a `TenantMembership` (Tenant role,
+  `IsPrimary = true`), and a welcome email with the temp password linking to
+  `https://app.ten21.io/login` (hardcoded, not the configurable `_frontendBaseUrl` pattern --
+  the acceptance criteria's own wording calls for the literal production URL, and unlike
+  activation/reset links this one carries no token to be environment-aware about).
+- **Cross-PM identity** (raised live by the founder mid-build: "how do we handle rentals made
+  by the same person across multiple property managers... we will address that in a future
+  sprint"): `ApplicationUser` is already global with no `TenantId` of its own, and
+  `TenantMembership` already supports "one login, many tenant/role pairs" by design (see its
+  own class comment -- built for PMC staff across a portfolio). `ProvisionResidentLoginAsync`
+  checks for an existing `ApplicationUser` by email first; if found, it links that account
+  into the new tenant via an additional `TenantMembership` (not `IsPrimary` unless it's their
+  first) rather than erroring or creating a duplicate account, and sends a lighter
+  "you've been added, log in as usual" email with no password reset involved. Richer cross-PM
+  UX (visibility across memberships, consent, conflict resolution) is deliberately deferred,
+  per that same conversation.
+- `GenerateTemporaryPassword` meets ASP.NET Core Identity's default password policy by
+  construction (one guaranteed character from each required category, random-filled, then
+  shuffled) and excludes visually ambiguous characters (0/O, 1/I/l) since it's read out of an
+  email and typed back in by hand.
+- **Frontend gap found and closed, not originally scoped**: the backend mechanism alone left
+  a real resident with nowhere to go -- the Angular login page had no handling for
+  `PasswordChangeRequiredResponse` at all. Added `AuthService.changeTempPassword()`
+  (mirroring `verifyTwoFactor()`'s "use the challenge token directly as the Authorization
+  header" pattern) and a new `ChangeTempPassword` page/route
+  (`frontend/src/app/pages/change-temp-password/`), matching `VerifyTwoFactor`'s
+  "bounce back to /login with no pending challenge" guard.
+- Verified live end-to-end in a real browser against the real backend, including the
+  frontend piece: a PM added a resident with an email through the real drawer UI, the
+  resident logged in through the real `/login` page with the emailed temp password, was
+  redirected to `/change-temp-password`, set a new password, landed on `/dashboard` with the
+  `Tenant` role -- then confirmed directly that the old temporary password is rejected
+  (401) and the new one keeps working (200) on fresh logins.
+- 4 new backend unit tests (real `UserManager`/`RoleManager` via a minimal Identity DI stack
+  against the same in-memory SQLite connection, not mocked -- this codebase has no mocking
+  library and `AuthController` itself is only ever tested this way through full integration
+  tests) plus 1 new integration test (`ResidentProvisioningEndToEndTests`) proving the whole
+  login -> forced-change -> session flow through the real HTTP pipeline. 3 new frontend
+  `AuthService` tests.

@@ -7,6 +7,7 @@ import {
   CompleteProfileRequest,
   GenericAcknowledgementResponse,
   LoginRequest,
+  PasswordChangeRequiredResponse,
   ProfileCompletionRequiredResponse,
   RegisterRequest,
   TwoFactorRequiredResponse,
@@ -43,6 +44,12 @@ export class AuthService {
   private readonly _twoFactorChallenge = signal<TwoFactorRequiredResponse | null>(null);
   readonly twoFactorChallenge = this._twoFactorChallenge.asReadonly();
 
+  /** US-24: holds the pending MustChangePassword challenge between login() returning
+   * PasswordChangeRequiredResponse and the ChangeTempPassword page submitting a new
+   * password -- same memory-only, single-purpose reasoning as _twoFactorChallenge. */
+  private readonly _passwordChangeChallenge = signal<PasswordChangeRequiredResponse | null>(null);
+  readonly passwordChangeChallenge = this._passwordChangeChallenge.asReadonly();
+
   readonly isAuthenticated = computed(() => {
     const session = this._session();
     return session !== null && new Date(session.expiresAtUtc).getTime() > Date.now();
@@ -53,22 +60,53 @@ export class AuthService {
   readonly organizationId = computed(() => this._session()?.organizationId ?? null);
   readonly accessToken = computed(() => this._session()?.accessToken ?? null);
 
-  /** US-17: returns either a full AuthResponse (session set immediately, as before) or a
+  /** US-17/US-24: returns a full AuthResponse (session set immediately, as before), a
    * TwoFactorRequiredResponse (mandatory-role account -- the challenge is stashed for
-   * VerifyTwoFactor to use next; no session is set yet). */
-  login(request: LoginRequest): Observable<AuthResponse | TwoFactorRequiredResponse> {
+   * VerifyTwoFactor), or a PasswordChangeRequiredResponse (account provisioned with a
+   * temporary password -- the challenge is stashed for ChangeTempPassword). Checked in
+   * that order to match AuthController's own precedence (MustChangePassword is checked
+   * before 2FA). */
+  login(request: LoginRequest): Observable<AuthResponse | TwoFactorRequiredResponse | PasswordChangeRequiredResponse> {
     return this.http
-      .post<ApiResponse<AuthResponse | TwoFactorRequiredResponse>>('/api/auth/login', request, {
-        withCredentials: true,
-      })
+      .post<ApiResponse<AuthResponse | TwoFactorRequiredResponse | PasswordChangeRequiredResponse>>(
+        '/api/auth/login',
+        request,
+        { withCredentials: true },
+      )
       .pipe(
         map((response) => response.data!),
         tap((result) => {
-          if ('requiresTwoFactor' in result) {
+          if ('requiresPasswordChange' in result) {
+            this._passwordChangeChallenge.set(result);
+          } else if ('requiresTwoFactor' in result) {
             this._twoFactorChallenge.set(result);
           } else {
             this.setSession(result);
           }
+        }),
+      );
+  }
+
+  /** US-24: submits a new password against the stashed MustChangePassword challenge --
+   * same "use the challenge token directly as the Authorization header" pattern as
+   * verifyTwoFactor()/completeProfile(), since there's no session yet. */
+  changeTempPassword(newPassword: string): Observable<AuthResponse> {
+    const challenge = this._passwordChangeChallenge();
+    if (!challenge) {
+      throw new Error('changeTempPassword() called with no pending challenge -- start over at /login.');
+    }
+
+    return this.http
+      .post<ApiResponse<AuthResponse>>(
+        '/api/auth/change-temp-password',
+        { newPassword },
+        { withCredentials: true, headers: new HttpHeaders({ Authorization: `Bearer ${challenge.challengeToken}` }) },
+      )
+      .pipe(
+        map((response) => response.data!),
+        tap((session) => {
+          this._passwordChangeChallenge.set(null);
+          this.setSession(session);
         }),
       );
   }

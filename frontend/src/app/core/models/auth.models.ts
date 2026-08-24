@@ -75,6 +75,17 @@ export interface TwoFactorRequiredResponse {
   expiresAtUtc: string;
 }
 
+/** Mirrors Ten21.Api.Contracts.Auth.PasswordChangeRequiredResponse (US-24). Returned by
+ * POST /api/auth/login instead of AuthResponse (or a 2FA challenge) when the password check
+ * succeeds but the account was provisioned with a temporary password
+ * (ApplicationUser.MustChangePassword) -- same shape as TwoFactorRequiredResponse
+ * deliberately, since both are "one more step before a real session" gates. */
+export interface PasswordChangeRequiredResponse {
+  requiresPasswordChange: true;
+  challengeToken: string;
+  expiresAtUtc: string;
+}
+
 /** Mirrors the RFC 7807 ProblemDetails shape produced by GlobalExceptionHandler (US-09). */
 export interface ProblemDetails {
   status: number;

@@ -28,4 +28,14 @@ public class ApplicationUser : IdentityUser<Guid>
     /// <summary>Set exactly once, at the moment of registration -- never inferred or
     /// defaulted. Null for any account that predates US-14 (e.g. seeded directly).</summary>
     public DateTimeOffset? AgreedToTermsAt { get; set; }
+
+    /// <summary>
+    /// US-24: true for an account provisioned with an auto-generated temporary password
+    /// (e.g. a resident invited via ResidentsController), false for every self-registered
+    /// (US-14) or Google (US-15) account, which set their own password/have none.
+    /// AuthController.Login checks this BEFORE resolving tenant membership or checking 2FA
+    /// -- a true value short-circuits straight into a password-change challenge (mirroring
+    /// US-17's 2FA challenge-token pattern) instead of issuing a real session.
+    /// </summary>
+    public bool MustChangePassword { get; set; }
 }
