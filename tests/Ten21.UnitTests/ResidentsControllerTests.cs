@@ -1,11 +1,16 @@
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 using Ten21.Api.Contracts.Residents;
 using Ten21.Api.Controllers;
+using Ten21.Application.Abstractions;
+using Ten21.Domain.Common;
 using Ten21.Domain.Entities;
 using Ten21.Domain.Enums;
 using Ten21.Domain.Exceptions;
+using Ten21.Infrastructure.Identity;
 using Ten21.Infrastructure.Persistence;
 using Ten21.Infrastructure.Persistence.Interceptors;
 using Ten21.Infrastructure.Security;
@@ -13,9 +18,15 @@ using Xunit;
 
 namespace Ten21.UnitTests;
 
-/// <summary>US-23: Tenant Profile Directory -- ResidentProfile + one-to-many
-/// EmergencyContact, nested under a Property. Same in-memory SQLite pattern as
-/// PropertiesControllerTests.</summary>
+/// <summary>US-23/US-24: Tenant Profile Directory + Zero-Token Welcome & Provisioning --
+/// ResidentProfile + one-to-many EmergencyContact, nested under a Property, plus login
+/// provisioning (ApplicationUser/TenantMembership) for any resident with an email. Same
+/// in-memory SQLite pattern as PropertiesControllerTests, extended with a minimal real
+/// Identity DI stack (AddIdentityCore against the SAME SQLite connection) so
+/// UserManager/RoleManager work for real rather than needing to be mocked -- this codebase
+/// has no mocking library, and AuthController itself is only ever tested this way via full
+/// integration tests, so building real Identity plumbing here (rather than skipping
+/// provisioning coverage entirely) is the faithful choice.</summary>
 public class ResidentsControllerTests : IDisposable
 {
     private readonly SqliteConnection _connection;
@@ -29,7 +40,8 @@ public class ResidentsControllerTests : IDisposable
 
     public void Dispose() => _connection.Dispose();
 
-    private (Ten21DbContext Db, ResidentsController Controller, Guid PropertyId) CreateController(Guid tenantId)
+    private (Ten21DbContext Db, ResidentsController Controller, Guid PropertyId, UserManager<ApplicationUser> UserManager, FakeEmailSender EmailSender)
+        CreateController(Guid tenantId)
     {
         var tenantContext = new TenantContext();
         tenantContext.SetTenant(tenantId);
@@ -41,6 +53,25 @@ public class ResidentsControllerTests : IDisposable
             .Options;
         var db = new Ten21DbContext(options, tenantContext);
         db.Database.EnsureCreated();
+
+        var services = new ServiceCollection();
+        services.AddLogging();
+        services.AddDataProtection();
+        services.AddSingleton(db);
+        services.AddIdentityCore<ApplicationUser>(o => o.User.RequireUniqueEmail = true)
+            .AddRoles<ApplicationRole>()
+            .AddEntityFrameworkStores<Ten21DbContext>()
+            .AddDefaultTokenProviders();
+        var provider = services.BuildServiceProvider();
+
+        var userManager = provider.GetRequiredService<UserManager<ApplicationUser>>();
+        var roleManager = provider.GetRequiredService<RoleManager<ApplicationRole>>();
+        if (!roleManager.RoleExistsAsync(RoleNames.Tenant).GetAwaiter().GetResult())
+        {
+            roleManager.CreateAsync(new ApplicationRole(RoleNames.Tenant)).GetAwaiter().GetResult();
+        }
+
+        var emailSender = new FakeEmailSender();
 
         var property = new Property
         {
@@ -59,7 +90,19 @@ public class ResidentsControllerTests : IDisposable
         db.Properties.Add(property);
         db.SaveChanges();
 
-        return (db, new ResidentsController(db, _sanitizer), property.Id);
+        var controller = new ResidentsController(db, _sanitizer, userManager, roleManager, emailSender);
+        return (db, controller, property.Id, userManager, emailSender);
+    }
+
+    private class FakeEmailSender : IEmailSender
+    {
+        public List<(string ToEmail, string Subject, string HtmlBody)> SentEmails { get; } = [];
+
+        public Task SendAsync(string toEmail, string subject, string htmlBody, CancellationToken cancellationToken = default)
+        {
+            SentEmails.Add((toEmail, subject, htmlBody));
+            return Task.CompletedTask;
+        }
     }
 
     private static UpsertResidentRequest NewRequest(
@@ -79,9 +122,11 @@ public class ResidentsControllerTests : IDisposable
     [Fact]
     public async Task CreateResident_PersistsAResidentProfile_ScopedToTheProperty()
     {
-        var (db, controller, propertyId) = CreateController(Guid.NewGuid());
+        var (db, controller, propertyId, _, _) = CreateController(Guid.NewGuid());
 
-        var result = await controller.CreateResident(propertyId, NewRequest(), CancellationToken.None);
+        // No email -- this test is about the profile/property-scoping behavior, not
+        // provisioning (see the dedicated CreateResident_WithEmail_* tests below for that).
+        var result = await controller.CreateResident(propertyId, NewRequest(email: null), CancellationToken.None);
 
         var created = Assert.IsType<CreatedAtActionResult>(result);
         var response = Assert.IsType<ResidentResponse>(created.Value);
@@ -94,7 +139,7 @@ public class ResidentsControllerTests : IDisposable
     [Fact]
     public async Task CreateResident_WithEmergencyContacts_PersistsAllOfThem()
     {
-        var (_, controller, propertyId) = CreateController(Guid.NewGuid());
+        var (_, controller, propertyId, _, _) = CreateController(Guid.NewGuid());
         var contacts = new List<EmergencyContactRequest>
         {
             new("Alex Rivera", "555-0101", "Spouse"),
@@ -111,7 +156,7 @@ public class ResidentsControllerTests : IDisposable
     [Fact]
     public async Task CreateResident_SecondaryOccupant_IsAllowedAndDistinctFromPrimary()
     {
-        var (db, controller, propertyId) = CreateController(Guid.NewGuid());
+        var (db, controller, propertyId, _, _) = CreateController(Guid.NewGuid());
         await controller.CreateResident(propertyId, NewRequest(OccupantType.Primary, email: "primary@example.com"), CancellationToken.None);
 
         await controller.CreateResident(propertyId, NewRequest(OccupantType.Secondary, email: "secondary@example.com"), CancellationToken.None);
@@ -125,7 +170,7 @@ public class ResidentsControllerTests : IDisposable
     [Fact]
     public async Task CreateResident_StripsHtmlFromStringFields()
     {
-        var (_, controller, propertyId) = CreateController(Guid.NewGuid());
+        var (_, controller, propertyId, _, _) = CreateController(Guid.NewGuid());
         var request = NewRequest() with { FirstName = "<script>alert(1)</script>Jamie" };
 
         var result = await controller.CreateResident(propertyId, request, CancellationToken.None);
@@ -138,7 +183,7 @@ public class ResidentsControllerTests : IDisposable
     [Fact]
     public async Task CreateResident_ThrowsValidationException_WhenFirstNameIsMissing()
     {
-        var (_, controller, propertyId) = CreateController(Guid.NewGuid());
+        var (_, controller, propertyId, _, _) = CreateController(Guid.NewGuid());
         var request = NewRequest() with { FirstName = "" };
 
         await Assert.ThrowsAsync<ValidationException>(
@@ -148,7 +193,7 @@ public class ResidentsControllerTests : IDisposable
     [Fact]
     public async Task CreateResident_ThrowsValidationException_WhenEmergencyContactPhoneIsMissing()
     {
-        var (_, controller, propertyId) = CreateController(Guid.NewGuid());
+        var (_, controller, propertyId, _, _) = CreateController(Guid.NewGuid());
         var request = NewRequest(emergencyContacts: [new EmergencyContactRequest("Alex Rivera", "", "Spouse")]);
 
         await Assert.ThrowsAsync<ValidationException>(
@@ -158,7 +203,7 @@ public class ResidentsControllerTests : IDisposable
     [Fact]
     public async Task CreateResident_ThrowsNotFound_WhenPropertyDoesNotExist()
     {
-        var (_, controller, _) = CreateController(Guid.NewGuid());
+        var (_, controller, _, _, _) = CreateController(Guid.NewGuid());
 
         await Assert.ThrowsAsync<NotFoundException>(
             () => controller.CreateResident(Guid.NewGuid(), NewRequest(), CancellationToken.None));
@@ -167,7 +212,7 @@ public class ResidentsControllerTests : IDisposable
     [Fact]
     public async Task GetResidents_ReturnsOnlyResidentsOfThatProperty()
     {
-        var (db, controller, propertyId) = CreateController(Guid.NewGuid());
+        var (db, controller, propertyId, _, _) = CreateController(Guid.NewGuid());
         await controller.CreateResident(propertyId, NewRequest(), CancellationToken.None);
 
         var otherProperty = new Property
@@ -198,7 +243,7 @@ public class ResidentsControllerTests : IDisposable
     [Fact]
     public async Task UpdateResident_ReplacesEmergencyContactsEntirely()
     {
-        var (_, controller, propertyId) = CreateController(Guid.NewGuid());
+        var (_, controller, propertyId, _, _) = CreateController(Guid.NewGuid());
         var created = await controller.CreateResident(
             propertyId,
             NewRequest(emergencyContacts: [new EmergencyContactRequest("Alex Rivera", "555-0101", "Spouse")]),
@@ -216,7 +261,7 @@ public class ResidentsControllerTests : IDisposable
     [Fact]
     public async Task UpdateResident_ThrowsNotFound_WhenResidentBelongsToADifferentProperty()
     {
-        var (db, controller, propertyId) = CreateController(Guid.NewGuid());
+        var (db, controller, propertyId, _, _) = CreateController(Guid.NewGuid());
         var created = await controller.CreateResident(propertyId, NewRequest(), CancellationToken.None);
         var residentId = Assert.IsType<ResidentResponse>(Assert.IsType<CreatedAtActionResult>(created).Value).Id;
 
@@ -244,7 +289,7 @@ public class ResidentsControllerTests : IDisposable
     [Fact]
     public async Task DeleteResident_SoftDeletes_AndExcludesFromSubsequentQueries()
     {
-        var (db, controller, propertyId) = CreateController(Guid.NewGuid());
+        var (db, controller, propertyId, _, _) = CreateController(Guid.NewGuid());
         var created = await controller.CreateResident(propertyId, NewRequest(), CancellationToken.None);
         var residentId = Assert.IsType<ResidentResponse>(Assert.IsType<CreatedAtActionResult>(created).Value).Id;
 
@@ -258,13 +303,96 @@ public class ResidentsControllerTests : IDisposable
     [Fact]
     public async Task GetResident_ThrowsNotFound_ForAnotherTenantsResident()
     {
-        var (_, controllerA, propertyIdA) = CreateController(Guid.NewGuid());
+        var (_, controllerA, propertyIdA, _, _) = CreateController(Guid.NewGuid());
         var created = await controllerA.CreateResident(propertyIdA, NewRequest(), CancellationToken.None);
         var residentId = Assert.IsType<ResidentResponse>(Assert.IsType<CreatedAtActionResult>(created).Value).Id;
 
-        var (_, controllerB, _) = CreateController(Guid.NewGuid());
+        var (_, controllerB, _, _, _) = CreateController(Guid.NewGuid());
 
         await Assert.ThrowsAsync<NotFoundException>(
             () => controllerB.GetResident(propertyIdA, residentId, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task CreateResident_WithEmail_ProvisionsALogin_WithMustChangePasswordTrue()
+    {
+        var (db, controller, propertyId, userManager, emailSender) = CreateController(Guid.NewGuid());
+
+        var result = await controller.CreateResident(propertyId, NewRequest(email: "jamie@example.com"), CancellationToken.None);
+
+        var response = Assert.IsType<ResidentResponse>(Assert.IsType<CreatedAtActionResult>(result).Value);
+        Assert.NotNull(response.UserId);
+
+        var provisionedUser = await userManager.FindByEmailAsync("jamie@example.com");
+        Assert.NotNull(provisionedUser);
+        Assert.True(provisionedUser!.MustChangePassword);
+        Assert.Equal(response.UserId, provisionedUser.Id);
+
+        var membership = await db.TenantMemberships.IgnoreQueryFilters().SingleAsync(m => m.UserId == provisionedUser.Id);
+        Assert.True(membership.IsPrimary);
+
+        var sent = Assert.Single(emailSender.SentEmails);
+        Assert.Equal("jamie@example.com", sent.ToEmail);
+        Assert.Contains("app.ten21.io/login", sent.HtmlBody);
+    }
+
+    [Fact]
+    public async Task CreateResident_SecondaryOccupantWithEmail_AlsoProvisionsALogin()
+    {
+        var (_, controller, propertyId, userManager, _) = CreateController(Guid.NewGuid());
+
+        var result = await controller.CreateResident(
+            propertyId, NewRequest(OccupantType.Secondary, email: "secondary@example.com"), CancellationToken.None);
+
+        var response = Assert.IsType<ResidentResponse>(Assert.IsType<CreatedAtActionResult>(result).Value);
+        Assert.NotNull(response.UserId);
+        Assert.NotNull(await userManager.FindByEmailAsync("secondary@example.com"));
+    }
+
+    [Fact]
+    public async Task CreateResident_WithNoEmail_DoesNotProvisionALogin()
+    {
+        var (_, controller, propertyId, _, emailSender) = CreateController(Guid.NewGuid());
+
+        var result = await controller.CreateResident(propertyId, NewRequest(email: null), CancellationToken.None);
+
+        var response = Assert.IsType<ResidentResponse>(Assert.IsType<CreatedAtActionResult>(result).Value);
+        Assert.Null(response.UserId);
+        Assert.Empty(emailSender.SentEmails);
+    }
+
+    [Fact]
+    public async Task CreateResident_EmailAlreadyBelongsToAUser_LinksExistingAccount_WithoutResettingPassword()
+    {
+        var (db, controller, propertyId, userManager, emailSender) = CreateController(Guid.NewGuid());
+
+        // Simulate a resident who already has an account -- e.g. from a different Property
+        // Manager's tenant (see CreateResidentsController's ProvisionResidentLoginAsync doc
+        // comment for the cross-PM reasoning).
+        var existingUser = new ApplicationUser
+        {
+            Id = Guid.NewGuid(),
+            UserName = "existing@example.com",
+            Email = "existing@example.com",
+            FirstName = "Existing",
+            LastName = "User",
+            CreatedAt = DateTimeOffset.UtcNow,
+        };
+        await userManager.CreateAsync(existingUser, "Original-Passw0rd!1");
+
+        var result = await controller.CreateResident(propertyId, NewRequest(email: "existing@example.com"), CancellationToken.None);
+
+        var response = Assert.IsType<ResidentResponse>(Assert.IsType<CreatedAtActionResult>(result).Value);
+        Assert.Equal(existingUser.Id, response.UserId);
+
+        var reloadedUser = await userManager.FindByIdAsync(existingUser.Id.ToString());
+        Assert.False(reloadedUser!.MustChangePassword); // never flipped -- they keep their existing password
+        Assert.True(await userManager.CheckPasswordAsync(reloadedUser, "Original-Passw0rd!1"));
+
+        var membership = await db.TenantMemberships.IgnoreQueryFilters().SingleAsync(m => m.UserId == existingUser.Id);
+        Assert.True(membership.IsPrimary); // their first (only) membership
+
+        var sent = Assert.Single(emailSender.SentEmails);
+        Assert.Contains("existing account", sent.HtmlBody);
     }
 }

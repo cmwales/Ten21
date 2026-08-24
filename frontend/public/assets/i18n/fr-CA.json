@@ -107,6 +107,17 @@
       "submit": "Vérifier",
       "invalidCodeError": "Ce code est invalide ou a expiré.",
       "networkError": "Une erreur s'est produite. Veuillez réessayer."
+    },
+    "changeTempPassword": {
+      "title": "Définir un nouveau mot de passe",
+      "subtitle": "Vous utilisez un mot de passe temporaire. Choisissez-en un nouveau pour continuer.",
+      "newPasswordLabel": "Nouveau mot de passe",
+      "confirmPasswordLabel": "Confirmer le nouveau mot de passe",
+      "passwordMismatch": "Les mots de passe ne correspondent pas.",
+      "submit": "Définir le mot de passe",
+      "validationError": "Ce mot de passe ne répond pas aux exigences. Essayez un mot de passe plus long avec un mélange de lettres, de chiffres et de symboles.",
+      "expiredChallengeError": "Ce lien a expiré. Veuillez vous reconnecter.",
+      "networkError": "Une erreur s'est produite. Veuillez réessayer."
     }
   },
   "nav": {

@@ -65,7 +65,9 @@ export class Login {
     this.authService.login(this.form.getRawValue()).subscribe({
       next: (result) => {
         this.submitting.set(false);
-        if ('requiresTwoFactor' in result) {
+        if ('requiresPasswordChange' in result) {
+          void this.router.navigateByUrl('/change-temp-password');
+        } else if ('requiresTwoFactor' in result) {
           void this.router.navigateByUrl('/verify-2fa');
         } else {
           void this.router.navigateByUrl('/dashboard');

@@ -107,6 +107,17 @@
       "submit": "Verificar",
       "invalidCodeError": "Ese código no es válido o ha expirado.",
       "networkError": "Algo salió mal. Inténtelo de nuevo."
+    },
+    "changeTempPassword": {
+      "title": "Establecer una nueva contraseña",
+      "subtitle": "Está usando una contraseña temporal. Elija una nueva para continuar.",
+      "newPasswordLabel": "Nueva contraseña",
+      "confirmPasswordLabel": "Confirmar nueva contraseña",
+      "passwordMismatch": "Las contraseñas no coinciden.",
+      "submit": "Establecer contraseña",
+      "validationError": "Esa contraseña no cumple con los requisitos. Pruebe con una contraseña más larga que combine letras, números y símbolos.",
+      "expiredChallengeError": "Este enlace ha expirado. Por favor, inicie sesión de nuevo.",
+      "networkError": "Algo salió mal. Inténtelo de nuevo."
     }
   },
   "nav": {

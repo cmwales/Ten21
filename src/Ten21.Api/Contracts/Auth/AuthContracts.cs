@@ -59,6 +59,17 @@ public record TwoFactorRequiredResponse(bool RequiresTwoFactor, string Challenge
 /// <summary>US-17: submitted against a TwoFactorPending challenge token.</summary>
 public record VerifyTwoFactorRequest(string Code);
 
+/// <summary>US-24: returned instead of AuthResponse (or a 2FA challenge) when Login's
+/// password check succeeds but ApplicationUser.MustChangePassword is true -- same shape as
+/// TwoFactorRequiredResponse, deliberately, since both are "one more step before a real
+/// session" gates.</summary>
+public record PasswordChangeRequiredResponse(bool RequiresPasswordChange, string ChallengeToken, DateTimeOffset ExpiresAtUtc);
+
+/// <summary>US-24: submitted against a PasswordChangePending challenge token. No
+/// CurrentPassword field -- the challenge token itself already proves knowledge of the
+/// current (temporary) password, since that's how Login issued it.</summary>
+public record ChangeTempPasswordRequest(string NewPassword);
+
 /// <summary>
 /// The refresh token deliberately never appears here -- it only ever travels as an
 /// HTTP-only cookie (SECURITY.docx §2), never in a JSON body a script could read.

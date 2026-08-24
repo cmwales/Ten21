@@ -43,6 +43,11 @@ export const routes: Routes = [
       import('./pages/verify-two-factor/verify-two-factor').then((m) => m.VerifyTwoFactor),
   },
   {
+    path: 'change-temp-password',
+    loadComponent: () =>
+      import('./pages/change-temp-password/change-temp-password').then((m) => m.ChangeTempPassword),
+  },
+  {
     path: 'dashboard',
     canActivate: [authGuard],
     loadComponent: () => import('./pages/dashboard/dashboard').then((m) => m.Dashboard),
