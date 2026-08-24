@@ -1,0 +1,79 @@
+<header class="relative flex items-center justify-between bg-slate-navy px-4 py-4 sm:px-8">
+  <div class="flex items-center gap-4">
+    <span class="text-lg font-semibold text-white">{{ 'app.name' | translate }}</span>
+
+    @if (workspaces().length > 0) {
+      <div class="relative">
+        <button
+          type="button"
+          (click)="toggleWorkspaceMenu()"
+          [attr.aria-expanded]="workspaceMenuOpen()"
+          aria-haspopup="true"
+          class="tap-target flex items-center gap-1.5 rounded-md border border-white/20 px-3 py-1.5 text-sm font-medium text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
+        >
+          {{ activeWorkspaceName() ?? ('nav.workspaceSwitcher.loading' | translate) }}
+          <span aria-hidden="true">▾</span>
+        </button>
+
+        @if (workspaceMenuOpen()) {
+          <div class="fixed inset-0 z-10" (click)="closeWorkspaceMenu()"></div>
+
+          <div
+            class="absolute left-0 z-20 mt-2 w-64 rounded-md border border-slate-navy/10 bg-surface-card py-1 shadow-xl"
+            role="menu"
+          >
+            @if (otherWorkspaces().length === 0) {
+              <p class="px-4 py-2 text-sm text-slate-navy-light">
+                {{ 'nav.workspaceSwitcher.noOtherWorkspaces' | translate }}
+              </p>
+            }
+            @for (workspace of otherWorkspaces(); track workspace.tenantId) {
+              <button
+                type="button"
+                role="menuitem"
+                [disabled]="switching()"
+                (click)="switchWorkspace(workspace.tenantId)"
+                class="tap-target flex w-full flex-col items-start px-4 py-2 text-left text-sm text-slate-navy hover:bg-slate-navy/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald disabled:opacity-60"
+              >
+                <span class="font-medium">{{ workspace.tenantName }}</span>
+                <span class="text-xs text-slate-navy-light">{{ workspace.role }}</span>
+              </button>
+            }
+          </div>
+        }
+      </div>
+    }
+  </div>
+
+  <nav class="flex items-center gap-4 text-sm text-white">
+    <a
+      routerLink="/dashboard"
+      class="tap-target flex items-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
+    >
+      {{ 'nav.dashboard' | translate }}
+    </a>
+    @if (!isTenant()) {
+      <a
+        routerLink="/ledger"
+        class="tap-target flex items-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
+      >
+        {{ 'nav.ledger' | translate }}
+      </a>
+    }
+    @if (canManageProperties()) {
+      <a
+        routerLink="/properties"
+        class="tap-target flex items-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
+      >
+        {{ 'nav.properties' | translate }}
+      </a>
+    }
+    <button
+      type="button"
+      (click)="logout()"
+      class="tap-target rounded-md bg-slate-navy-light px-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
+    >
+      {{ 'nav.logout' | translate }}
+    </button>
+  </nav>
+</header>

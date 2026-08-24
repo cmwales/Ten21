@@ -124,7 +124,11 @@
     "dashboard": "Tableau de bord",
     "ledger": "Grand livre",
     "properties": "Propriétés",
-    "logout": "Déconnexion"
+    "logout": "Déconnexion",
+    "workspaceSwitcher": {
+      "loading": "Chargement de l'espace de travail…",
+      "noOtherWorkspaces": "Aucun autre espace de travail pour l'instant."
+    }
   },
   "properties": {
     "import": {

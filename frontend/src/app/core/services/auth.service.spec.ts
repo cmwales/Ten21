@@ -3,6 +3,7 @@ import { provideHttpClient } from '@angular/common/http';
 import { TestBed } from '@angular/core/testing';
 import { AuthService } from './auth.service';
 import { ApiResponse, AuthResponse, PasswordChangeRequiredResponse } from '../models/auth.models';
+import { TenantMembershipSummary } from '../models/organization.models';
 
 describe('AuthService', () => {
   let service: AuthService;
@@ -102,6 +103,46 @@ describe('AuthService', () => {
 
   it('changeTempPassword() throws synchronously with no pending challenge', () => {
     expect(() => service.changeTempPassword('Brand-New-Passw0rd!1')).toThrow();
+  });
+
+  it('listWorkspaces() returns every membership the caller holds', () => {
+    service.setSession(session);
+    const workspaces: TenantMembershipSummary[] = [
+      { tenantId: 'tenant-1', tenantName: 'Riverside HQ', isPrimary: true, role: 'PropertyManager' },
+      { tenantId: 'tenant-2', tenantName: 'Second Property', isPrimary: false, role: 'PropertyManager' },
+    ];
+
+    let result: TenantMembershipSummary[] | undefined;
+    service.listWorkspaces().subscribe((r) => (result = r));
+
+    httpMock.expectOne('/api/organization/tenants').flush({
+      success: true,
+      data: workspaces,
+      message: null,
+      statusCode: 200,
+      traceId: 't1',
+    } satisfies ApiResponse<TenantMembershipSummary[]>);
+
+    expect(result).toEqual(workspaces);
+  });
+
+  it('switchWorkspace() updates the session -- tenantId/role signals reflect the new workspace', () => {
+    service.setSession(session);
+
+    service.switchWorkspace('tenant-2').subscribe();
+
+    const req = httpMock.expectOne('/api/organization/switch-context');
+    expect(req.request.body).toEqual({ tenantId: 'tenant-2' });
+    req.flush({
+      success: true,
+      data: { ...session, tenantId: 'tenant-2', role: 'PropertyOwner' },
+      message: null,
+      statusCode: 200,
+      traceId: 't1',
+    } satisfies ApiResponse<AuthResponse>);
+
+    expect(service.tenantId()).toBe('tenant-2');
+    expect(service.role()).toBe('PropertyOwner');
   });
 
   it('logout() clears the session even if the revoke call fails', () => {

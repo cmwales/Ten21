@@ -10,6 +10,7 @@ import {
   PropertyTypes,
 } from '../../../core/models/property.models';
 import { PropertyService } from '../../../core/services/property.service';
+import { AppHeader } from '../../../shared/app-header/app-header';
 
 const PAGE_SIZES = [15, 30, 50] as const;
 type PageSize = (typeof PAGE_SIZES)[number];
@@ -23,7 +24,7 @@ type PageSize = (typeof PAGE_SIZES)[number];
  */
 @Component({
   selector: 'app-property-list',
-  imports: [RouterLink, TranslatePipe],
+  imports: [RouterLink, TranslatePipe, AppHeader],
   templateUrl: './property-list.html',
 })
 export class PropertyList implements OnInit {
