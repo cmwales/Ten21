@@ -15,7 +15,7 @@ export interface PropertyFormControls {
   state: FormControl<string>;
   postalCode: FormControl<string>;
   country: FormControl<string>;
-  unitIdentifier: FormControl<string>;
+  unitIdentifier: FormControl<string | null>;
   targetRent: FormControl<number | null>;
   occupancyStatus: FormControl<OccupancyStatusValue>;
 }

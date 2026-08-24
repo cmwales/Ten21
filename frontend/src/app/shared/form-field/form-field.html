@@ -1,0 +1,11 @@
+<div class="flex flex-col gap-1.5">
+  <label [for]="controlId" class="text-sm font-medium text-slate-navy">
+    {{ labelKey | translate }}
+  </label>
+  <ng-content></ng-content>
+  @if (control.invalid && control.touched && errorKey) {
+    <p class="text-sm text-rose">{{ errorKey | translate }}</p>
+  } @else if (hintKey) {
+    <p class="text-xs text-slate-navy-light">{{ hintKey | translate }}</p>
+  }
+</div>

@@ -109,13 +109,17 @@ public class AuditSaveChangesInterceptor : SaveChangesInterceptor
             _ => "Unknown",
         };
 
+        // Ten21JsonOptions.Default (not JsonSerializerOptions.Default) so an enum-typed
+        // property (Property.OccupancyStatus, Property.PropertyType, ...) diffs as its
+        // string name here too, matching what the API itself sends/receives -- see
+        // Ten21JsonOptions's own doc comment for the real bug this fixes.
         var originalValuesJson = entry.State == EntityState.Added
             ? null
-            : JsonSerializer.Serialize(SnapshotValues(entry.OriginalValues));
+            : JsonSerializer.Serialize(SnapshotValues(entry.OriginalValues), Ten21JsonOptions.Default);
 
         var newValuesJson = entry.State == EntityState.Deleted
             ? null
-            : JsonSerializer.Serialize(SnapshotValues(entry.CurrentValues));
+            : JsonSerializer.Serialize(SnapshotValues(entry.CurrentValues), Ten21JsonOptions.Default);
 
         var idProperty = entry.Properties.FirstOrDefault(p => p.Metadata.Name == "Id");
 

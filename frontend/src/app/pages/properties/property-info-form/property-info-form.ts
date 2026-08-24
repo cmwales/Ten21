@@ -2,6 +2,7 @@ import { Component, Input } from '@angular/core';
 import { ReactiveFormsModule } from '@angular/forms';
 import { TranslatePipe } from '@ngx-translate/core';
 import { OccupancyStatuses, PropertyTypes } from '../../../core/models/property.models';
+import { FormField } from '../../../shared/form-field/form-field';
 import { PropertyFormGroup } from '../property-form.types';
 
 /** The Property form -- flat, no nested/embedded sections. Every field here (including
@@ -12,7 +13,7 @@ import { PropertyFormGroup } from '../property-form.types';
  * independently"). */
 @Component({
   selector: 'app-property-info-form',
-  imports: [ReactiveFormsModule, TranslatePipe],
+  imports: [ReactiveFormsModule, TranslatePipe, FormField],
   templateUrl: './property-info-form.html',
 })
 export class PropertyInfoForm {

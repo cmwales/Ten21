@@ -179,6 +179,7 @@
       "unitIdentifier": "Unité/Suite #",
       "unitIdentifierPlaceholder": "p. ex. Suite A (facultatif)",
       "unitIdentifierHint": "Laissez vide pour une propriété autonome. Remplissez lorsqu'il s'agit d'une des plusieurs unités partageant une adresse.",
+      "unitIdentifierMaxLength": "L'identifiant d'unité doit comporter 50 caractères ou moins.",
       "targetRent": "Loyer cible",
       "occupancyStatus": "Statut d'occupation",
       "save": "Enregistrer",
@@ -188,6 +189,7 @@
       "savedToast": "Propriété enregistrée.",
       "validationError": "Veuillez vérifier les champs surlignés et réessayer.",
       "notFoundError": "Cette propriété est introuvable.",
+      "duplicateError": "Une propriété avec cette adresse et cet identifiant d'unité existe déjà.",
       "loadError": "Une erreur s'est produite lors du chargement de cette propriété.",
       "networkError": "Une erreur s'est produite. Veuillez réessayer."
     },

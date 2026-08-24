@@ -1,5 +1,4 @@
 using System.Text;
-using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.RateLimiting;
@@ -8,6 +7,7 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
 using Ten21.Api.ExceptionHandling;
 using Ten21.Api.Filters;
+using Ten21.Domain.Common;
 using Ten21.Infrastructure;
 using Ten21.Infrastructure.Authorization;
 using Ten21.Infrastructure.Email;
@@ -32,9 +32,12 @@ var builder = WebApplication.CreateBuilder(args);
 // actions directly (never through JSON model binding) and no integration test exercised
 // PropertiesController over real HTTP -- only caught by a live browser test against a real
 // backend. Global, not per-controller: every current and future enum-typed contract field
-// benefits uniformly, and it's what the frontend already assumes everywhere.
+// benefits uniformly, and it's what the frontend already assumes everywhere. Sourced from
+// Ten21JsonOptions rather than `new JsonStringEnumConverter()` inline so this registration
+// can never silently drift from AuditSaveChangesInterceptor's JSON.Serialize calls, which
+// use the same shared options for exactly this reason.
 builder.Services.AddControllers(options => options.Filters.Add<ApiResponseWrappingFilter>())
-    .AddJsonOptions(options => options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
+    .AddJsonOptions(options => options.JsonSerializerOptions.Converters.Add(Ten21JsonOptions.CreateEnumConverter()));
 
 builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddObjectStorage(builder.Configuration); // US-06

@@ -179,6 +179,7 @@
       "unitIdentifier": "Unidad/Suite #",
       "unitIdentifierPlaceholder": "p. ej. Suite A (opcional)",
       "unitIdentifierHint": "Déjelo en blanco para una propiedad independiente. Complételo cuando sea una de varias unidades que comparten una dirección.",
+      "unitIdentifierMaxLength": "El identificador de unidad debe tener 50 caracteres o menos.",
       "targetRent": "Renta objetivo",
       "occupancyStatus": "Estado de ocupación",
       "save": "Guardar",
@@ -188,6 +189,7 @@
       "savedToast": "Propiedad guardada.",
       "validationError": "Verifique los campos resaltados e inténtelo de nuevo.",
       "notFoundError": "No se pudo encontrar esta propiedad.",
+      "duplicateError": "Ya existe una propiedad con esta dirección e identificador de unidad.",
       "loadError": "Algo salió mal al cargar esta propiedad.",
       "networkError": "Algo salió mal. Inténtelo de nuevo."
     },
