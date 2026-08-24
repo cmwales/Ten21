@@ -124,7 +124,11 @@
     "dashboard": "Panel",
     "ledger": "Libro contable",
     "properties": "Propiedades",
-    "logout": "Cerrar sesión"
+    "logout": "Cerrar sesión",
+    "workspaceSwitcher": {
+      "loading": "Cargando espacio de trabajo…",
+      "noOtherWorkspaces": "Aún no hay otros espacios de trabajo."
+    }
   },
   "properties": {
     "import": {

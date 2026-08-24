@@ -145,3 +145,57 @@ real conditions, **so that** a feature this security-sensitive isn't running on 
   straight from `Register`'s own response for PM setup (1 call each, not 3) -- worth
   remembering for any future integration test that needs a *working* PM session and doesn't
   specifically need to exercise `Login`'s own 2FA path.
+
+### US-28: Workspace Switcher UI
+
+**As a** Multi-Property Resident or PMC Manager, **I want** to switch my active property
+workspace via a top-navigation dropdown, **so that** I can access different property portals
+under a single login identity without re-authenticating.
+
+- **Primary Role:** Any authenticated user holding more than one active `TenantMembership`.
+- **Authorized Secondary Roles:** N/A -- the switcher itself has no role gate; what a caller
+  can DO after switching is governed entirely by the target tenant's own role (see US-26's
+  security note).
+- **Prohibited Roles:** Unauthenticated/anonymous (the header only renders once logged in).
+- **Required Permission Claims:** None -- same membership-based authorization as
+  `SwitchContext` itself (US-27's confirmed design).
+
+**What shipped:**
+- **Correction to this doc's own Executive Summary**: research going into this sprint said
+  "no header/nav component exists anywhere in the frontend," based on `app.ts`/`app.html`
+  alone. In fact `dashboard.html` already had a complete inline header (nav links,
+  role-conditional visibility, logout) -- just duplicated per-page rather than shared, and
+  entirely absent from the properties pages. The real starting point was "one page has its
+  own copy, extract and reuse it everywhere," not "build from nothing."
+- `AppHeader` (`frontend/src/app/shared/app-header/`) -- extracted from `dashboard.html`'s
+  former inline header, now used on `dashboard` and `property-list` (the two pages a PM/
+  resident actually lands on). Renders the active workspace name + chevron; opening the
+  dropdown calls `GET /api/organization/tenants` and lists every OTHER workspace (role
+  included) as a clickable item; selecting one calls `AuthService.switchWorkspace()`.
+- **`AuthService.switchWorkspace()` reuses `setSession()`** (the exact same call `login()`/
+  `refresh()` already make) -- every signal derived from the session (`tenantId`, `role`,
+  `organizationId`, `isAuthenticated`) updates reactively for free. No new dedicated
+  "workspace" signal was needed on top of what already existed, dropping the spec's own
+  `propertyState` signal name as unnecessary (per the founder's own call that the original
+  spec was "a bit over zealous" on implementation specifics).
+- **Reactive route-data refresh, the one piece signals alone don't solve**: a page that
+  fetches its data once in `ngOnInit` (e.g. `property-list`) won't automatically re-fetch
+  just because `tenantId` changed -- Angular signals don't retroactively re-trigger a
+  one-time HTTP call. `AppHeader` handles this by re-navigating to the current route after a
+  successful switch (`navigateByUrl('/', { skipLocationChange: true })` then back), which
+  re-runs the routed component's own `ngOnInit` under the new tenant context -- "without
+  requiring a browser reload" exactly as specified, since no actual page reload occurs.
+- Verified live end-to-end in a real browser against the real backend: created a second
+  workspace via the (already-tested) `AddWorkspace` API, confirmed the header's dropdown
+  listed it, switched into it through the real UI, confirmed the session's `tenantId`
+  updated and the header itself reflected the new active workspace -- then navigated to
+  `/properties` and confirmed the header (and the still-correct active workspace) persisted
+  there too, and switched back successfully.
+- 2 new `AuthService` tests, 5 new `AppHeader` tests (real Angular `signal()`s used for the
+  mocked `AuthService.tenantId`/`role` so the component's own `computed()` reactivity is
+  genuinely exercised, not just stubbed).
+
+**Deliberately deferred:** a UI entry point for `AddWorkspace` itself (creating a NEW
+workspace, as opposed to switching between existing ones) -- the backend endpoint (US-26) is
+complete and tested, but this story's own scope is specifically the switcher, not portfolio
+management UI.

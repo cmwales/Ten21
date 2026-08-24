@@ -12,6 +12,7 @@ import {
   RegisterRequest,
   TwoFactorRequiredResponse,
 } from '../models/auth.models';
+import { TenantMembershipSummary } from '../models/organization.models';
 
 const SESSION_STORAGE_KEY = 'ten21_auth_session';
 
@@ -223,6 +224,30 @@ export class AuthService {
         newPassword,
       })
       .pipe(map((response) => response.data!));
+  }
+
+  /** US-28: every workspace the caller holds a TenantMembership in, across all tenants --
+   * powers the top-nav workspace switcher dropdown. */
+  listWorkspaces(): Observable<TenantMembershipSummary[]> {
+    return this.http
+      .get<ApiResponse<TenantMembershipSummary[]>>('/api/organization/tenants')
+      .pipe(map((response) => response.data!));
+  }
+
+  /** US-28: switches the active workspace. Reuses setSession() (same as login/refresh), so
+   * every signal derived from the session (tenantId, role, organizationId, isAuthenticated)
+   * updates reactively for free -- no separate "workspace" signal needed on top of what
+   * already exists. Refreshing already-loaded ROUTE DATA (e.g. a property list fetched once
+   * in ngOnInit) is a separate concern the caller (AppHeader) handles by re-navigating to
+   * the current route, since Angular signals don't retroactively re-trigger a one-time HTTP
+   * call just because a value they never subscribed to changed. */
+  switchWorkspace(tenantId: string): Observable<AuthResponse> {
+    return this.http
+      .post<ApiResponse<AuthResponse>>('/api/organization/switch-context', { tenantId }, { withCredentials: true })
+      .pipe(
+        map((response) => response.data!),
+        tap((session) => this.setSession(session)),
+      );
   }
 
   /** Used by the auth interceptor to silently mint a new access token from the refresh cookie. */
