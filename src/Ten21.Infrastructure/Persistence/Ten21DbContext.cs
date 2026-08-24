@@ -49,6 +49,8 @@ public class Ten21DbContext : IdentityDbContext<ApplicationUser, ApplicationRole
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
     public DbSet<DocumentAttachment> DocumentAttachments => Set<DocumentAttachment>();
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
+    public DbSet<ResidentProfile> ResidentProfiles => Set<ResidentProfile>();
+    public DbSet<EmergencyContact> EmergencyContacts => Set<EmergencyContact>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

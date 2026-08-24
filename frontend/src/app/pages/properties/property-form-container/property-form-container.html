@@ -1,9 +1,20 @@
 <div class="flex min-h-screen flex-col bg-slate-navy">
   <main class="flex flex-1 justify-center px-4 py-8">
     <div class="w-full max-w-2xl rounded-xl bg-surface-card p-6 shadow-xl sm:p-8">
-      <h1 class="text-2xl font-bold text-slate-navy">
-        {{ (propertyId() ? 'properties.form.editTitle' : 'properties.form.createTitle') | translate }}
-      </h1>
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <h1 class="text-2xl font-bold text-slate-navy">
+          {{ (propertyId() ? 'properties.form.editTitle' : 'properties.form.createTitle') | translate }}
+        </h1>
+        @if (propertyId()) {
+          <button
+            type="button"
+            (click)="residentDrawerOpen.set(true)"
+            class="tap-target rounded-md border border-emerald px-4 py-2 font-semibold text-emerald focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
+          >
+            {{ 'residents.drawer.viewResidents' | translate }}
+          </button>
+        }
+      </div>
 
       @if (errorKey()) {
         <div
@@ -48,4 +59,8 @@
       }
     </div>
   </main>
+
+  @if (propertyId()) {
+    <app-resident-drawer [propertyId]="propertyId()!" [open]="residentDrawerOpen()" (closed)="residentDrawerOpen.set(false)" />
+  }
 </div>

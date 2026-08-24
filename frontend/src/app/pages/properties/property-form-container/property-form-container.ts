@@ -9,6 +9,7 @@ import { PropertyService } from '../../../core/services/property.service';
 import { ToastService } from '../../../core/services/toast.service';
 import { PropertyInfoForm } from '../property-info-form/property-info-form';
 import { PropertyFormGroup } from '../property-form.types';
+import { ResidentDrawer } from '../resident-drawer/resident-drawer';
 
 /**
  * PropertyFormContainer -- one flat component serving both /properties/new (create mode)
@@ -20,7 +21,7 @@ import { PropertyFormGroup } from '../property-form.types';
  */
 @Component({
   selector: 'app-property-form-container',
-  imports: [ReactiveFormsModule, TranslatePipe, PropertyInfoForm],
+  imports: [ReactiveFormsModule, TranslatePipe, PropertyInfoForm, ResidentDrawer],
   templateUrl: './property-form-container.html',
 })
 export class PropertyFormContainer implements OnInit, ComponentWithUnsavedChanges {
@@ -34,6 +35,7 @@ export class PropertyFormContainer implements OnInit, ComponentWithUnsavedChange
   protected readonly loading = signal(false);
   protected readonly errorKey = signal<string | null>(null);
   protected readonly propertyId = signal<string | null>(null);
+  protected readonly residentDrawerOpen = signal(false);
 
   protected readonly form: PropertyFormGroup = this.fb.nonNullable.group({
     name: ['', Validators.required],

@@ -205,6 +205,47 @@
       "Maintenance": "Entretien"
     }
   },
+  "residents": {
+    "occupantTypes": {
+      "Primary": "Principal",
+      "Secondary": "Secondaire"
+    },
+    "drawer": {
+      "viewResidents": "Voir les résidents",
+      "title": "Résidents",
+      "close": "Fermer",
+      "empty": "Aucun résident ajouté pour l'instant.",
+      "addResident": "Ajouter un résident",
+      "edit": "Modifier",
+      "remove": "Supprimer",
+      "noticeGiven": "Avis de déménagement donné",
+      "emergencyContactCount": "{{count}} contact(s) d'urgence",
+      "savedToast": "Résident mis à jour.",
+      "addedToast": "Résident ajouté.",
+      "removedToast": "Résident supprimé.",
+      "errorToast": "Une erreur s'est produite. Veuillez réessayer."
+    },
+    "form": {
+      "occupantType": "Type d'occupant",
+      "firstName": "Prénom",
+      "lastName": "Nom de famille",
+      "email": "Courriel",
+      "emailHint": "Si fourni, des identifiants de connexion sont envoyés à ce résident.",
+      "phoneNumber": "Numéro de téléphone",
+      "showInDirectory": "Afficher dans l'annuaire communautaire",
+      "noticeGivenDate": "Date d'avis de déménagement",
+      "forwardingAddress": "Adresse de réexpédition",
+      "emergencyContacts": "Contacts d'urgence",
+      "addEmergencyContact": "Ajouter un contact",
+      "emergencyContact": "Contact {{number}}",
+      "contactName": "Nom",
+      "contactPhone": "Numéro de téléphone",
+      "contactRelationship": "Relation",
+      "cancel": "Annuler",
+      "save": "Enregistrer",
+      "saving": "Enregistrement…"
+    }
+  },
   "dashboard": {
     "welcome": "Content de vous revoir",
     "role": "Rôle",
