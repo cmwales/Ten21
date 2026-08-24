@@ -12,6 +12,7 @@
 | **Phase 5** | Zero-Touch Self Onboarding | Self-service signup portal, instant tenant provisioning, automated seed roles, payment vault initialization. | `BUSINESS_RULES`, `ARCHITECTURE` | **COMPLETED** |
 | **Sprint 3** | Property & Unit Setup | Unified property/unit form editor, searchable portfolio list, bulk CSV/XLSX importer, payment-aware property deletion. | `DATA_MODEL`, `MVP_features` | **COMPLETED** |
 | **Sprint 4** | Resident Onboarding | Resident profile directory, zero-token account provisioning, scoped property UI drawer, dual-consent community directory. | `DATA_MODEL`, `SECURITY` | **COMPLETED** |
+| **Sprint 5** | Multi-Property Workspace Switching | Portfolio expansion (multi-tenant source), switch-context test coverage, top-nav workspace switcher UI. | `ARCHITECTURE`, `SECURITY` | **COMPLETED** |
 | **Phase 6** | Micro-Task Backlog Execution | Deconstructing features into 15-minute executable vertical slices (DTO + C# Service + Angular Component + Unit Test). | `TASKS` | **PENDING** |
 
 ## 2. Phase Execution Log
