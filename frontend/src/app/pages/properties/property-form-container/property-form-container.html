@@ -1,6 +1,6 @@
 <div class="flex min-h-screen flex-col bg-slate-navy">
   <main class="flex flex-1 justify-center px-4 py-8">
-    <div class="w-full max-w-3xl rounded-xl bg-surface-card p-6 shadow-xl sm:p-8">
+    <div class="w-full max-w-2xl rounded-xl bg-surface-card p-6 shadow-xl sm:p-8">
       <h1 class="text-2xl font-bold text-slate-navy">
         {{ (propertyId() ? 'properties.form.editTitle' : 'properties.form.createTitle') | translate }}
       </h1>
@@ -17,14 +17,8 @@
       @if (loading()) {
         <p class="mt-6 text-sm text-slate-navy-light">{{ 'common.loading' | translate }}</p>
       } @else {
-        <form class="mt-6 flex flex-col gap-8" (ngSubmit)="save()" novalidate>
+        <form [formGroup]="form" class="mt-6 flex flex-col gap-8" (ngSubmit)="save()" novalidate>
           <app-property-info-form [form]="form" />
-
-          <app-unit-list-editor
-            [unitsArray]="unitsArray"
-            (addUnit)="addUnit()"
-            (removeUnit)="removeUnit($event)"
-          />
 
           <div class="flex flex-wrap items-center justify-end gap-3 border-t border-slate-navy/10 pt-6">
             <button

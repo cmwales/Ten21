@@ -17,16 +17,13 @@ export const OccupancyStatuses = {
 
 export type OccupancyStatusValue = (typeof OccupancyStatuses)[keyof typeof OccupancyStatuses];
 
-/** Mirrors Ten21.Api.Contracts.Properties.UnitRequest (US-19). Id is null for a brand-new
- * unit not yet persisted. */
-export interface UnitRequest {
-  id: string | null;
-  unitIdentifier: string;
-  targetRent: number | null;
-  occupancyStatus: OccupancyStatusValue;
-}
-
-/** Mirrors Ten21.Api.Contracts.Properties.UpsertPropertyRequest (US-19). */
+/**
+ * A single flat, standalone leasable space -- a whole single-family house, or one suite
+ * within a larger building. There is deliberately no separate parent/child Unit concept:
+ * Suite A and Suite B of the same building are two independent Property records that
+ * happen to share a street address, distinguished by unitIdentifier. Mirrors
+ * Ten21.Api.Contracts.Properties.UpsertPropertyRequest.
+ */
 export interface UpsertPropertyRequest {
   name: string;
   propertyType: PropertyTypeValue;
@@ -36,14 +33,7 @@ export interface UpsertPropertyRequest {
   state: string;
   postalCode: string;
   country: string;
-  defaultTargetRent: number | null;
-  units: UnitRequest[];
-}
-
-/** Mirrors Ten21.Api.Contracts.Properties.UnitResponse. */
-export interface UnitResponse {
-  id: string;
-  unitIdentifier: string;
+  unitIdentifier: string | null;
   targetRent: number | null;
   occupancyStatus: OccupancyStatusValue;
 }
@@ -59,19 +49,13 @@ export interface PropertyResponse {
   state: string;
   postalCode: string;
   country: string;
-  defaultTargetRent: number | null;
-  units: UnitResponse[];
-}
-
-/** Mirrors Ten21.Api.Contracts.Properties.PropertyListUnitDto (US-20). */
-export interface PropertyListUnitDto {
-  id: string;
-  unitIdentifier: string;
-  occupancyStatus: OccupancyStatusValue;
+  unitIdentifier: string | null;
   targetRent: number | null;
+  occupancyStatus: OccupancyStatusValue;
 }
 
-/** Mirrors Ten21.Api.Contracts.Properties.PropertyListItemDto (US-20). */
+/** Mirrors Ten21.Api.Contracts.Properties.PropertyListItemDto (US-20) -- one flat row per
+ * property/suite. */
 export interface PropertyListItemDto {
   id: string;
   name: string;
@@ -80,7 +64,9 @@ export interface PropertyListItemDto {
   city: string;
   state: string;
   postalCode: string;
-  units: PropertyListUnitDto[];
+  unitIdentifier: string | null;
+  targetRent: number | null;
+  occupancyStatus: OccupancyStatusValue;
 }
 
 /** Mirrors Ten21.Api.Contracts.Properties.PropertyListResponse (US-20). */
@@ -91,7 +77,8 @@ export interface PropertyListResponse {
   pageSize: number;
 }
 
-/** Mirrors Ten21.Api.Contracts.Properties.ImportRowResult (US-21). */
+/** Mirrors Ten21.Api.Contracts.Properties.ImportRowResult (US-21). One row = one flat
+ * property (no more grouping rows into a parent with child units). */
 export interface ImportRowResult {
   rowNumber: number;
   propertyName: string;
@@ -113,6 +100,5 @@ export interface ImportPropertiesResponse {
   totalRows: number;
   invalidRowCount: number;
   propertiesCreated: number;
-  unitsCreated: number;
   rows: ImportRowResult[];
 }

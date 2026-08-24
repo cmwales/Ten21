@@ -292,3 +292,65 @@ audit and financial compliance.
   delete; US-22 needed a real hard-delete path for the first time, and this is deliberately
   an explicit, narrow, per-call-site opt-in (via `MarkForHardDelete`) rather than a global
   setting, so soft-delete stays the safe, silent default everywhere else.
+
+## 4. Addendum: Flatten Property/Unit Into One Entity (post-Sprint-3)
+
+Filed after real tester feedback on the shipped US-19–22 UI: nested inline unit boxes,
+child form sections, and multi-level UI containers made the "Add Property" screen crowded
+and confusing, and testers expected every suite in a building to be its own independent,
+top-level entry rather than a child row buried inside a parent form. The founder confirmed
+(explicitly, via clarifying questions) that this wasn't a UI-only ask — the fix was to
+**collapse `Property` and `Unit` into one flat entity**, not just decouple the form layout
+from a still-nested data model.
+
+- **`Unit` entity deleted entirely.** `Property` absorbed its fields directly:
+  `UnitIdentifier` (nullable — null for a standalone property, set to e.g. "Suite A" for one
+  of several properties sharing a street address), `TargetRent` (renamed from
+  `DefaultTargetRent`, no more cascading default — every property's rent is its own value,
+  set directly), and `OccupancyStatus`. Two suites at the same address are now two entirely
+  independent `Property` rows, not one `Property` with two child `Unit`s. This also makes
+  US-22's earlier "parent and child must be `Remove()`-d together" lesson moot — there is no
+  child entity left to cascade a delete to.
+- **Bulk import (US-21) changed from "group rows sharing an address into one parent with
+  child units" to "one row = one flat `Property`."** `PersistImportedRowsAsync` no longer
+  groups by `(Name, StreetAddress1, City, State, PostalCode, Country)`; `UnitIdentifier`
+  became optional on import (previously implicitly required, since every row was a unit).
+- **Frontend**: `UnitListEditor` and all `addUnit()`/`removeUnit()`/`FormArray` logic
+  deleted outright. `PropertyInfoForm` is now the *entire* form — one flat set of reactive
+  form controls, no nested child `FormGroup`/`FormArray`. The `/properties` list is a genuine
+  flat HTML `<table>`, one `<tr>` per property (no card-with-nested-unit-rows structure).
+- **Real, previously-undetected production bug found during live-browser verification of
+  this refactor (not by inspection): `System.Text.Json` silently rejected every
+  `POST`/`PUT /api/properties` request the real Angular frontend ever sent.** The frontend
+  sends enum fields as strings (`"propertyType":"SingleFamily"`), but `System.Text.Json`'s
+  default enum handling expects the numeric underlying value on the wire — every request
+  failed with a 400 (`"The JSON value could not be converted to
+  ...UpsertPropertyRequest. Path: $.propertyType"`). This bug existed since US-19 first
+  shipped and went undetected through Sprint 3's entire test suite because every existing
+  `PropertiesControllerTests` case calls the controller action directly, bypassing JSON
+  model binding entirely, and no integration test exercised `PropertiesController` over real
+  HTTP JSON. Fixed globally in `Program.cs` by registering a `JsonStringEnumConverter` on
+  `AddControllers().AddJsonOptions(...)`. **Closed the actual test-coverage gap**, not just
+  the bug: `PropertiesEndToEndTests` (`tests/Ten21.IntegrationTests`) now exercises
+  `POST /api/properties` through the real HTTP/JSON pipeline with string enum values, so this
+  exact class of bug can't reopen silently again.
+- **Second, unrelated real bug found by the same live-browser pass, after the JSON fix:
+  clicking the Save button produced no HTTP request at all.** `PropertyFormContainer`'s
+  `<form>` element had `(ngSubmit)="save()"` but no `[formGroup]` directive of its own — only
+  the child `<app-property-info-form>`'s inner `<div>` had `[formGroup]="form"`. Angular's
+  `ngSubmit` output is provided by `FormGroupDirective`/`NgForm`, which only exists where
+  `[formGroup]`/`ngForm` is actually applied; without it on the `<form>` tag itself, Angular
+  has no directive output named `ngSubmit` to bind to and silently falls back to registering
+  a plain, never-fired native event listener. Clicking the submit button therefore triggered
+  the browser's own default form submission (a full-page reload to the current URL) instead
+  of Angular's reactive-forms submit handler — which is exactly why no XHR/fetch request was
+  ever observed. Fixed by adding `[formGroup]="form"` to the outer `<form>` element in
+  `property-form-container.html`. Lesson for any future multi-component reactive form split
+  across a container + child sub-form component in this codebase: the *outer* `<form>`
+  element needs its own `[formGroup]` binding for `(ngSubmit)` to do anything at all — a
+  `[formGroup]` on a descendant component's template is not sufficient on its own, even
+  though `formControlName` lookups inside that descendant resolve correctly either way.
+- Both fixes were verified live end-to-end (not just via automated tests): two properties
+  sharing a street address, distinguished only by `UnitIdentifier` ("Suite A" / "Suite B"),
+  were created independently through the real UI and both appeared as two independent rows
+  in the flat `/properties` list.

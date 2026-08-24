@@ -2,12 +2,13 @@ using Ten21.Domain.Enums;
 
 namespace Ten21.Api.Contracts.Properties;
 
-public record UnitRequest(
-    Guid? Id,
-    string UnitIdentifier,
-    decimal? TargetRent,
-    OccupancyStatus OccupancyStatus);
-
+/// <summary>
+/// A single flat, standalone leasable space -- a whole single-family house, or one suite
+/// within a larger building. UnitIdentifier is null/omitted for a standalone property, set
+/// (e.g. "Suite A") for one of several properties sharing the same street address. There is
+/// deliberately no nested/child collection here -- see Property's own class comment for why
+/// this replaced an earlier Property-with-child-Units shape.
+/// </summary>
 public record UpsertPropertyRequest(
     string Name,
     PropertyType PropertyType,
@@ -17,12 +18,7 @@ public record UpsertPropertyRequest(
     string State,
     string PostalCode,
     string Country,
-    decimal? DefaultTargetRent,
-    IReadOnlyList<UnitRequest> Units);
-
-public record UnitResponse(
-    Guid Id,
-    string UnitIdentifier,
+    string? UnitIdentifier,
     decimal? TargetRent,
     OccupancyStatus OccupancyStatus);
 
@@ -36,19 +32,13 @@ public record PropertyResponse(
     string State,
     string PostalCode,
     string Country,
-    decimal? DefaultTargetRent,
-    IReadOnlyList<UnitResponse> Units);
-
-/// <summary>US-20: the per-unit row nested under a PropertyListItemDto.</summary>
-public record PropertyListUnitDto(
-    Guid Id,
-    string UnitIdentifier,
-    OccupancyStatus OccupancyStatus,
-    decimal? TargetRent);
+    string? UnitIdentifier,
+    decimal? TargetRent,
+    OccupancyStatus OccupancyStatus);
 
 /// <summary>US-20: the "lightweight PropertyListDto" the acceptance criteria calls for --
-/// drops StreetAddress2/Country/DefaultTargetRent (not shown in the list view) relative to
-/// the full PropertyResponse used by the US-19 edit form.</summary>
+/// drops StreetAddress2/Country (not shown in the flat list view) relative to the full
+/// PropertyResponse used by the edit form.</summary>
 public record PropertyListItemDto(
     Guid Id,
     string Name,
@@ -57,12 +47,13 @@ public record PropertyListItemDto(
     string City,
     string State,
     string PostalCode,
-    IReadOnlyList<PropertyListUnitDto> Units);
+    string? UnitIdentifier,
+    decimal? TargetRent,
+    OccupancyStatus OccupancyStatus);
 
-/// <summary>US-20: TotalCount is always the total PROPERTY count (matching the "Showing
-/// 1-15 of 42 properties" acceptance-criteria wording), independent of whether pageSize was
-/// supplied -- when it's omitted, Items contains every property and PageSize echoes
-/// TotalCount.</summary>
+/// <summary>TotalCount is always the total row count, matching the "Showing 1-15 of 42"
+/// acceptance-criteria wording -- when pageSize is omitted, Items contains every property
+/// and PageSize echoes TotalCount.</summary>
 public record PropertyListResponse(
     IReadOnlyList<PropertyListItemDto> Items,
     int TotalCount,

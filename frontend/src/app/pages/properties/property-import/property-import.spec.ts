@@ -58,7 +58,6 @@ describe('PropertyImport', () => {
       totalRows: 1,
       invalidRowCount: 0,
       propertiesCreated: 1,
-      unitsCreated: 1,
       rows: [
         {
           rowNumber: 2,
@@ -89,7 +88,6 @@ describe('PropertyImport', () => {
       totalRows: 0,
       invalidRowCount: 0,
       propertiesCreated: 0,
-      unitsCreated: 0,
       rows: [],
     });
 

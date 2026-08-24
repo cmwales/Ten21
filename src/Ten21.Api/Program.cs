@@ -1,4 +1,5 @@
 using System.Text;
+using System.Text.Json.Serialization;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.RateLimiting;
@@ -22,7 +23,18 @@ var builder = WebApplication.CreateBuilder(args);
 
 // US-08: ApiResponseWrappingFilter auto-wraps every 2xx response in the standard envelope
 // -- registered as a global MVC filter rather than left for each controller to opt into.
-builder.Services.AddControllers(options => options.Filters.Add<ApiResponseWrappingFilter>());
+//
+// JsonStringEnumConverter: without this, System.Text.Json's default enum handling expects
+// the numeric underlying value (0, 1, 2...) on the wire, not the name -- silently rejecting
+// every request that sends an enum as a string ("SingleFamily", "Vacant") with a 400, which
+// is exactly what the Angular frontend (and any real client) naturally sends. This bug went
+// undetected through Sprint 3's entire test suite because unit tests call controller
+// actions directly (never through JSON model binding) and no integration test exercised
+// PropertiesController over real HTTP -- only caught by a live browser test against a real
+// backend. Global, not per-controller: every current and future enum-typed contract field
+// benefits uniformly, and it's what the frontend already assumes everywhere.
+builder.Services.AddControllers(options => options.Filters.Add<ApiResponseWrappingFilter>())
+    .AddJsonOptions(options => options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 
 builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddObjectStorage(builder.Configuration); // US-06

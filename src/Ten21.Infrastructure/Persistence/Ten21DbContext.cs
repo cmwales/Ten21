@@ -45,7 +45,6 @@ public class Ten21DbContext : IdentityDbContext<ApplicationUser, ApplicationRole
     public DbSet<Tenant> Tenants => Set<Tenant>();
     public DbSet<Organization> Organizations => Set<Organization>();
     public DbSet<Property> Properties => Set<Property>();
-    public DbSet<Unit> Units => Set<Unit>();
     public DbSet<TenantMembership> TenantMemberships => Set<TenantMembership>();
     public DbSet<RefreshToken> RefreshTokens => Set<RefreshToken>();
     public DbSet<DocumentAttachment> DocumentAttachments => Set<DocumentAttachment>();

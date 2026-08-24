@@ -14,31 +14,44 @@ describe('PropertyList', () => {
     items: [
       {
         id: 'prop-1',
-        name: 'Riverside Apartments',
+        name: 'Riverside Apartments - Suite A',
         propertyType: 'MultiFamily',
         streetAddress1: '100 Main St',
         city: 'Provo',
         state: 'UT',
         postalCode: '84601',
-        units: [
-          { id: 'unit-1', unitIdentifier: '101', occupancyStatus: 'Vacant', targetRent: 1200 },
-          { id: 'unit-2', unitIdentifier: '102', occupancyStatus: 'Occupied', targetRent: 1300 },
-        ],
+        unitIdentifier: 'Suite A',
+        targetRent: 1200,
+        occupancyStatus: 'Vacant',
       },
       {
         id: 'prop-2',
+        name: 'Riverside Apartments - Suite B',
+        propertyType: 'MultiFamily',
+        streetAddress1: '100 Main St',
+        city: 'Provo',
+        state: 'UT',
+        postalCode: '84601',
+        unitIdentifier: 'Suite B',
+        targetRent: 1300,
+        occupancyStatus: 'Occupied',
+      },
+      {
+        id: 'prop-3',
         name: 'Downtown Lofts',
         propertyType: 'Commercial',
         streetAddress1: '5 Center St',
         city: 'Ogden',
         state: 'UT',
         postalCode: '84401',
-        units: [],
+        unitIdentifier: null,
+        targetRent: null,
+        occupancyStatus: 'Vacant',
       },
     ],
-    totalCount: 2,
+    totalCount: 3,
     pageNumber: 1,
-    pageSize: 2,
+    pageSize: 3,
   };
 
   function createComponent(): PropertyList {
@@ -70,10 +83,16 @@ describe('PropertyList', () => {
 
   afterEach(() => httpMock.verify());
 
-  it('loads and shows every property with no filters applied', () => {
+  it('loads and shows every property/suite as its own flat row', () => {
     const component = createComponent();
-    expect(component['filteredProperties']().length).toBe(2);
+    expect(component['filteredProperties']().length).toBe(3);
     expect(component['isEmptyWorkspace']()).toBe(false);
+  });
+
+  it('two suites sharing an address appear as two independent rows', () => {
+    const component = createComponent();
+    const suites = component['filteredProperties']().filter((p) => p.streetAddress1 === '100 Main St');
+    expect(suites.map((s) => s.unitIdentifier).sort()).toEqual(['Suite A', 'Suite B']);
   });
 
   it('search filters by unit identifier across the full loaded set', () => {
@@ -81,14 +100,14 @@ describe('PropertyList', () => {
 
     vi.useFakeTimers();
     try {
-      component['onSearchInput']('102');
+      component['onSearchInput']('Suite B');
       vi.advanceTimersByTime(350);
     } finally {
       vi.useRealTimers();
     }
 
     expect(component['filteredProperties']().length).toBe(1);
-    expect(component['filteredProperties']()[0].id).toBe('prop-1');
+    expect(component['filteredProperties']()[0].id).toBe('prop-2');
   });
 
   it('property type filter badges narrow the list', () => {
@@ -96,10 +115,10 @@ describe('PropertyList', () => {
     component['toggleTypeFilter']('Commercial');
 
     expect(component['filteredProperties']().length).toBe(1);
-    expect(component['filteredProperties']()[0].id).toBe('prop-2');
+    expect(component['filteredProperties']()[0].id).toBe('prop-3');
 
     component['toggleTypeFilter']('Commercial');
-    expect(component['filteredProperties']().length).toBe(2);
+    expect(component['filteredProperties']().length).toBe(3);
   });
 
   it('paginates client-side by the selected page size', () => {
@@ -107,12 +126,12 @@ describe('PropertyList', () => {
     component['setPageSize'](1 as never);
 
     expect(component['pagedProperties']().length).toBe(1);
-    expect(component['totalPages']()).toBe(2);
+    expect(component['totalPages']()).toBe(3);
 
     component['nextPage']();
     expect(component['pagedProperties']()[0].id).toBe('prop-2');
 
     component['nextPage']();
-    expect(component['pageNumber']()).toBe(2);
+    expect(component['pageNumber']()).toBe(3);
   });
 });

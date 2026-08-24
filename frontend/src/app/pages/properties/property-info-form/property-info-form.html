@@ -124,18 +124,48 @@
     </div>
   </div>
 
-  <div class="flex flex-col gap-1.5">
-    <label for="defaultTargetRent" class="text-sm font-medium text-slate-navy">
-      {{ 'properties.form.defaultTargetRent' | translate }}
-    </label>
-    <input
-      id="defaultTargetRent"
-      type="number"
-      min="0"
-      step="0.01"
-      formControlName="defaultTargetRent"
-      class="tap-target w-full rounded-md border border-slate-navy/20 px-3 py-2 text-slate-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
-    />
-    <p class="text-xs text-slate-navy-light">{{ 'properties.form.defaultTargetRentHint' | translate }}</p>
+  <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
+    <div class="flex flex-col gap-1.5">
+      <label for="unitIdentifier" class="text-sm font-medium text-slate-navy">
+        {{ 'properties.form.unitIdentifier' | translate }}
+      </label>
+      <input
+        id="unitIdentifier"
+        type="text"
+        formControlName="unitIdentifier"
+        [placeholder]="'properties.form.unitIdentifierPlaceholder' | translate"
+        class="tap-target w-full rounded-md border border-slate-navy/20 px-3 py-2 text-slate-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
+      />
+      <p class="text-xs text-slate-navy-light">{{ 'properties.form.unitIdentifierHint' | translate }}</p>
+    </div>
+
+    <div class="flex flex-col gap-1.5">
+      <label for="targetRent" class="text-sm font-medium text-slate-navy">
+        {{ 'properties.form.targetRent' | translate }}
+      </label>
+      <input
+        id="targetRent"
+        type="number"
+        min="0"
+        step="0.01"
+        formControlName="targetRent"
+        class="tap-target w-full rounded-md border border-slate-navy/20 px-3 py-2 text-slate-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
+      />
+    </div>
+
+    <div class="flex flex-col gap-1.5">
+      <label for="occupancyStatus" class="text-sm font-medium text-slate-navy">
+        {{ 'properties.form.occupancyStatus' | translate }}
+      </label>
+      <select
+        id="occupancyStatus"
+        formControlName="occupancyStatus"
+        class="tap-target w-full rounded-md border border-slate-navy/20 px-3 py-2 text-slate-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
+      >
+        @for (status of occupancyStatuses; track status) {
+          <option [value]="status">{{ 'properties.occupancyStatuses.' + status | translate }}</option>
+        }
+      </select>
+    </div>
   </div>
 </div>

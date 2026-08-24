@@ -15,7 +15,7 @@ describe('PropertyFormContainer', () => {
 
   const property: PropertyResponse = {
     id: 'prop-1',
-    name: 'Riverside Apartments',
+    name: 'Riverside Apartments - Suite A',
     propertyType: 'MultiFamily',
     streetAddress1: '100 Main St',
     streetAddress2: null,
@@ -23,8 +23,9 @@ describe('PropertyFormContainer', () => {
     state: 'UT',
     postalCode: '84601',
     country: 'USA',
-    defaultTargetRent: 1200,
-    units: [{ id: 'unit-1', unitIdentifier: '101', targetRent: 1200, occupancyStatus: 'Vacant' }],
+    unitIdentifier: 'Suite A',
+    targetRent: 1200,
+    occupancyStatus: 'Vacant',
   };
 
   function createComponent(routeId: string | null): PropertyFormContainer {
@@ -57,10 +58,9 @@ describe('PropertyFormContainer', () => {
 
   afterEach(() => httpMock.verify());
 
-  it('starts with an empty single-unit-less form in create mode', () => {
+  it('starts with an empty flat form in create mode', () => {
     const component = createComponent(null);
     expect(component['propertyId']()).toBeNull();
-    expect(component['unitsArray'].length).toBe(0);
     expect(component.hasUnsavedChanges()).toBe(false);
   });
 
@@ -70,21 +70,25 @@ describe('PropertyFormContainer', () => {
     httpMock.expectNone('/api/properties');
   });
 
-  it('save() posts the form, shows a toast, and navigates to the property list', () => {
+  it('save() posts the flat form, shows a toast, and navigates to the property list', () => {
     const component = createComponent(null);
     component['form'].patchValue({
-      name: 'Riverside Apartments',
+      name: 'Riverside Apartments - Suite A',
       streetAddress1: '100 Main St',
       city: 'Provo',
       state: 'UT',
       postalCode: '84601',
+      unitIdentifier: 'Suite A',
+      targetRent: 1200,
     });
 
     component['save']();
 
     const req = httpMock.expectOne('/api/properties');
     expect(req.request.method).toBe('POST');
-    expect(req.request.body.name).toBe('Riverside Apartments');
+    expect(req.request.body.name).toBe('Riverside Apartments - Suite A');
+    expect(req.request.body.unitIdentifier).toBe('Suite A');
+    expect(req.request.body.units).toBeUndefined();
     req.flush({ success: true, data: property, message: null, statusCode: 201, traceId: 't1' } satisfies ApiResponse<PropertyResponse>);
 
     expect(toastService.show).toHaveBeenCalledWith('properties.form.savedToast');
@@ -92,13 +96,13 @@ describe('PropertyFormContainer', () => {
     expect(component.hasUnsavedChanges()).toBe(false);
   });
 
-  it('edit mode loads the existing property and pre-fills units', () => {
+  it('edit mode loads the existing property, including its unit identifier', () => {
     const component = createComponent('prop-1');
     flushGetProperty();
 
-    expect(component['form'].controls.name.value).toBe('Riverside Apartments');
-    expect(component['unitsArray'].length).toBe(1);
-    expect(component['unitsArray'].at(0).controls.unitIdentifier.value).toBe('101');
+    expect(component['form'].controls.name.value).toBe('Riverside Apartments - Suite A');
+    expect(component['form'].controls.unitIdentifier.value).toBe('Suite A');
+    expect(component['form'].controls.targetRent.value).toBe(1200);
     expect(component.hasUnsavedChanges()).toBe(false);
   });
 
@@ -113,15 +117,5 @@ describe('PropertyFormContainer', () => {
     req.flush({ success: true, data: property, message: null, statusCode: 200, traceId: 't1' } satisfies ApiResponse<PropertyResponse>);
 
     expect(router.navigate).toHaveBeenCalledWith(['/properties', 'prop-1'], { replaceUrl: true });
-  });
-
-  it('addUnit()/removeUnit() mutate the units FormArray and mark the form dirty', () => {
-    const component = createComponent(null);
-    component['addUnit']();
-    expect(component['unitsArray'].length).toBe(1);
-    expect(component.hasUnsavedChanges()).toBe(true);
-
-    component['removeUnit'](0);
-    expect(component['unitsArray'].length).toBe(0);
   });
 });
