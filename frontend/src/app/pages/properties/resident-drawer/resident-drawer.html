@@ -1,0 +1,261 @@
+@if (open) {
+  <div class="fixed inset-0 z-40 bg-slate-navy/40" (click)="close()"></div>
+
+  <aside
+    class="fixed inset-y-0 right-0 z-50 flex w-full max-w-md flex-col gap-6 overflow-y-auto bg-surface-card p-6 shadow-xl"
+    role="dialog"
+    [attr.aria-label]="'residents.drawer.title' | translate"
+  >
+    <div class="flex items-center justify-between border-b border-slate-navy/10 pb-4">
+      <h2 class="text-xl font-bold text-slate-navy">{{ 'residents.drawer.title' | translate }}</h2>
+      <button
+        type="button"
+        (click)="close()"
+        [attr.aria-label]="'residents.drawer.close' | translate"
+        class="tap-target rounded-md border border-slate-navy/20 px-3 py-2 text-slate-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
+      >
+        &times;
+      </button>
+    </div>
+
+    @if (loading()) {
+      <p class="text-sm text-slate-navy-light">{{ 'common.loading' | translate }}</p>
+    } @else if (!showForm()) {
+      <div class="flex flex-col gap-4">
+        @if (residents().length === 0) {
+          <p class="text-sm text-slate-navy-light">{{ 'residents.drawer.empty' | translate }}</p>
+        }
+
+        @for (resident of residents(); track resident.id) {
+          <div class="flex flex-col gap-2 rounded-md border border-slate-navy/10 p-4">
+            <div class="flex items-start justify-between gap-2">
+              <div>
+                <p class="font-semibold text-slate-navy">{{ resident.firstName }} {{ resident.lastName }}</p>
+                <span
+                  class="mt-1 inline-block rounded-full px-2 py-0.5 text-xs font-medium"
+                  [class.bg-emerald]="resident.occupantType === 'Primary'"
+                  [class.text-white]="resident.occupantType === 'Primary'"
+                  [class.bg-slate-navy]="resident.occupantType === 'Secondary'"
+                  [class.bg-opacity-10]="resident.occupantType === 'Secondary'"
+                  [class.text-slate-navy]="resident.occupantType === 'Secondary'"
+                >
+                  {{ 'residents.occupantTypes.' + resident.occupantType | translate }}
+                </span>
+              </div>
+              <div class="flex gap-2">
+                <button
+                  type="button"
+                  (click)="startEdit(resident)"
+                  class="tap-target rounded-md border border-slate-navy/20 px-3 py-1.5 text-sm font-semibold text-slate-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
+                >
+                  {{ 'residents.drawer.edit' | translate }}
+                </button>
+                <button
+                  type="button"
+                  (click)="deleteResident(resident)"
+                  [attr.aria-label]="'residents.drawer.remove' | translate"
+                  class="tap-target rounded-md border border-rose/40 px-3 py-1.5 text-sm font-semibold text-rose focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose"
+                >
+                  {{ 'residents.drawer.remove' | translate }}
+                </button>
+              </div>
+            </div>
+
+            @if (resident.email) {
+              <p class="text-sm text-slate-navy-light">{{ resident.email }}</p>
+            }
+            @if (resident.noticeGivenDate) {
+              <p class="text-sm text-amber">{{ 'residents.drawer.noticeGiven' | translate }}</p>
+            }
+            @if (resident.emergencyContacts.length > 0) {
+              <p class="text-xs text-slate-navy-light">
+                {{ 'residents.drawer.emergencyContactCount' | translate: { count: resident.emergencyContacts.length } }}
+              </p>
+            }
+          </div>
+        }
+
+        <button
+          type="button"
+          (click)="startAdd()"
+          class="tap-target rounded-md bg-emerald px-4 py-2 font-semibold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
+        >
+          {{ 'residents.drawer.addResident' | translate }}
+        </button>
+      </div>
+    } @else {
+      <form [formGroup]="form" class="flex flex-col gap-4" (ngSubmit)="save()" novalidate>
+        <div class="flex flex-col gap-1.5">
+          <label for="occupantType" class="text-sm font-medium text-slate-navy">
+            {{ 'residents.form.occupantType' | translate }}
+          </label>
+          <select
+            id="occupantType"
+            formControlName="occupantType"
+            class="tap-target w-full rounded-md border border-slate-navy/20 px-3 py-2 text-slate-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
+          >
+            @for (type of occupantTypes; track type) {
+              <option [value]="type">{{ 'residents.occupantTypes.' + type | translate }}</option>
+            }
+          </select>
+        </div>
+
+        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div class="flex flex-col gap-1.5">
+            <label for="firstName" class="text-sm font-medium text-slate-navy">
+              {{ 'residents.form.firstName' | translate }}
+            </label>
+            <input
+              id="firstName"
+              type="text"
+              formControlName="firstName"
+              [attr.aria-invalid]="form.controls.firstName.invalid && form.controls.firstName.touched"
+              class="tap-target w-full rounded-md border border-slate-navy/20 px-3 py-2 text-slate-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
+            />
+          </div>
+
+          <div class="flex flex-col gap-1.5">
+            <label for="lastName" class="text-sm font-medium text-slate-navy">
+              {{ 'residents.form.lastName' | translate }}
+            </label>
+            <input
+              id="lastName"
+              type="text"
+              formControlName="lastName"
+              [attr.aria-invalid]="form.controls.lastName.invalid && form.controls.lastName.touched"
+              class="tap-target w-full rounded-md border border-slate-navy/20 px-3 py-2 text-slate-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
+            />
+          </div>
+        </div>
+
+        <div class="flex flex-col gap-1.5">
+          <label for="email" class="text-sm font-medium text-slate-navy">{{ 'residents.form.email' | translate }}</label>
+          <input
+            id="email"
+            type="email"
+            formControlName="email"
+            [placeholder]="'residents.form.emailHint' | translate"
+            class="tap-target w-full rounded-md border border-slate-navy/20 px-3 py-2 text-slate-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
+          />
+          <p class="text-xs text-slate-navy-light">{{ 'residents.form.emailHint' | translate }}</p>
+        </div>
+
+        <div class="flex flex-col gap-1.5">
+          <label for="phoneNumber" class="text-sm font-medium text-slate-navy">
+            {{ 'residents.form.phoneNumber' | translate }}
+          </label>
+          <input
+            id="phoneNumber"
+            type="text"
+            formControlName="phoneNumber"
+            class="tap-target w-full rounded-md border border-slate-navy/20 px-3 py-2 text-slate-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
+          />
+        </div>
+
+        <div class="flex items-center gap-2">
+          <input
+            id="showInDirectory"
+            type="checkbox"
+            formControlName="showInDirectory"
+            class="tap-target h-5 w-5 rounded border-slate-navy/20 text-emerald focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
+          />
+          <label for="showInDirectory" class="text-sm font-medium text-slate-navy">
+            {{ 'residents.form.showInDirectory' | translate }}
+          </label>
+        </div>
+
+        <div class="flex flex-col gap-1.5">
+          <label for="noticeGivenDate" class="text-sm font-medium text-slate-navy">
+            {{ 'residents.form.noticeGivenDate' | translate }}
+          </label>
+          <input
+            id="noticeGivenDate"
+            type="date"
+            formControlName="noticeGivenDate"
+            class="tap-target w-full rounded-md border border-slate-navy/20 px-3 py-2 text-slate-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
+          />
+        </div>
+
+        @if (form.controls.noticeGivenDate.value) {
+          <div class="flex flex-col gap-1.5">
+            <label for="forwardingAddress" class="text-sm font-medium text-slate-navy">
+              {{ 'residents.form.forwardingAddress' | translate }}
+            </label>
+            <input
+              id="forwardingAddress"
+              type="text"
+              formControlName="forwardingAddress"
+              class="tap-target w-full rounded-md border border-slate-navy/20 px-3 py-2 text-slate-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
+            />
+          </div>
+        }
+
+        <div class="flex flex-col gap-3 border-t border-slate-navy/10 pt-4" formArrayName="emergencyContacts">
+          <div class="flex items-center justify-between">
+            <h3 class="text-sm font-semibold text-slate-navy">{{ 'residents.form.emergencyContacts' | translate }}</h3>
+            <button
+              type="button"
+              (click)="addEmergencyContactRow()"
+              class="tap-target rounded-md border border-slate-navy/20 px-3 py-1.5 text-sm font-semibold text-slate-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
+            >
+              {{ 'residents.form.addEmergencyContact' | translate }}
+            </button>
+          </div>
+
+          @for (contact of form.controls.emergencyContacts.controls; track $index) {
+            <div class="flex flex-col gap-2 rounded-md border border-slate-navy/10 p-3" [formGroupName]="$index">
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-medium text-slate-navy-light">
+                  {{ 'residents.form.emergencyContact' | translate: { number: $index + 1 } }}
+                </span>
+                <button
+                  type="button"
+                  (click)="removeEmergencyContactRow($index)"
+                  [attr.aria-label]="'residents.drawer.remove' | translate"
+                  class="tap-target rounded-md border border-rose/40 px-2 py-1 text-xs font-semibold text-rose focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose"
+                >
+                  {{ 'residents.drawer.remove' | translate }}
+                </button>
+              </div>
+              <input
+                type="text"
+                formControlName="name"
+                [placeholder]="'residents.form.contactName' | translate"
+                class="tap-target w-full rounded-md border border-slate-navy/20 px-3 py-2 text-slate-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
+              />
+              <input
+                type="text"
+                formControlName="phoneNumber"
+                [placeholder]="'residents.form.contactPhone' | translate"
+                class="tap-target w-full rounded-md border border-slate-navy/20 px-3 py-2 text-slate-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
+              />
+              <input
+                type="text"
+                formControlName="relationship"
+                [placeholder]="'residents.form.contactRelationship' | translate"
+                class="tap-target w-full rounded-md border border-slate-navy/20 px-3 py-2 text-slate-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
+              />
+            </div>
+          }
+        </div>
+
+        <div class="flex justify-end gap-3 border-t border-slate-navy/10 pt-4">
+          <button
+            type="button"
+            (click)="cancelForm()"
+            class="tap-target rounded-md border border-slate-navy/20 px-4 py-2 font-semibold text-slate-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
+          >
+            {{ 'residents.form.cancel' | translate }}
+          </button>
+          <button
+            type="submit"
+            [disabled]="submitting()"
+            class="tap-target rounded-md bg-emerald px-4 py-2 font-semibold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald disabled:opacity-60"
+          >
+            {{ (submitting() ? 'residents.form.saving' : 'residents.form.save') | translate }}
+          </button>
+        </div>
+      </form>
+    }
+  </aside>
+}

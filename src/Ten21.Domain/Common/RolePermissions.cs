@@ -45,6 +45,9 @@ public static class RolePermissions
             // story, and no other role is named as an authorized secondary -- least
             // privilege, so only PropertyManager (and SuperAdmin, via Permissions.All) gets
             // these until a future story explicitly says otherwise.
+            // Sprint 4 (US-23): "Primary Role: Property Manager" on the resident-directory
+            // story, no other role named as an authorized secondary -- same
+            // least-privilege reasoning as Sprint 3's Property.* grants above.
             [RoleNames.PropertyManager] =
             [
                 Permissions.WorkOrders.Read, Permissions.WorkOrders.Write,
@@ -52,6 +55,7 @@ public static class RolePermissions
                 Permissions.Ledger.Read,
                 Permissions.Property.Manage, Permissions.Property.Read,
                 Permissions.Property.Import, Permissions.Property.Delete,
+                Permissions.Resident.Manage, Permissions.Resident.Read,
             ],
 
             // "Restricted strictly to maintenance tickets, amenity booking, and community

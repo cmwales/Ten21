@@ -205,6 +205,47 @@
       "Maintenance": "Mantenimiento"
     }
   },
+  "residents": {
+    "occupantTypes": {
+      "Primary": "Principal",
+      "Secondary": "Secundario"
+    },
+    "drawer": {
+      "viewResidents": "Ver Residentes",
+      "title": "Residentes",
+      "close": "Cerrar",
+      "empty": "Aún no se han agregado residentes.",
+      "addResident": "Agregar Residente",
+      "edit": "Editar",
+      "remove": "Eliminar",
+      "noticeGiven": "Aviso de mudanza entregado",
+      "emergencyContactCount": "{{count}} contacto(s) de emergencia",
+      "savedToast": "Residente actualizado.",
+      "addedToast": "Residente agregado.",
+      "removedToast": "Residente eliminado.",
+      "errorToast": "Algo salió mal. Inténtalo de nuevo."
+    },
+    "form": {
+      "occupantType": "Tipo de Ocupante",
+      "firstName": "Nombre",
+      "lastName": "Apellido",
+      "email": "Correo Electrónico",
+      "emailHint": "Si se proporciona, se envían credenciales de acceso a este residente.",
+      "phoneNumber": "Número de Teléfono",
+      "showInDirectory": "Mostrar en el directorio comunitario",
+      "noticeGivenDate": "Fecha de Aviso de Mudanza",
+      "forwardingAddress": "Dirección de Reenvío",
+      "emergencyContacts": "Contactos de Emergencia",
+      "addEmergencyContact": "Agregar Contacto",
+      "emergencyContact": "Contacto {{number}}",
+      "contactName": "Nombre",
+      "contactPhone": "Número de Teléfono",
+      "contactRelationship": "Parentesco",
+      "cancel": "Cancelar",
+      "save": "Guardar",
+      "saving": "Guardando…"
+    }
+  },
   "dashboard": {
     "welcome": "Bienvenido de nuevo",
     "role": "Rol",

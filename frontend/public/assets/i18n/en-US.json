@@ -205,6 +205,47 @@
       "Maintenance": "Maintenance"
     }
   },
+  "residents": {
+    "occupantTypes": {
+      "Primary": "Primary",
+      "Secondary": "Secondary"
+    },
+    "drawer": {
+      "viewResidents": "View Residents",
+      "title": "Residents",
+      "close": "Close",
+      "empty": "No residents added yet.",
+      "addResident": "Add Resident",
+      "edit": "Edit",
+      "remove": "Remove",
+      "noticeGiven": "Move-out notice given",
+      "emergencyContactCount": "{{count}} emergency contact(s)",
+      "savedToast": "Resident updated.",
+      "addedToast": "Resident added.",
+      "removedToast": "Resident removed.",
+      "errorToast": "Something went wrong. Please try again."
+    },
+    "form": {
+      "occupantType": "Occupant Type",
+      "firstName": "First Name",
+      "lastName": "Last Name",
+      "email": "Email",
+      "emailHint": "If provided, this resident is sent login credentials.",
+      "phoneNumber": "Phone Number",
+      "showInDirectory": "Show in community directory",
+      "noticeGivenDate": "Move-Out Notice Date",
+      "forwardingAddress": "Forwarding Address",
+      "emergencyContacts": "Emergency Contacts",
+      "addEmergencyContact": "Add Contact",
+      "emergencyContact": "Contact {{number}}",
+      "contactName": "Name",
+      "contactPhone": "Phone Number",
+      "contactRelationship": "Relationship",
+      "cancel": "Cancel",
+      "save": "Save",
+      "saving": "Saving…"
+    }
+  },
   "dashboard": {
     "welcome": "Welcome back",
     "role": "Role",
