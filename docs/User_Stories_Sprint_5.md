@@ -99,3 +99,49 @@ portfolio, **so that** I have more than one Tenant to actually switch between.
 **Deliberately deferred:** an "invite another person into your tenant" flow (the
 alternative multi-tenant source considered and set aside in favor of self-service portfolio
 expansion) is still open for a future sprint if a genuine PMC-staffing scenario needs it.
+
+### US-27: Switch-Context Test Coverage
+
+**As a** Security Lead, **I want** the existing context-switch endpoint proven correct under
+real conditions, **so that** a feature this security-sensitive isn't running on faith.
+
+- **Primary Role:** Security Lead (test design/verification).
+- **Authorized Secondary Roles:** N/A -- this story adds tests, not a capability.
+- **Prohibited Roles:** N/A.
+- **Required Permission Claims:** None (no code changed in `OrganizationController` itself
+  this story -- see the Executive Summary for why no new permission claim was added either).
+
+**What shipped:**
+- `OrganizationControllerTests` (unit) -- `OrganizationController` had **zero** test coverage
+  before this sprint despite being live and security-sensitive since Phase 0 (US-04). Covers
+  `GetTenants` (lists every membership across tenants) and `SwitchContext`: issues a token
+  correctly scoped to the target tenant, 403s with no membership in the target, and 403s when
+  the target tenant is outside the caller's current `Organization` even though a (real, valid)
+  membership row exists there -- proving the SECOND, independent check in `SwitchContext`
+  (not just "membership exists") actually does something. That last test needed a dedicated
+  `CreateController(currentOrganizationId: ...)` seeding path: `TenantContext.SetTenant` can
+  only be called once per instance, so a controller that first calls `AddWorkspace` (which
+  establishes the `Organization` in the database) can't have its own already-resolved context
+  "catch up" mid-test -- the org has to be seeded upfront, the way a real second
+  request/token issued after the fact would actually carry it.
+- **The concrete, provable version of the security question raised live during US-26**: a
+  caller who's PropertyManager on their current tenant and *only* a Tenant (renter) on a
+  different one gets a token that says exactly `"Tenant"` the moment they switch into that
+  workspace -- decoded and asserted directly off the issued JWT's own claims, not inferred.
+- `SwitchContextEndToEndTests` (integration, real HTTP pipeline) -- what only a live round
+  trip can prove: `AddWorkspace` + `SwitchContext` actually working together (a property
+  created with the newly-switched token lands in the new workspace and is invisible under the
+  original token -- tenant isolation held for a real write, not just that the endpoint
+  responded), and the cross-PM resident scenario (US-24's `LinkExistingUserToTenantAsync`,
+  built but never exercised live until now) switching successfully between two completely
+  unrelated PMs' tenants with zero further backend changes, exactly as the Executive Summary
+  predicted.
+- **Real gotcha hit writing the integration test**: `AuthController.Register` issues a full
+  session directly (`IssueTokensAsync`, bypassing the mandatory-2FA gate entirely) -- only
+  `Login` gates a mandatory-2FA role behind `verify-2fa`. The cross-PM test originally spent
+  6+ `/api/auth/*` calls setting up two PMs the same way `TwoFactorEndToEndTests` does
+  (register + login + verify-2fa each), blowing through `AuthRateLimiterPolicy`'s 5-req/min
+  budget before it even got to the actual assertions. Fixed by extracting the access token
+  straight from `Register`'s own response for PM setup (1 call each, not 3) -- worth
+  remembering for any future integration test that needs a *working* PM session and doesn't
+  specifically need to exercise `Login`'s own 2FA path.
