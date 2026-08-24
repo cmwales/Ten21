@@ -25,6 +25,7 @@ public static class InfrastructureServiceCollectionExtensions
     {
         services.AddScoped<ITenantContext, TenantContext>();
         services.AddScoped<IHardDeleteOverride, HardDeleteOverride>();
+        services.AddScoped<ITenantStampOverride, TenantStampOverride>();
         services.AddScoped<TenantSessionInterceptor>();
         services.AddScoped<AuditSaveChangesInterceptor>();
 

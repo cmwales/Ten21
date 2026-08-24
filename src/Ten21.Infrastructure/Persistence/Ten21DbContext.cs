@@ -35,11 +35,21 @@ namespace Ten21.Infrastructure.Persistence;
 public class Ten21DbContext : IdentityDbContext<ApplicationUser, ApplicationRole, Guid>
 {
     private readonly ITenantContext _tenantContext;
+    private readonly ITenantStampOverride? _tenantStampOverride;
 
-    public Ten21DbContext(DbContextOptions<Ten21DbContext> options, ITenantContext tenantContext)
+    // tenantStampOverride is optional (defaults null, not resolved-and-required) so every
+    // existing `new Ten21DbContext(options, tenantContext)` call site -- every unit test in
+    // this codebase constructs it exactly that way -- keeps compiling unchanged. The real
+    // app resolves it from DI automatically (AddDbContext's constructor injection), same as
+    // every other registered dependency.
+    public Ten21DbContext(
+        DbContextOptions<Ten21DbContext> options,
+        ITenantContext tenantContext,
+        ITenantStampOverride? tenantStampOverride = null)
         : base(options)
     {
         _tenantContext = tenantContext;
+        _tenantStampOverride = tenantStampOverride;
     }
 
     public DbSet<Tenant> Tenants => Set<Tenant>();
@@ -166,6 +176,11 @@ public class Ten21DbContext : IdentityDbContext<ApplicationUser, ApplicationRole
     /// a row that doesn't belong to the active tenant -- this catches the case where a row
     /// was loaded via IgnoreQueryFilters() (e.g. SuperAdmin tooling) and then mistakenly
     /// saved without re-checking tenant ownership.
+    ///
+    /// US-26: an insert checks ITenantStampOverride FIRST -- see that interface's own doc
+    /// comment for why (portfolio expansion grants a TenantMembership in a brand-new
+    /// workspace, which is never the caller's own currently-active tenant). Falls through
+    /// to the normal active-tenant-context stamping for every entity nothing has marked.
     /// </summary>
     private void ApplyTenantStamping()
     {
@@ -176,6 +191,12 @@ public class Ten21DbContext : IdentityDbContext<ApplicationUser, ApplicationRole
             switch (entry.State)
             {
                 case EntityState.Added:
+                    if (_tenantStampOverride?.GetOverride(entry.Entity) is { } overrideTenantId)
+                    {
+                        entry.Entity.TenantId = overrideTenantId;
+                        break;
+                    }
+
                     if (activeTenantId is null)
                     {
                         throw new InvalidOperationException(

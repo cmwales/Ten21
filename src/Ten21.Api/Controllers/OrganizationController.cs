@@ -4,6 +4,8 @@ using Microsoft.EntityFrameworkCore;
 using Ten21.Api.Auth;
 using Ten21.Api.Contracts.Organization;
 using Ten21.Application.Abstractions;
+using Ten21.Domain.Common;
+using Ten21.Domain.Entities;
 using Ten21.Domain.Exceptions;
 using Ten21.Infrastructure.Identity;
 using Ten21.Infrastructure.Persistence;
@@ -11,7 +13,9 @@ using Ten21.Infrastructure.Persistence;
 namespace Ten21.Api.Controllers;
 
 /// <summary>
-/// US-04: Parent Organization Hierarchy & Context Switching.
+/// US-04: Parent Organization Hierarchy & Context Switching. US-26 (Portfolio Expansion)
+/// added AddWorkspace to this same controller -- it's the source of the multi-tenant data
+/// SwitchContext actually switches between.
 /// Every action here is authenticated (no [AllowAnonymous]) -- unlike login/refresh, this
 /// assumes an already-valid access token and an already-resolved ITenantContext.
 /// </summary>
@@ -24,6 +28,8 @@ public class OrganizationController : ControllerBase
     private readonly IJwtTokenService _jwtTokenService;
     private readonly IRefreshTokenService _refreshTokenService;
     private readonly ITenantContext _tenantContext;
+    private readonly ITenantStampOverride _tenantStampOverride;
+    private readonly IInputSanitizer _sanitizer;
     private readonly IWebHostEnvironment _environment;
 
     public OrganizationController(
@@ -32,6 +38,8 @@ public class OrganizationController : ControllerBase
         IJwtTokenService jwtTokenService,
         IRefreshTokenService refreshTokenService,
         ITenantContext tenantContext,
+        ITenantStampOverride tenantStampOverride,
+        IInputSanitizer sanitizer,
         IWebHostEnvironment environment)
     {
         _dbContext = dbContext;
@@ -39,6 +47,8 @@ public class OrganizationController : ControllerBase
         _jwtTokenService = jwtTokenService;
         _refreshTokenService = refreshTokenService;
         _tenantContext = tenantContext;
+        _tenantStampOverride = tenantStampOverride;
+        _sanitizer = sanitizer;
         _environment = environment;
     }
 
@@ -148,6 +158,127 @@ public class OrganizationController : ControllerBase
             organizationId = targetTenant.OrganizationId,
             role = role.Name,
         });
+    }
+
+    /// <summary>
+    /// US-26: Portfolio Expansion. An existing Property Manager creates another Tenant
+    /// (workspace) under their own Organization -- the actual source of the second
+    /// TenantMembership row SwitchContext needs to have anything to switch between.
+    /// Establishes (or reuses) an Organization to parent both the caller's current tenant
+    /// and the new one, retroactively promoting a standalone workspace into a portfolio's
+    /// first member the first time this is called.
+    ///
+    /// Only a Property Manager on the CURRENT tenant may call this -- checked directly
+    /// against the specific role, not just "any membership exists," since only the
+    /// operator (not e.g. a Board Member) should be able to expand the portfolio.
+    /// </summary>
+    [HttpPost("workspaces")]
+    public async Task<IActionResult> AddWorkspace(
+        [FromBody] AddWorkspaceRequest request, CancellationToken cancellationToken)
+    {
+        if (string.IsNullOrWhiteSpace(request.WorkspaceName))
+        {
+            throw new ValidationException(new Dictionary<string, string[]>
+            {
+                ["WorkspaceName"] = ["Workspace name is required."],
+            });
+        }
+
+        var userId = GetCurrentUserId();
+        var currentTenantId = _tenantContext.TenantId
+            ?? throw new UnauthorizedException("No active tenant context.");
+
+        var propertyManagerRole = await _roleManager.FindByNameAsync(RoleNames.PropertyManager)
+            ?? throw new InvalidOperationException("PropertyManager role not seeded -- has RoleSeeder run?");
+
+        var callerIsPropertyManagerHere = await _dbContext.TenantMemberships
+            .IgnoreQueryFilters()
+            .AnyAsync(
+                tm => tm.UserId == userId && tm.TenantId == currentTenantId && tm.RoleId == propertyManagerRole.Id,
+                cancellationToken);
+
+        if (!callerIsPropertyManagerHere)
+        {
+            throw new ForbiddenException("Only a Property Manager may add another workspace to their portfolio.");
+        }
+
+        var currentTenant = await _dbContext.Tenants
+            .IgnoreQueryFilters()
+            .SingleAsync(t => t.Id == currentTenantId, cancellationToken);
+
+        Guid organizationId;
+        if (currentTenant.OrganizationId is { } existingOrgId)
+        {
+            organizationId = existingOrgId;
+        }
+        else
+        {
+            var organization = new Organization
+            {
+                Id = Guid.NewGuid(),
+                Name = $"{currentTenant.Name} Portfolio",
+                // Placeholder, same reasoning as US-22's payment-ledger placeholder --
+                // real subscription tiers are Phase 1 (Monetization & Billing) territory,
+                // not invented speculatively here.
+                SubscriptionTier = "Standard",
+                CreatedAt = DateTimeOffset.UtcNow,
+            };
+            _dbContext.Organizations.Add(organization);
+            currentTenant.OrganizationId = organization.Id;
+            organizationId = organization.Id;
+        }
+
+        var newTenant = new Tenant
+        {
+            Id = Guid.NewGuid(),
+            Name = _sanitizer.Sanitize(request.WorkspaceName)!,
+            OrganizationId = organizationId,
+            PortfolioSize = request.PortfolioSize,
+            CreatedAt = DateTimeOffset.UtcNow,
+        };
+        _dbContext.Tenants.Add(newTenant);
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        // Same "operator is also deed owner" grant AuthController.ProvisionWorkspaceAsync
+        // makes for a brand-new self-registration -- the person expanding their own
+        // portfolio is fully both on the new workspace too. IsPrimary stays false: the
+        // caller already has a primary membership elsewhere, and SwitchContext (not this
+        // endpoint) is what actually moves them into it.
+        //
+        // MarkTenantId is required here, not optional: this request's own ITenantContext is
+        // still resolved to the CALLER'S CURRENT tenant (from their JWT), which is never
+        // the brand-new tenant these rows belong to -- see ITenantStampOverride's own doc
+        // comment for why the normal auto-stamping can't do this on its own.
+        var propertyOwnerRole = await _roleManager.FindByNameAsync(RoleNames.PropertyOwner)
+            ?? throw new InvalidOperationException("PropertyOwner role not seeded -- has RoleSeeder run?");
+
+        var propertyManagerMembership = new TenantMembership
+        {
+            Id = Guid.NewGuid(),
+            UserId = userId,
+            RoleId = propertyManagerRole.Id,
+            IsPrimary = false,
+            CreatedAt = DateTimeOffset.UtcNow,
+        };
+        var propertyOwnerMembership = new TenantMembership
+        {
+            Id = Guid.NewGuid(),
+            UserId = userId,
+            RoleId = propertyOwnerRole.Id,
+            IsPrimary = false,
+            CreatedAt = DateTimeOffset.UtcNow,
+        };
+        _tenantStampOverride.MarkTenantId(propertyManagerMembership, newTenant.Id);
+        _tenantStampOverride.MarkTenantId(propertyOwnerMembership, newTenant.Id);
+
+        _dbContext.TenantMemberships.Add(propertyManagerMembership);
+        _dbContext.TenantMemberships.Add(propertyOwnerMembership);
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        return CreatedAtAction(
+            nameof(GetTenants),
+            null,
+            new TenantMembershipSummary(newTenant.Id, newTenant.Name, false, propertyManagerRole.Name!));
     }
 
     private Guid GetCurrentUserId()
