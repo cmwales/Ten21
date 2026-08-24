@@ -49,7 +49,7 @@
           [class]="result()!.success ? 'border-emerald bg-emerald/10 text-emerald' : 'border-rose bg-rose/10 text-rose'"
         >
           @if (result()!.success) {
-            {{ 'properties.import.successSummary' | translate: { properties: result()!.propertiesCreated, units: result()!.unitsCreated } }}
+            {{ 'properties.import.successSummary' | translate: { count: result()!.propertiesCreated } }}
           } @else {
             {{ 'properties.import.failureSummary' | translate: { count: result()!.invalidRowCount } }}
           }

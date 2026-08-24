@@ -19,13 +19,10 @@ public class PropertyConfiguration : IEntityTypeConfiguration<Property>
         builder.Property(p => p.State).IsRequired().HasMaxLength(100);
         builder.Property(p => p.PostalCode).IsRequired().HasMaxLength(20);
         builder.Property(p => p.Country).IsRequired().HasMaxLength(100);
-        builder.Property(p => p.DefaultTargetRent).HasColumnType("decimal(12,2)");
+        builder.Property(p => p.UnitIdentifier).HasMaxLength(50);
+        builder.Property(p => p.TargetRent).HasColumnType("decimal(12,2)");
+        builder.Property(p => p.OccupancyStatus).IsRequired().HasConversion<string>().HasMaxLength(20);
         builder.Property(p => p.CreatedAt).IsRequired();
-
-        builder.HasMany(p => p.Units)
-            .WithOne(u => u.Property)
-            .HasForeignKey(u => u.PropertyId)
-            .OnDelete(DeleteBehavior.Restrict);
 
         // TenantId index is also added generically for every ITenantScopedEntity in
         // Ten21DbContext.OnModelCreating; EF Core no-ops the duplicate definition, so this

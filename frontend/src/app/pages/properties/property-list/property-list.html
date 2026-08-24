@@ -1,6 +1,6 @@
 <div class="flex min-h-screen flex-col bg-slate-navy">
   <main class="flex flex-1 justify-center px-4 py-8">
-    <div class="w-full max-w-5xl">
+    <div class="w-full max-w-6xl">
       <div class="flex flex-wrap items-center justify-between gap-3">
         <h1 class="text-2xl font-bold text-white">{{ 'properties.list.title' | translate }}</h1>
         <div class="flex flex-wrap gap-3">
@@ -70,44 +70,53 @@
         @if (hasNoSearchResults()) {
           <p class="mt-8 text-sm text-white">{{ 'properties.list.noResults' | translate }}</p>
         } @else {
-          <div class="mt-6 flex flex-col gap-4">
-            @for (property of pagedProperties(); track property.id) {
-              <div class="rounded-xl bg-surface-card p-5 shadow-sm">
-                <div class="flex flex-wrap items-start justify-between gap-2">
-                  <div>
-                    <h2 class="text-lg font-semibold text-slate-navy">{{ property.name }}</h2>
-                    <p class="text-sm text-slate-navy-light">
+          <div class="mt-6 overflow-x-auto rounded-xl bg-surface-card shadow-xl">
+            <table class="w-full min-w-[800px] border-collapse text-left text-sm">
+              <thead>
+                <tr class="border-b border-slate-navy/10 text-xs font-semibold uppercase text-slate-navy-light">
+                  <th class="px-4 py-3">{{ 'properties.list.columns.name' | translate }}</th>
+                  <th class="px-4 py-3">{{ 'properties.form.unitIdentifier' | translate }}</th>
+                  <th class="px-4 py-3">{{ 'properties.list.columns.address' | translate }}</th>
+                  <th class="px-4 py-3">{{ 'properties.form.propertyType' | translate }}</th>
+                  <th class="px-4 py-3">{{ 'properties.list.columns.status' | translate }}</th>
+                  <th class="px-4 py-3">{{ 'properties.form.targetRent' | translate }}</th>
+                  <th class="px-4 py-3"><span class="sr-only">{{ 'properties.list.edit' | translate }}</span></th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (property of pagedProperties(); track property.id) {
+                  <tr class="border-b border-slate-navy/5 last:border-0">
+                    <td class="px-4 py-3 font-medium text-slate-navy">{{ property.name }}</td>
+                    <td class="px-4 py-3 text-slate-navy">{{ property.unitIdentifier || '—' }}</td>
+                    <td class="px-4 py-3 text-slate-navy-light">
+                      {{ property.streetAddress1 }}, {{ property.city }}, {{ property.state }} {{ property.postalCode }}
+                    </td>
+                    <td class="px-4 py-3 text-slate-navy-light">
                       {{ 'properties.propertyTypes.' + property.propertyType | translate }}
-                      &middot; {{ property.streetAddress1 }}, {{ property.city }}, {{ property.state }} {{ property.postalCode }}
-                    </p>
-                  </div>
-                  <a
-                    [routerLink]="['/properties', property.id]"
-                    class="tap-target flex items-center text-sm font-medium text-emerald focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
-                  >
-                    {{ 'properties.list.edit' | translate }}
-                  </a>
-                </div>
-
-                @if (property.units.length === 0) {
-                  <p class="mt-3 text-sm text-slate-navy-light">{{ 'properties.list.noUnits' | translate }}</p>
-                } @else {
-                  <ul class="mt-3 flex flex-col divide-y divide-slate-navy/10">
-                    @for (unit of property.units; track unit.id) {
-                      <li class="flex flex-wrap items-center justify-between gap-2 py-2 text-sm">
-                        <span class="font-medium text-slate-navy">{{ unit.unitIdentifier }}</span>
-                        <span class="rounded-full px-2.5 py-0.5 text-xs font-semibold" [class]="occupancyBadgeClass[unit.occupancyStatus]">
-                          {{ 'properties.occupancyStatuses.' + unit.occupancyStatus | translate }}
-                        </span>
-                        <span class="text-slate-navy-light">
-                          {{ unit.targetRent !== null ? ('$' + unit.targetRent) : ('properties.list.noTargetRent' | translate) }}
-                        </span>
-                      </li>
-                    }
-                  </ul>
+                    </td>
+                    <td class="px-4 py-3">
+                      <span
+                        class="rounded-full px-2.5 py-0.5 text-xs font-semibold"
+                        [class]="occupancyBadgeClass[property.occupancyStatus]"
+                      >
+                        {{ 'properties.occupancyStatuses.' + property.occupancyStatus | translate }}
+                      </span>
+                    </td>
+                    <td class="px-4 py-3 text-slate-navy">
+                      {{ property.targetRent !== null ? ('$' + property.targetRent) : ('properties.list.noTargetRent' | translate) }}
+                    </td>
+                    <td class="px-4 py-3 text-right">
+                      <a
+                        [routerLink]="['/properties', property.id]"
+                        class="tap-target inline-flex items-center text-sm font-medium text-emerald focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
+                      >
+                        {{ 'properties.list.edit' | translate }}
+                      </a>
+                    </td>
+                  </tr>
                 }
-              </div>
-            }
+              </tbody>
+            </table>
           </div>
 
           <div class="mt-6 flex flex-wrap items-center justify-between gap-3 text-sm text-white">

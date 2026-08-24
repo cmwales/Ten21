@@ -1,33 +1,26 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, OnInit, inject, signal } from '@angular/core';
-import { FormArray, FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { TranslatePipe } from '@ngx-translate/core';
 import { ComponentWithUnsavedChanges } from '../../../core/guards/unsaved-changes.guard';
-import {
-  OccupancyStatusValue,
-  PropertyResponse,
-  PropertyTypeValue,
-  UnitRequest,
-  UnitResponse,
-  UpsertPropertyRequest,
-} from '../../../core/models/property.models';
+import { OccupancyStatusValue, PropertyResponse, PropertyTypeValue } from '../../../core/models/property.models';
 import { PropertyService } from '../../../core/services/property.service';
 import { ToastService } from '../../../core/services/toast.service';
 import { PropertyInfoForm } from '../property-info-form/property-info-form';
-import { PropertyFormGroup, UnitFormGroup } from '../property-form.types';
-import { UnitListEditor } from '../unit-list-editor/unit-list-editor';
+import { PropertyFormGroup } from '../property-form.types';
 
 /**
- * US-19: PropertyFormContainer -- one component serving both /properties/new (create mode)
- * and /properties/:id (edit mode), per the acceptance criteria's "single unified form"
- * requirement. Save/Apply/Cancel toolbar; Apply keeps the user on this page and converts
- * the route to /properties/:id in place (replaceUrl, no new history entry) rather than
- * navigating away, matching "retains user on page."
+ * PropertyFormContainer -- one flat component serving both /properties/new (create mode)
+ * and /properties/:id (edit mode). Flat: no nested/embedded unit section (see Property's own
+ * class comment for why -- there is no separate Unit entity). Save/Apply/Cancel toolbar;
+ * Apply keeps the user on this page and converts the route to /properties/:id in place
+ * (replaceUrl, no new history entry) rather than navigating away, matching "retains user on
+ * page."
  */
 @Component({
   selector: 'app-property-form-container',
-  imports: [ReactiveFormsModule, TranslatePipe, PropertyInfoForm, UnitListEditor],
+  imports: [ReactiveFormsModule, TranslatePipe, PropertyInfoForm],
   templateUrl: './property-form-container.html',
 })
 export class PropertyFormContainer implements OnInit, ComponentWithUnsavedChanges {
@@ -51,13 +44,10 @@ export class PropertyFormContainer implements OnInit, ComponentWithUnsavedChange
     state: ['', Validators.required],
     postalCode: ['', Validators.required],
     country: ['USA', Validators.required],
-    defaultTargetRent: this.fb.control<number | null>(null),
-    units: this.fb.array<UnitFormGroup>([]),
+    unitIdentifier: [''],
+    targetRent: this.fb.control<number | null>(null),
+    occupancyStatus: ['Vacant' as OccupancyStatusValue, Validators.required],
   });
-
-  protected get unitsArray(): FormArray<UnitFormGroup> {
-    return this.form.controls.units;
-  }
 
   ngOnInit(): void {
     const idParam = this.route.snapshot.paramMap.get('id');
@@ -69,16 +59,6 @@ export class PropertyFormContainer implements OnInit, ComponentWithUnsavedChange
 
   hasUnsavedChanges(): boolean {
     return this.form.dirty;
-  }
-
-  protected addUnit(): void {
-    this.unitsArray.push(this.buildUnitGroup());
-    this.form.markAsDirty();
-  }
-
-  protected removeUnit(index: number): void {
-    this.unitsArray.removeAt(index);
-    this.form.markAsDirty();
   }
 
   protected save(): void {
@@ -112,7 +92,20 @@ export class PropertyFormContainer implements OnInit, ComponentWithUnsavedChange
     this.submitting.set(true);
     this.errorKey.set(null);
 
-    const request = this.buildRequest();
+    const raw = this.form.getRawValue();
+    const request = {
+      name: raw.name,
+      propertyType: raw.propertyType,
+      streetAddress1: raw.streetAddress1,
+      streetAddress2: raw.streetAddress2 || null,
+      city: raw.city,
+      state: raw.state,
+      postalCode: raw.postalCode,
+      country: raw.country,
+      unitIdentifier: raw.unitIdentifier || null,
+      targetRent: raw.targetRent,
+      occupancyStatus: raw.occupancyStatus,
+    };
     const id = this.propertyId();
     const call = id ? this.propertyService.updateProperty(id, request) : this.propertyService.createProperty(request);
 
@@ -126,38 +119,6 @@ export class PropertyFormContainer implements OnInit, ComponentWithUnsavedChange
         this.submitting.set(false);
         this.errorKey.set(this.resolveErrorKey(error));
       },
-    });
-  }
-
-  private buildRequest(): UpsertPropertyRequest {
-    const raw = this.form.getRawValue();
-    return {
-      name: raw.name,
-      propertyType: raw.propertyType,
-      streetAddress1: raw.streetAddress1,
-      streetAddress2: raw.streetAddress2 || null,
-      city: raw.city,
-      state: raw.state,
-      postalCode: raw.postalCode,
-      country: raw.country,
-      defaultTargetRent: raw.defaultTargetRent,
-      units: raw.units.map(
-        (unit): UnitRequest => ({
-          id: unit.id,
-          unitIdentifier: unit.unitIdentifier,
-          targetRent: unit.targetRent,
-          occupancyStatus: unit.occupancyStatus,
-        }),
-      ),
-    };
-  }
-
-  private buildUnitGroup(unit?: UnitResponse): UnitFormGroup {
-    return this.fb.nonNullable.group({
-      id: this.fb.control<string | null>(unit?.id ?? null),
-      unitIdentifier: [unit?.unitIdentifier ?? '', Validators.required],
-      targetRent: this.fb.control<number | null>(unit?.targetRent ?? null),
-      occupancyStatus: [(unit?.occupancyStatus ?? 'Vacant') as OccupancyStatusValue, Validators.required],
     });
   }
 
@@ -175,12 +136,10 @@ export class PropertyFormContainer implements OnInit, ComponentWithUnsavedChange
           state: property.state,
           postalCode: property.postalCode,
           country: property.country,
-          defaultTargetRent: property.defaultTargetRent,
+          unitIdentifier: property.unitIdentifier ?? '',
+          targetRent: property.targetRent,
+          occupancyStatus: property.occupancyStatus,
         });
-        this.unitsArray.clear();
-        for (const unit of property.units) {
-          this.unitsArray.push(this.buildUnitGroup(unit));
-        }
         this.form.markAsPristine();
       },
       error: () => {

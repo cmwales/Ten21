@@ -9,14 +9,18 @@ using Ten21.Domain.Entities;
 using Ten21.Domain.Exceptions;
 using Ten21.Infrastructure.Persistence;
 using DomainPropertyType = Ten21.Domain.Enums.PropertyType;
+using DomainOccupancyStatus = Ten21.Domain.Enums.OccupancyStatus;
 
 namespace Ten21.Api.Controllers;
 
 /// <summary>
-/// US-19: the real Property/Unit CRUD surface, replacing the throwaway US-01
-/// proof-of-concept this controller used to be (a single unauthenticated GET with no DTO).
-/// US-20 rebuilt the list action into the lightweight, paginated PropertyListItemDto shape.
-/// US-21 added the bulk importer. US-22 (this branch) adds conditional deletion.
+/// The real Property CRUD surface, replacing the throwaway US-01 proof-of-concept this
+/// controller used to be. Property is a flat, standalone leasable space -- a whole
+/// single-family house, or one suite within a larger building -- with no separate child
+/// Unit entity. An earlier design (US-19-22) had Property own a collection of child Units;
+/// tester feedback reversed that: "Each suite in a building needs to be a new property.
+/// They need to be setup independently." See User_Stories_Sprint_3.md's "Flatten
+/// Property/Unit" addendum for the full history.
 /// </summary>
 [ApiController]
 [Route("api/properties")]
@@ -43,13 +47,11 @@ public class PropertiesController : ControllerBase
     }
 
     /// <summary>
-    /// US-20: pageNumber/pageSize are both optional. Omitting pageSize returns every
-    /// property, unpaginated -- the Angular list view does its own client-side
-    /// search/pagination over that full set (debounced search across a server-paginated
-    /// page wouldn't be able to search rows outside the current page), so this is what the
-    /// frontend actually calls; pageNumber/pageSize exist for direct API consumers that want
-    /// real server-side paging. TotalCount is always the total PROPERTY count, matching the
-    /// "Showing 1-15 of 42 properties" acceptance-criteria wording -- see PropertyListResponse.
+    /// pageNumber/pageSize are both optional. Omitting pageSize returns every property,
+    /// unpaginated -- the Angular list view does its own client-side search/pagination over
+    /// that full set (a debounced search across a server-paginated page wouldn't be able to
+    /// search rows outside the current page), so this is what the frontend actually calls;
+    /// pageNumber/pageSize exist for direct API consumers that want real server-side paging.
     /// </summary>
     [HttpGet]
     [Authorize(Policy = Permissions.Property.Read)]
@@ -58,7 +60,7 @@ public class PropertiesController : ControllerBase
     {
         // No manual .Where(p => p.TenantId == ...) anywhere in this method -- the global
         // query filter in Ten21DbContext does it automatically.
-        var query = _dbContext.Properties.Include(p => p.Units).OrderBy(p => p.Name).AsQueryable();
+        var query = _dbContext.Properties.OrderBy(p => p.Name).AsQueryable();
 
         var totalCount = await query.CountAsync(cancellationToken);
 
@@ -68,6 +70,9 @@ public class PropertiesController : ControllerBase
             query = query.Skip((effectivePageNumber - 1) * pageSize.Value).Take(pageSize.Value);
         }
 
+        // ToListAsync() before mapping -- a private mapping method inside .Select() on an
+        // IQueryable can't be translated to SQL by EF Core (a real bug from an earlier
+        // version of this action; see User_Stories_Sprint_3.md's US-20 section).
         var properties = await query.ToListAsync(cancellationToken);
         var items = properties.Select(ToListItem).ToList();
 
@@ -79,7 +84,6 @@ public class PropertiesController : ControllerBase
     public async Task<IActionResult> GetProperty(Guid id, CancellationToken cancellationToken)
     {
         var property = await _dbContext.Properties
-            .Include(p => p.Units)
             .FirstOrDefaultAsync(p => p.Id == id, cancellationToken)
             ?? throw new NotFoundException($"Property '{id}' was not found.");
 
@@ -104,24 +108,11 @@ public class PropertiesController : ControllerBase
             State = _sanitizer.Sanitize(request.State)!,
             PostalCode = _sanitizer.Sanitize(request.PostalCode)!,
             Country = _sanitizer.Sanitize(request.Country)!,
-            DefaultTargetRent = request.DefaultTargetRent,
+            UnitIdentifier = NullIfBlank(_sanitizer.Sanitize(request.UnitIdentifier)),
+            TargetRent = request.TargetRent,
+            OccupancyStatus = request.OccupancyStatus,
             CreatedAt = DateTimeOffset.UtcNow,
         };
-
-        foreach (var unitRequest in request.Units)
-        {
-            property.Units.Add(new Domain.Entities.Unit
-            {
-                Id = Guid.NewGuid(),
-                UnitIdentifier = _sanitizer.Sanitize(unitRequest.UnitIdentifier)!,
-                // DefaultTargetRent cascades once, at creation time, as a fallback when the
-                // caller doesn't override it per-unit -- see the Executive Summary in
-                // User_Stories_Sprint_3.md.
-                TargetRent = unitRequest.TargetRent ?? request.DefaultTargetRent,
-                OccupancyStatus = unitRequest.OccupancyStatus,
-                CreatedAt = DateTimeOffset.UtcNow,
-            });
-        }
 
         _dbContext.Properties.Add(property);
         await _dbContext.SaveChangesAsync(cancellationToken);
@@ -137,7 +128,6 @@ public class PropertiesController : ControllerBase
         ValidateRequest(request);
 
         var property = await _dbContext.Properties
-            .Include(p => p.Units)
             .FirstOrDefaultAsync(p => p.Id == id, cancellationToken)
             ?? throw new NotFoundException($"Property '{id}' was not found.");
 
@@ -149,49 +139,9 @@ public class PropertiesController : ControllerBase
         property.State = _sanitizer.Sanitize(request.State)!;
         property.PostalCode = _sanitizer.Sanitize(request.PostalCode)!;
         property.Country = _sanitizer.Sanitize(request.Country)!;
-        property.DefaultTargetRent = request.DefaultTargetRent;
-
-        var submittedIds = request.Units.Where(u => u.Id.HasValue).Select(u => u.Id!.Value).ToHashSet();
-
-        // Units removed from the submitted list are gone from the form -- soft-deleted the
-        // same way any other ISoftDelete entity is (AuditSaveChangesInterceptor converts the
-        // Remove() below into IsDeleted = true, not a real DELETE).
-        foreach (var existingUnit in property.Units.Where(u => !submittedIds.Contains(u.Id)).ToList())
-        {
-            _dbContext.Units.Remove(existingUnit);
-        }
-
-        foreach (var unitRequest in request.Units)
-        {
-            var existingUnit = unitRequest.Id.HasValue
-                ? property.Units.FirstOrDefault(u => u.Id == unitRequest.Id.Value)
-                : null;
-
-            if (existingUnit is not null)
-            {
-                existingUnit.UnitIdentifier = _sanitizer.Sanitize(unitRequest.UnitIdentifier)!;
-                existingUnit.TargetRent = unitRequest.TargetRent;
-                existingUnit.OccupancyStatus = unitRequest.OccupancyStatus;
-            }
-            else
-            {
-                // Explicitly Add()-ed to the DbSet with PropertyId set directly, rather than
-                // relying on navigation-collection fixup (property.Units.Add(...)) -- mixed
-                // in the same SaveChanges with an edited sibling unit and a removed one, that
-                // implicit-graph-tracking path was observed to leave this new Unit's entry
-                // out of ApplyTenantStamping's pass entirely, so it never got its TenantId
-                // stamped and failed the tenant-ownership check instead.
-                _dbContext.Units.Add(new Domain.Entities.Unit
-                {
-                    Id = Guid.NewGuid(),
-                    PropertyId = property.Id,
-                    UnitIdentifier = _sanitizer.Sanitize(unitRequest.UnitIdentifier)!,
-                    TargetRent = unitRequest.TargetRent ?? request.DefaultTargetRent,
-                    OccupancyStatus = unitRequest.OccupancyStatus,
-                    CreatedAt = DateTimeOffset.UtcNow,
-                });
-            }
-        }
+        property.UnitIdentifier = NullIfBlank(_sanitizer.Sanitize(request.UnitIdentifier));
+        property.TargetRent = request.TargetRent;
+        property.OccupancyStatus = request.OccupancyStatus;
 
         await _dbContext.SaveChangesAsync(cancellationToken);
 
@@ -199,44 +149,26 @@ public class PropertiesController : ControllerBase
     }
 
     /// <summary>
-    /// US-22: zero applied payments -> a genuine hard delete (every entity opted out of
-    /// AuditSaveChangesInterceptor's default soft-delete conversion via IHardDeleteOverride);
-    /// applied payments -> a soft delete (IsDeleted = true on both Property and its Units,
-    /// via that same interceptor's existing per-entity conversion -- no Property-specific
-    /// cascade code needed there, see below).
-    ///
-    /// Both branches Remove() the Units *and* the Property together, in the same call.
-    /// This isn't optional: Unit -> Property is a required (non-nullable FK),
-    /// DeleteBehavior.Restrict relationship (UnitConfiguration), and EF Core's own
-    /// relationship-severance check throws IMMEDIATELY -- synchronously, inside Remove(),
-    /// before SaveChanges or this interceptor ever runs -- if a parent is marked Deleted
-    /// while an already-tracked child keeps referencing it in an unchanged state. Marking
-    /// both parent and children Deleted together avoids that; AuditSaveChangesInterceptor
-    /// then independently converts each Deleted entry it sees to a soft delete unless
-    /// IHardDeleteOverride says otherwise, so the same explicit-RemoveRange-both shape
-    /// naturally produces the right outcome for whichever branch below.
+    /// US-22: zero applied payments -> a genuine hard delete (opted out of
+    /// AuditSaveChangesInterceptor's default soft-delete conversion via
+    /// IHardDeleteOverride); applied payments -> a soft delete (IsDeleted = true, excluded
+    /// via the existing global query filter). Property has no child entities to cascade to
+    /// now that Unit no longer exists, so this is a single, simple Remove().
     /// </summary>
     [HttpDelete("{id:guid}")]
     [Authorize(Policy = Permissions.Property.Delete)]
     public async Task<IActionResult> DeleteProperty(Guid id, CancellationToken cancellationToken)
     {
         var property = await _dbContext.Properties
-            .Include(p => p.Units)
             .FirstOrDefaultAsync(p => p.Id == id, cancellationToken)
             ?? throw new NotFoundException($"Property '{id}' was not found.");
 
         var hasAppliedPayments = await HasAppliedPaymentsAsync(id, cancellationToken);
-
         if (!hasAppliedPayments)
         {
-            foreach (var unit in property.Units)
-            {
-                _hardDeleteOverride.MarkForHardDelete(unit);
-            }
             _hardDeleteOverride.MarkForHardDelete(property);
         }
 
-        _dbContext.Units.RemoveRange(property.Units);
         _dbContext.Properties.Remove(property);
         await _dbContext.SaveChangesAsync(cancellationToken);
 
@@ -258,9 +190,10 @@ public class PropertiesController : ControllerBase
     /// <summary>
     /// US-21: parses, sanitizes, and validates every row up front -- nothing is added to the
     /// DbContext until every row has passed. A single invalid row means the whole file is
-    /// rejected (Success = false, PropertiesCreated/UnitsCreated = 0, nothing persisted);
-    /// only once every row is valid does this open an explicit transaction, insert
-    /// everything, and commit. The buffer is never written to disk or object storage --
+    /// rejected (Success = false, PropertiesCreated = 0, nothing persisted); only once every
+    /// row is valid does this open an explicit transaction, insert everything, and commit.
+    /// One row = one flat Property (no more grouping rows sharing an address into a parent
+    /// with child units). The buffer is never written to disk or object storage --
     /// IFormFile.OpenReadStream() is parsed directly from request memory and discarded once
     /// this action returns.
     /// </summary>
@@ -302,7 +235,6 @@ public class PropertiesController : ControllerBase
 
         var sanitizedRows = rawRows.Select(SanitizeAndValidateRow).ToList();
         var invalidRowCount = sanitizedRows.Count(r => !r.IsValid);
-
         var resultRows = sanitizedRows.Select(ToImportRowResult).ToList();
 
         if (invalidRowCount > 0)
@@ -312,22 +244,20 @@ public class PropertiesController : ControllerBase
                 TotalRows: sanitizedRows.Count,
                 InvalidRowCount: invalidRowCount,
                 PropertiesCreated: 0,
-                UnitsCreated: 0,
                 Rows: resultRows));
         }
 
-        var (propertiesCreated, unitsCreated) = await PersistImportedRowsAsync(sanitizedRows, cancellationToken);
+        var propertiesCreated = await PersistImportedRowsAsync(sanitizedRows, cancellationToken);
 
         return Ok(new ImportPropertiesResponse(
             Success: true,
             TotalRows: sanitizedRows.Count,
             InvalidRowCount: 0,
             PropertiesCreated: propertiesCreated,
-            UnitsCreated: unitsCreated,
             Rows: resultRows));
     }
 
-    private async Task<(int PropertiesCreated, int UnitsCreated)> PersistImportedRowsAsync(
+    private async Task<int> PersistImportedRowsAsync(
         IReadOnlyList<SanitizedImportRow> rows, CancellationToken cancellationToken)
     {
         // Explicit transaction per the acceptance criteria's own wording, even though a
@@ -336,37 +266,21 @@ public class PropertiesController : ControllerBase
         // surfaces after every row already passed application-level validation above.
         await using var transaction = await _dbContext.Database.BeginTransactionAsync(cancellationToken);
 
-        var propertiesByKey = new Dictionary<PropertyImportKey, Property>();
-
         foreach (var row in rows)
         {
-            var key = new PropertyImportKey(row.PropertyName, row.StreetAddress1, row.City, row.State, row.PostalCode, row.Country);
-
-            if (!propertiesByKey.TryGetValue(key, out var property))
-            {
-                property = new Property
-                {
-                    Id = Guid.NewGuid(),
-                    Name = row.PropertyName,
-                    PropertyType = row.PropertyType!.Value,
-                    StreetAddress1 = row.StreetAddress1,
-                    City = row.City,
-                    State = row.State,
-                    PostalCode = row.PostalCode,
-                    Country = row.Country,
-                    CreatedAt = DateTimeOffset.UtcNow,
-                };
-                propertiesByKey[key] = property;
-                _dbContext.Properties.Add(property);
-            }
-
-            property.Units.Add(new Domain.Entities.Unit
+            _dbContext.Properties.Add(new Property
             {
                 Id = Guid.NewGuid(),
-                PropertyId = property.Id,
-                UnitIdentifier = row.UnitIdentifier,
+                Name = row.PropertyName,
+                PropertyType = row.PropertyType!.Value,
+                StreetAddress1 = row.StreetAddress1,
+                City = row.City,
+                State = row.State,
+                PostalCode = row.PostalCode,
+                Country = row.Country,
+                UnitIdentifier = NullIfBlank(row.UnitIdentifier),
                 TargetRent = row.TargetRent,
-                OccupancyStatus = Domain.Enums.OccupancyStatus.Vacant,
+                OccupancyStatus = DomainOccupancyStatus.Vacant,
                 CreatedAt = DateTimeOffset.UtcNow,
             });
         }
@@ -374,7 +288,7 @@ public class PropertiesController : ControllerBase
         await _dbContext.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
 
-        return (propertiesByKey.Count, rows.Count);
+        return rows.Count;
     }
 
     private SanitizedImportRow SanitizeAndValidateRow(RawImportRow raw)
@@ -433,10 +347,8 @@ public class PropertiesController : ControllerBase
             errors.Add("Country is required.");
         }
 
-        if (unitIdentifier.Length == 0)
-        {
-            errors.Add("Unit Identifier is required.");
-        }
+        // UnitIdentifier is optional here -- a flat Property row may be a standalone
+        // single-family home with no suite/unit number at all.
 
         decimal? targetRent = null;
         var rawTargetRent = raw.TargetRent.Trim();
@@ -470,9 +382,6 @@ public class PropertiesController : ControllerBase
         row.RawTargetRent,
         row.IsValid,
         row.Errors);
-
-    private readonly record struct PropertyImportKey(
-        string Name, string StreetAddress1, string City, string State, string PostalCode, string Country);
 
     private sealed record SanitizedImportRow(
         int RowNumber,
@@ -523,23 +432,9 @@ public class PropertiesController : ControllerBase
             errors["Country"] = ["Country is required."];
         }
 
-        if (request.DefaultTargetRent is < 0)
+        if (request.TargetRent is < 0)
         {
-            errors["DefaultTargetRent"] = ["Default target rent cannot be negative."];
-        }
-
-        for (var i = 0; i < request.Units.Count; i++)
-        {
-            var unit = request.Units[i];
-            if (string.IsNullOrWhiteSpace(unit.UnitIdentifier))
-            {
-                errors[$"Units[{i}].UnitIdentifier"] = ["Unit identifier is required."];
-            }
-
-            if (unit.TargetRent is < 0)
-            {
-                errors[$"Units[{i}].TargetRent"] = ["Target rent cannot be negative."];
-            }
+            errors["TargetRent"] = ["Target rent cannot be negative."];
         }
 
         if (errors.Count > 0)
@@ -547,6 +442,9 @@ public class PropertiesController : ControllerBase
             throw new ValidationException(errors);
         }
     }
+
+    private static string? NullIfBlank(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? null : value;
 
     private static PropertyResponse ToResponse(Property property) => new(
         property.Id,
@@ -558,15 +456,9 @@ public class PropertiesController : ControllerBase
         property.State,
         property.PostalCode,
         property.Country,
-        property.DefaultTargetRent,
-        property.Units
-            // A soft-deleted unit stays in this in-memory navigation collection after
-            // SaveChanges (AuditSaveChangesInterceptor mutates IsDeleted in place, it doesn't
-            // remove the instance from Property.Units) -- filtered out here the same way the
-            // global query filter would exclude it from a fresh query.
-            .Where(u => !u.IsDeleted)
-            .Select(u => new UnitResponse(u.Id, u.UnitIdentifier, u.TargetRent, u.OccupancyStatus))
-            .ToList());
+        property.UnitIdentifier,
+        property.TargetRent,
+        property.OccupancyStatus);
 
     private static PropertyListItemDto ToListItem(Property property) => new(
         property.Id,
@@ -576,8 +468,7 @@ public class PropertiesController : ControllerBase
         property.City,
         property.State,
         property.PostalCode,
-        property.Units
-            .Where(u => !u.IsDeleted)
-            .Select(u => new PropertyListUnitDto(u.Id, u.UnitIdentifier, u.OccupancyStatus, u.TargetRent))
-            .ToList());
+        property.UnitIdentifier,
+        property.TargetRent,
+        property.OccupancyStatus);
 }

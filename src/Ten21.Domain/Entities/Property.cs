@@ -4,13 +4,14 @@ using Ten21.Domain.Enums;
 namespace Ten21.Domain.Entities;
 
 /// <summary>
-/// A managed property (single HOA lot, rental unit building, self-storage facility, etc.)
-/// belonging to exactly one tenant.
-///
-/// Sprint 3 (US-19) is the "expand this significantly" promised by this class's original
-/// US-01/US-07 proof-of-concept comment: real classification, a broken-out address, and a
-/// DefaultTargetRent that seeds new child Units at creation time (a one-time default, not a
-/// live formula -- see UnitListEditor's frontend comment).
+/// A single leasable space belonging to exactly one tenant -- a standalone single-family
+/// house, OR one suite/unit within a larger building. There is deliberately no separate
+/// parent/child Property-and-Unit relationship: Suite A and Suite B of the same building are
+/// two independent Property rows that happen to share a street address, distinguished by
+/// UnitIdentifier. This flat shape replaced an earlier Property-with-child-Units design
+/// (US-19-22) after tester feedback: "Each suite in a building needs to be a new property.
+/// They need to be setup independently" -- see User_Stories_Sprint_3.md's "Flatten
+/// Property/Unit" addendum for the full history and the removed Unit entity's old shape.
 /// </summary>
 public class Property : ITenantScopedEntity, IAuditableEntity, ISoftDelete
 {
@@ -24,9 +25,15 @@ public class Property : ITenantScopedEntity, IAuditableEntity, ISoftDelete
     public required string State { get; set; }
     public required string PostalCode { get; set; }
     public required string Country { get; set; }
-    public decimal? DefaultTargetRent { get; set; }
+
+    /// <summary>Suite/apartment/unit number -- null for a standalone single-family property,
+    /// populated (e.g. "Suite A") for one leasable space within a shared-address
+    /// building.</summary>
+    public string? UnitIdentifier { get; set; }
+
+    public decimal? TargetRent { get; set; }
+    public OccupancyStatus OccupancyStatus { get; set; }
+
     public DateTimeOffset CreatedAt { get; set; }
     public bool IsDeleted { get; set; }
-
-    public ICollection<Unit> Units { get; set; } = new List<Unit>();
 }

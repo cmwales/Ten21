@@ -15,10 +15,11 @@ const PAGE_SIZES = [15, 30, 50] as const;
 type PageSize = (typeof PAGE_SIZES)[number];
 
 /**
- * US-20: fetches every property once (see PropertyService.listProperties' doc comment on
- * why) and does search/filter/pagination entirely client-side over that in-memory set --
- * appropriate for a landlord's own portfolio size, not a dataset needing server-side query
- * pushdown.
+ * Fetches every property once (see PropertyService.listProperties' doc comment on why) and
+ * does search/filter/pagination entirely client-side over that in-memory set -- appropriate
+ * for a landlord's own portfolio size, not a dataset needing server-side query pushdown.
+ * Flat table, one row per property/suite -- there is no grouping by address or nested unit
+ * list (see Property's own class comment for why).
  */
 @Component({
   selector: 'app-property-list',
@@ -63,7 +64,7 @@ export class PropertyList implements OnInit {
         property.city,
         property.state,
         property.postalCode,
-        ...property.units.map((u) => u.unitIdentifier),
+        property.unitIdentifier ?? '',
       ]
         .join(' ')
         .toLowerCase();

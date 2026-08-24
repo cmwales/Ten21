@@ -1,13 +1,15 @@
 import { Component, Input } from '@angular/core';
 import { ReactiveFormsModule } from '@angular/forms';
 import { TranslatePipe } from '@ngx-translate/core';
-import { PropertyTypes } from '../../../core/models/property.models';
+import { OccupancyStatuses, PropertyTypes } from '../../../core/models/property.models';
 import { PropertyFormGroup } from '../property-form.types';
 
-/** US-19: the property-level half of PropertyFormContainer's unified form. Receives the
- * parent's FormGroup directly (bound via [formGroup] on its own root element) rather than
- * a ControlContainer/formGroupName setup -- simpler for a form that's never reused outside
- * this one container. */
+/** The Property form -- flat, no nested/embedded sections. Every field here (including
+ * Unit/Suite #, Target Rent, and Occupancy Status) lives directly on Property; there is no
+ * separate child Unit entity or form section. See Property's own class comment for the
+ * history: an earlier design embedded a Units sub-form here, reversed after tester feedback
+ * ("Each suite in a building needs to be a new property. They need to be setup
+ * independently"). */
 @Component({
   selector: 'app-property-info-form',
   imports: [ReactiveFormsModule, TranslatePipe],
@@ -17,4 +19,5 @@ export class PropertyInfoForm {
   @Input({ required: true }) form!: PropertyFormGroup;
 
   protected readonly propertyTypes = Object.values(PropertyTypes);
+  protected readonly occupancyStatuses = Object.values(OccupancyStatuses);
 }

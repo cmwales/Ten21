@@ -20,15 +20,7 @@ namespace Ten21.Infrastructure.Persistence.Interceptors;
 ///      becomes EntityState.Modified with IsDeleted = true, so no real DELETE statement is
 ///      ever generated for that entity type -- UNLESS IHardDeleteOverride (US-22) has
 ///      explicitly marked that exact entity instance for a genuine hard delete, in which
-///      case this interceptor leaves it alone. This applies per-entity, independently --
-///      there's no Property-specific cascade to Units here; a caller that wants a Property
-///      and its Units to share the same fate (soft or hard) Remove()s all of them together
-///      in the same SaveChanges call (see PropertiesController.DeleteProperty, US-22) and
-///      this interceptor converts each Deleted entry it's given the same way. (An earlier
-///      version of this interceptor tried to cascade Property -> Units here instead, but
-///      that doesn't work: EF Core's relationship-severance check throws synchronously
-///      inside Remove() -- before this interceptor ever runs -- if a parent is marked
-///      Deleted while an already-tracked, required-FK child is left Unchanged.)
+///      case this interceptor leaves it alone.
 ///   2. Audit capture: every Added/Modified/Deleted entry for an IAuditableEntity gets a
 ///      corresponding AuditLog row with a JSON diff, added directly to the same
 ///      ChangeTracker mid-flight.

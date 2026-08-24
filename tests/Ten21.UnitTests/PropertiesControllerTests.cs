@@ -4,9 +4,9 @@ using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Ten21.Api.Contracts.Properties;
 using Ten21.Api.Controllers;
+using Ten21.Application.Abstractions;
 using Ten21.Domain.Enums;
 using Ten21.Domain.Exceptions;
-using Ten21.Application.Abstractions;
 using Ten21.Infrastructure.Import;
 using Ten21.Infrastructure.Persistence;
 using Ten21.Infrastructure.Persistence.Interceptors;
@@ -15,10 +15,12 @@ using Xunit;
 
 namespace Ten21.UnitTests;
 
-/// <summary>US-19: Property/Unit create + update, including tenant isolation on lookups,
-/// input sanitization, and Unit reconciliation on update (add/edit/remove-as-soft-delete).
-/// Same in-memory SQLite pattern as TenantIsolationTests/AuditSaveChangesInterceptorTests.
-/// </summary>
+/// <summary>Property/Unit create + update + delete + bulk import, on the flat Property
+/// model -- Property is a standalone leasable space (a whole house, or one suite within a
+/// building), with no separate child Unit entity. Suite A and Suite B of the same building
+/// are two independent Property rows sharing a street address, distinguished by
+/// UnitIdentifier. Same in-memory SQLite pattern as TenantIsolationTests/
+/// AuditSaveChangesInterceptorTests.</summary>
 public class PropertiesControllerTests : IDisposable
 {
     private readonly SqliteConnection _connection;
@@ -49,7 +51,7 @@ public class PropertiesControllerTests : IDisposable
         return (db, new PropertiesController(db, _sanitizer, _importParser, hardDeleteOverride));
     }
 
-    private static UpsertPropertyRequest NewRequest(params UnitRequest[] units) => new(
+    private static UpsertPropertyRequest NewRequest(string? unitIdentifier = null) => new(
         Name: "Riverside Apartments",
         PropertyType: PropertyType.MultiFamily,
         StreetAddress1: "100 Main St",
@@ -58,34 +60,57 @@ public class PropertiesControllerTests : IDisposable
         State: "UT",
         PostalCode: "84601",
         Country: "USA",
-        DefaultTargetRent: 1200m,
-        Units: units);
+        UnitIdentifier: unitIdentifier,
+        TargetRent: 1200m,
+        OccupancyStatus: OccupancyStatus.Vacant);
 
     [Fact]
-    public async Task CreateProperty_PersistsPropertyAndCascadesDefaultTargetRentToUnits()
+    public async Task CreateProperty_PersistsAFlatProperty_WithNoChildEntities()
     {
         var (db, controller) = CreateController(Guid.NewGuid());
 
-        var request = NewRequest(
-            new UnitRequest(null, "101", null, OccupancyStatus.Vacant),
-            new UnitRequest(null, "102", 1500m, OccupancyStatus.Occupied));
-
-        var result = await controller.CreateProperty(request, CancellationToken.None);
+        var result = await controller.CreateProperty(NewRequest("Suite A"), CancellationToken.None);
 
         var created = Assert.IsType<CreatedAtActionResult>(result);
         var response = Assert.IsType<PropertyResponse>(created.Value);
 
-        Assert.Equal(2, response.Units.Count);
-        Assert.Equal(1200m, response.Units.Single(u => u.UnitIdentifier == "101").TargetRent);
-        Assert.Equal(1500m, response.Units.Single(u => u.UnitIdentifier == "102").TargetRent);
+        Assert.Equal("Suite A", response.UnitIdentifier);
+        Assert.Equal(1200m, response.TargetRent);
+        Assert.Equal(OccupancyStatus.Vacant, response.OccupancyStatus);
         Assert.Equal(1, await db.Properties.CountAsync());
+    }
+
+    [Fact]
+    public async Task CreateProperty_UnitIdentifierIsOptional_ForAStandaloneProperty()
+    {
+        var (_, controller) = CreateController(Guid.NewGuid());
+
+        var result = await controller.CreateProperty(NewRequest(unitIdentifier: null), CancellationToken.None);
+
+        var created = Assert.IsType<CreatedAtActionResult>(result);
+        var response = Assert.IsType<PropertyResponse>(created.Value);
+        Assert.Null(response.UnitIdentifier);
+    }
+
+    [Fact]
+    public async Task CreateProperty_TwoSuitesShareAnAddress_AsTwoIndependentProperties()
+    {
+        var (db, controller) = CreateController(Guid.NewGuid());
+
+        await controller.CreateProperty(NewRequest("Suite A"), CancellationToken.None);
+        await controller.CreateProperty(NewRequest("Suite B"), CancellationToken.None);
+
+        var properties = await db.Properties.OrderBy(p => p.UnitIdentifier).ToListAsync();
+        Assert.Equal(2, properties.Count);
+        Assert.Equal("Suite A", properties[0].UnitIdentifier);
+        Assert.Equal("Suite B", properties[1].UnitIdentifier);
+        Assert.Equal(properties[0].StreetAddress1, properties[1].StreetAddress1);
     }
 
     [Fact]
     public async Task CreateProperty_StripsHtmlFromStringFields()
     {
         var (_, controller) = CreateController(Guid.NewGuid());
-
         var request = NewRequest() with { Name = "<script>alert(1)</script>Riverside" };
 
         var result = await controller.CreateProperty(request, CancellationToken.None);
@@ -107,12 +132,28 @@ public class PropertiesControllerTests : IDisposable
     }
 
     [Fact]
+    public async Task UpdateProperty_UpdatesFlatFieldsDirectly()
+    {
+        var (_, controller) = CreateController(Guid.NewGuid());
+        var created = await controller.CreateProperty(NewRequest("Suite A"), CancellationToken.None);
+        var propertyId = Assert.IsType<PropertyResponse>(Assert.IsType<CreatedAtActionResult>(created).Value).Id;
+
+        var updateRequest = NewRequest("Suite A-Renamed") with { TargetRent = 1500m, OccupancyStatus = OccupancyStatus.Occupied };
+        var updateResult = await controller.UpdateProperty(propertyId, updateRequest, CancellationToken.None);
+
+        var ok = Assert.IsType<OkObjectResult>(updateResult);
+        var response = Assert.IsType<PropertyResponse>(ok.Value);
+        Assert.Equal("Suite A-Renamed", response.UnitIdentifier);
+        Assert.Equal(1500m, response.TargetRent);
+        Assert.Equal(OccupancyStatus.Occupied, response.OccupancyStatus);
+    }
+
+    [Fact]
     public async Task GetProperty_ThrowsNotFound_ForAnotherTenantsProperty()
     {
-        var (dbA, controllerA) = CreateController(Guid.NewGuid());
-        var createResult = await controllerA.CreateProperty(NewRequest(), CancellationToken.None);
-        var created = Assert.IsType<CreatedAtActionResult>(createResult);
-        var propertyId = Assert.IsType<PropertyResponse>(created.Value).Id;
+        var (_, controllerA) = CreateController(Guid.NewGuid());
+        var created = await controllerA.CreateProperty(NewRequest(), CancellationToken.None);
+        var propertyId = Assert.IsType<PropertyResponse>(Assert.IsType<CreatedAtActionResult>(created).Value).Id;
 
         var (_, controllerB) = CreateController(Guid.NewGuid());
 
@@ -121,53 +162,11 @@ public class PropertiesControllerTests : IDisposable
     }
 
     [Fact]
-    public async Task UpdateProperty_ReconcilesUnits_AddsEditsAndSoftDeletes()
-    {
-        // A fresh DbContext per operation, same as a real request-scoped DbContext would
-        // be -- reusing one context instance across two "requests" (as the other tests in
-        // this class do, for brevity) hits EF Core change-tracking edge cases around
-        // navigation-collection reconciliation that a real request never encounters.
-        var tenantId = Guid.NewGuid();
-        var (_, controller) = CreateController(tenantId);
-
-        var createResult = await controller.CreateProperty(
-            NewRequest(
-                new UnitRequest(null, "101", null, OccupancyStatus.Vacant),
-                new UnitRequest(null, "102", null, OccupancyStatus.Vacant)),
-            CancellationToken.None);
-        var created = Assert.IsType<CreatedAtActionResult>(createResult);
-        var property = Assert.IsType<PropertyResponse>(created.Value);
-        var keptUnitId = property.Units.Single(u => u.UnitIdentifier == "101").Id;
-
-        // Drop unit 102, edit unit 101, add a brand-new unit 103.
-        var updateRequest = NewRequest(
-            new UnitRequest(keptUnitId, "101-Updated", 999m, OccupancyStatus.Occupied),
-            new UnitRequest(null, "103", null, OccupancyStatus.Maintenance)) with { Name = "Riverside Renamed" };
-
-        var (db, updateController) = CreateController(tenantId);
-        var updateResult = await updateController.UpdateProperty(property.Id, updateRequest, CancellationToken.None);
-        var updated = Assert.IsType<OkObjectResult>(updateResult);
-        var response = Assert.IsType<PropertyResponse>(updated.Value);
-
-        Assert.Equal("Riverside Renamed", response.Name);
-        Assert.Equal(2, response.Units.Count);
-        Assert.Contains(response.Units, u => u.UnitIdentifier == "101-Updated" && u.TargetRent == 999m);
-        Assert.Contains(response.Units, u => u.UnitIdentifier == "103");
-        Assert.DoesNotContain(response.Units, u => u.UnitIdentifier == "102");
-
-        // The dropped unit is soft-deleted (AuditSaveChangesInterceptor), not hard-deleted.
-        var softDeletedUnit = await db.Units.IgnoreQueryFilters()
-            .SingleAsync(u => u.UnitIdentifier == "102");
-        Assert.True(softDeletedUnit.IsDeleted);
-    }
-
-    [Fact]
-    public async Task GetProperties_ReturnsOnlyActiveTenantsProperties_WithNestedUnits()
+    public async Task GetProperties_ReturnsOnlyActiveTenantsProperties()
     {
         var tenantId = Guid.NewGuid();
         var (_, controllerA) = CreateController(tenantId);
-        await controllerA.CreateProperty(
-            NewRequest(new UnitRequest(null, "101", null, OccupancyStatus.Vacant)), CancellationToken.None);
+        await controllerA.CreateProperty(NewRequest("Suite A"), CancellationToken.None);
 
         var (_, controllerOtherTenant) = CreateController(Guid.NewGuid());
         await controllerOtherTenant.CreateProperty(NewRequest(), CancellationToken.None);
@@ -180,13 +179,11 @@ public class PropertiesControllerTests : IDisposable
 
         Assert.Equal(1, response.TotalCount);
         var item = Assert.Single(response.Items);
-        Assert.Equal("Riverside Apartments", item.Name);
-        var unit = Assert.Single(item.Units);
-        Assert.Equal("101", unit.UnitIdentifier);
+        Assert.Equal("Suite A", item.UnitIdentifier);
     }
 
     [Fact]
-    public async Task GetProperties_WithPageSize_PaginatesAndReportsTotalPropertyCount()
+    public async Task GetProperties_WithPageSize_PaginatesAndReportsTotalCount()
     {
         var tenantId = Guid.NewGuid();
         var (_, controller) = CreateController(tenantId);
@@ -207,116 +204,20 @@ public class PropertiesControllerTests : IDisposable
         Assert.Single(response.Items);
     }
 
-    private static IFormFile CreateCsvFormFile(string content, string fileName = "properties.csv")
-    {
-        var bytes = System.Text.Encoding.UTF8.GetBytes(content);
-        return new FormFile(new MemoryStream(bytes), 0, bytes.Length, "file", fileName)
-        {
-            Headers = new HeaderDictionary(),
-            ContentType = "text/csv",
-        };
-    }
-
     [Fact]
-    public async Task ImportProperties_ValidFile_GroupsRowsByPropertyAndCommitsInOneBatch()
-    {
-        const string csv = """
-            PropertyName,PropertyType,StreetAddress1,City,State,PostalCode,Country,UnitIdentifier,TargetRent
-            Riverside Apartments,MultiFamily,100 Main St,Provo,UT,84601,USA,101,1200
-            Riverside Apartments,MultiFamily,100 Main St,Provo,UT,84601,USA,102,1250
-            Downtown Lofts,Commercial,5 Center St,Ogden,UT,84401,USA,A,
-            """;
-
-        var (db, controller) = CreateController(Guid.NewGuid());
-        var result = await controller.ImportProperties(CreateCsvFormFile(csv), CancellationToken.None);
-
-        var ok = Assert.IsType<OkObjectResult>(result);
-        var response = Assert.IsType<ImportPropertiesResponse>(ok.Value);
-
-        Assert.True(response.Success);
-        Assert.Equal(3, response.TotalRows);
-        Assert.Equal(0, response.InvalidRowCount);
-        Assert.Equal(2, response.PropertiesCreated);
-        Assert.Equal(3, response.UnitsCreated);
-
-        Assert.Equal(2, await db.Properties.CountAsync());
-        Assert.Equal(3, await db.Units.CountAsync());
-
-        var riverside = await db.Properties.Include(p => p.Units).SingleAsync(p => p.Name == "Riverside Apartments");
-        Assert.Equal(2, riverside.Units.Count);
-    }
-
-    [Fact]
-    public async Task ImportProperties_OneInvalidRow_PersistsNothingAtAll()
-    {
-        const string csv = """
-            PropertyName,PropertyType,StreetAddress1,City,State,PostalCode,Country,UnitIdentifier,TargetRent
-            Riverside Apartments,MultiFamily,100 Main St,Provo,UT,84601,USA,101,1200
-            Riverside Apartments,MultiFamily,100 Main St,Provo,UT,84601,USA,102,not-a-number
-            """;
-
-        var (db, controller) = CreateController(Guid.NewGuid());
-        var result = await controller.ImportProperties(CreateCsvFormFile(csv), CancellationToken.None);
-
-        var ok = Assert.IsType<OkObjectResult>(result);
-        var response = Assert.IsType<ImportPropertiesResponse>(ok.Value);
-
-        Assert.False(response.Success);
-        Assert.Equal(1, response.InvalidRowCount);
-        Assert.Equal(0, response.PropertiesCreated);
-        Assert.Contains(response.Rows, r => r.RowNumber == 3 && !r.IsValid && r.Errors.Contains("Target Rent must be a positive number."));
-        Assert.Contains(response.Rows, r => r.RowNumber == 2 && r.IsValid);
-
-        // The whole batch is rejected, including the otherwise-valid row 2 -- nothing is
-        // written to the database at all.
-        Assert.Equal(0, await db.Properties.CountAsync());
-        Assert.Equal(0, await db.Units.CountAsync());
-    }
-
-    [Fact]
-    public async Task ImportProperties_SanitizesFormulaInjectionAndHtmlInTextFields()
-    {
-        const string csv = """
-            PropertyName,PropertyType,StreetAddress1,City,State,PostalCode,Country,UnitIdentifier,TargetRent
-            =cmd|'/c calc'!A1,MultiFamily,100 Main St,Provo,UT,84601,USA,<script>alert(1)</script>101,1200
-            """;
-
-        var (db, controller) = CreateController(Guid.NewGuid());
-        await controller.ImportProperties(CreateCsvFormFile(csv), CancellationToken.None);
-
-        var property = await db.Properties.Include(p => p.Units).SingleAsync();
-        Assert.StartsWith("'=", property.Name);
-        Assert.DoesNotContain('<', property.Units.Single().UnitIdentifier);
-    }
-
-    [Fact]
-    public async Task ImportProperties_RejectsUnsupportedFileExtension()
-    {
-        var (_, controller) = CreateController(Guid.NewGuid());
-
-        await Assert.ThrowsAsync<ValidationException>(
-            () => controller.ImportProperties(CreateCsvFormFile("irrelevant", "properties.txt"), CancellationToken.None));
-    }
-
-    [Fact]
-    public async Task DeleteProperty_TodayAlwaysHardDeletes_RemovingBothPropertyAndItsUnits()
+    public async Task DeleteProperty_TodayAlwaysHardDeletes()
     {
         // HasAppliedPaymentsAsync is a placeholder that always returns false until Phase 1
         // ships a real payment ledger (see the Sprint 3 doc's Executive Summary) -- every
-        // delete today takes the hard-delete branch. The soft-delete + cascade branch is
-        // covered directly at the interceptor level instead, since it's genuinely
-        // unreachable through this controller action today by design; see
-        // AuditSaveChangesInterceptorTests.SoftDelete_OfProperty_CascadesToChildUnits.
+        // delete today takes the hard-delete branch.
         var (db, controller) = CreateController(Guid.NewGuid());
-        var created = await controller.CreateProperty(
-            NewRequest(new UnitRequest(null, "101", null, OccupancyStatus.Vacant)), CancellationToken.None);
+        var created = await controller.CreateProperty(NewRequest(), CancellationToken.None);
         var propertyId = Assert.IsType<PropertyResponse>(Assert.IsType<CreatedAtActionResult>(created).Value).Id;
 
         var result = await controller.DeleteProperty(propertyId, CancellationToken.None);
 
         Assert.IsType<NoContentResult>(result);
         Assert.Equal(0, await db.Properties.IgnoreQueryFilters().CountAsync());
-        Assert.Equal(0, await db.Units.IgnoreQueryFilters().CountAsync());
     }
 
     [Fact]
@@ -330,5 +231,89 @@ public class PropertiesControllerTests : IDisposable
 
         await Assert.ThrowsAsync<NotFoundException>(
             () => controllerB.DeleteProperty(propertyId, CancellationToken.None));
+    }
+
+    private static IFormFile CreateCsvFormFile(string content, string fileName = "properties.csv")
+    {
+        var bytes = System.Text.Encoding.UTF8.GetBytes(content);
+        return new FormFile(new MemoryStream(bytes), 0, bytes.Length, "file", fileName)
+        {
+            Headers = new HeaderDictionary(),
+            ContentType = "text/csv",
+        };
+    }
+
+    [Fact]
+    public async Task ImportProperties_ValidFile_CreatesOneFlatPropertyPerRow()
+    {
+        const string csv = """
+            PropertyName,PropertyType,StreetAddress1,City,State,PostalCode,Country,UnitIdentifier,TargetRent
+            Riverside Apartments,MultiFamily,100 Main St,Provo,UT,84601,USA,Suite A,1200
+            Riverside Apartments,MultiFamily,100 Main St,Provo,UT,84601,USA,Suite B,1250
+            Lone Peak House,SingleFamily,5 Center St,Ogden,UT,84401,USA,,
+            """;
+
+        var (db, controller) = CreateController(Guid.NewGuid());
+        var result = await controller.ImportProperties(CreateCsvFormFile(csv), CancellationToken.None);
+
+        var ok = Assert.IsType<OkObjectResult>(result);
+        var response = Assert.IsType<ImportPropertiesResponse>(ok.Value);
+
+        Assert.True(response.Success);
+        Assert.Equal(3, response.TotalRows);
+        Assert.Equal(0, response.InvalidRowCount);
+        Assert.Equal(3, response.PropertiesCreated);
+
+        Assert.Equal(3, await db.Properties.CountAsync());
+        var standalone = await db.Properties.SingleAsync(p => p.Name == "Lone Peak House");
+        Assert.Null(standalone.UnitIdentifier);
+    }
+
+    [Fact]
+    public async Task ImportProperties_OneInvalidRow_PersistsNothingAtAll()
+    {
+        const string csv = """
+            PropertyName,PropertyType,StreetAddress1,City,State,PostalCode,Country,UnitIdentifier,TargetRent
+            Riverside Apartments,MultiFamily,100 Main St,Provo,UT,84601,USA,Suite A,1200
+            Riverside Apartments,MultiFamily,100 Main St,Provo,UT,84601,USA,Suite B,not-a-number
+            """;
+
+        var (db, controller) = CreateController(Guid.NewGuid());
+        var result = await controller.ImportProperties(CreateCsvFormFile(csv), CancellationToken.None);
+
+        var ok = Assert.IsType<OkObjectResult>(result);
+        var response = Assert.IsType<ImportPropertiesResponse>(ok.Value);
+
+        Assert.False(response.Success);
+        Assert.Equal(1, response.InvalidRowCount);
+        Assert.Equal(0, response.PropertiesCreated);
+        Assert.Contains(response.Rows, r => r.RowNumber == 3 && !r.IsValid && r.Errors.Contains("Target Rent must be a positive number."));
+
+        Assert.Equal(0, await db.Properties.CountAsync());
+    }
+
+    [Fact]
+    public async Task ImportProperties_SanitizesFormulaInjectionAndHtmlInTextFields()
+    {
+        const string csv = """
+            PropertyName,PropertyType,StreetAddress1,City,State,PostalCode,Country,UnitIdentifier,TargetRent
+            =cmd|'/c calc'!A1,MultiFamily,100 Main St,Provo,UT,84601,USA,<script>alert(1)</script>Suite A,1200
+            """;
+
+        var (db, controller) = CreateController(Guid.NewGuid());
+        await controller.ImportProperties(CreateCsvFormFile(csv), CancellationToken.None);
+
+        var property = await db.Properties.SingleAsync();
+        Assert.StartsWith("'=", property.Name);
+        Assert.DoesNotContain('<', property.UnitIdentifier!);
+    }
+
+    [Fact]
+    public async Task ImportProperties_RejectsUnsupportedFileExtension()
+    {
+        var (_, controller) = CreateController(Guid.NewGuid());
+
+        await Assert.ThrowsAsync<ValidationException>(
+            () => controller.ImportProperties(CreateCsvFormFile("irrelevant", "properties.txt"), CancellationToken.None));
     }
 }
