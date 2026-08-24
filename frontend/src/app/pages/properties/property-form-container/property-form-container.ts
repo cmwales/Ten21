@@ -44,7 +44,7 @@ export class PropertyFormContainer implements OnInit, ComponentWithUnsavedChange
     state: ['', Validators.required],
     postalCode: ['', Validators.required],
     country: ['USA', Validators.required],
-    unitIdentifier: [''],
+    unitIdentifier: this.fb.control<string | null>(null, Validators.maxLength(50)),
     targetRent: this.fb.control<number | null>(null),
     occupancyStatus: ['Vacant' as OccupancyStatusValue, Validators.required],
   });
@@ -102,7 +102,7 @@ export class PropertyFormContainer implements OnInit, ComponentWithUnsavedChange
       state: raw.state,
       postalCode: raw.postalCode,
       country: raw.country,
-      unitIdentifier: raw.unitIdentifier || null,
+      unitIdentifier: raw.unitIdentifier,
       targetRent: raw.targetRent,
       occupancyStatus: raw.occupancyStatus,
     };
@@ -136,7 +136,7 @@ export class PropertyFormContainer implements OnInit, ComponentWithUnsavedChange
           state: property.state,
           postalCode: property.postalCode,
           country: property.country,
-          unitIdentifier: property.unitIdentifier ?? '',
+          unitIdentifier: property.unitIdentifier,
           targetRent: property.targetRent,
           occupancyStatus: property.occupancyStatus,
         });
@@ -160,6 +160,10 @@ export class PropertyFormContainer implements OnInit, ComponentWithUnsavedChange
 
     if (error.status === 404) {
       return 'properties.form.notFoundError';
+    }
+
+    if (error.status === 409) {
+      return 'properties.form.duplicateError';
     }
 
     return 'properties.form.networkError';

@@ -1,17 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
-using System.Text.RegularExpressions;
-using Microsoft.AspNetCore.Hosting;
-using Microsoft.AspNetCore.Identity;
-using Microsoft.AspNetCore.Mvc.Testing;
-using Microsoft.AspNetCore.TestHost;
-using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.DependencyInjection;
-using Ten21.Application.Abstractions;
-using Ten21.Infrastructure.Identity;
-using Ten21.Infrastructure.Persistence;
-using Testcontainers.PostgreSql;
 using Xunit;
 
 namespace Ten21.IntegrationTests;
@@ -28,64 +17,13 @@ namespace Ten21.IntegrationTests;
 /// pipeline (WebApplicationFactory, no shortcuts) specifically so that gap can't reopen.
 ///
 /// Registration always yields PropertyManager (US-14), which is 2FA-mandatory, so getting
-/// an authenticated session here requires the full register -> login -> verify-2fa dance,
-/// same as TwoFactorEndToEndTests. Kept under AuthRateLimiterPolicy's 5-req/min-per-IP
+/// an authenticated session here requires the full register -> login -> verify-2fa dance
+/// (see EmailIntegrationTestBase). Kept under AuthRateLimiterPolicy's 5-req/min-per-IP
 /// budget: register(1) + login(2) + verify-2fa(3) + create-property(4) = 4 calls.
 /// </summary>
 [Collection(SequentialWebApplicationFactoryCollection.Name)]
-public class PropertiesEndToEndTests : IAsyncLifetime
+public class PropertiesEndToEndTests : EmailIntegrationTestBase
 {
-    private readonly PostgreSqlContainer _postgres = new PostgreSqlBuilder()
-        .WithImage("postgres:16-alpine")
-        .Build();
-
-    private WebApplicationFactory<Program> _factory = null!;
-    private HttpClient _client = null!;
-    private FakeEmailSender _emailSender = null!;
-
-    public async Task InitializeAsync()
-    {
-        await _postgres.StartAsync();
-
-        Environment.SetEnvironmentVariable("ConnectionStrings__Ten21Database", _postgres.GetConnectionString());
-        Environment.SetEnvironmentVariable(
-            "Jwt__Key", "integration-test-only-signing-key-do-not-reuse-anywhere-else");
-        Environment.SetEnvironmentVariable("Jwt__Issuer", "https://api.ten21.io");
-        Environment.SetEnvironmentVariable("Jwt__Audience", "https://app.ten21.io");
-        Environment.SetEnvironmentVariable(
-            "Turnstile__SecretKey", "1x0000000000000000000000000000000AA");
-        Environment.SetEnvironmentVariable("Turnstile__AllowedHostnames", "example.com");
-
-        _emailSender = new FakeEmailSender();
-
-        _factory = new WebApplicationFactory<Program>().WithWebHostBuilder(builder =>
-        {
-            builder.UseEnvironment("Development");
-            builder.ConfigureTestServices(services =>
-            {
-                services.AddScoped<IEmailSender>(_ => _emailSender);
-            });
-        });
-
-        await using (var scope = _factory.Services.CreateAsyncScope())
-        {
-            var db = scope.ServiceProvider.GetRequiredService<Ten21DbContext>();
-            await db.Database.MigrateAsync();
-
-            var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<ApplicationRole>>();
-            await RoleSeeder.SeedAsync(roleManager);
-        }
-
-        _client = _factory.CreateClient();
-    }
-
-    public async Task DisposeAsync()
-    {
-        _client.Dispose();
-        await _factory.DisposeAsync();
-        await _postgres.DisposeAsync();
-    }
-
     /// <summary>register(1) + login(2) + verify-2fa(3) + create-property(4) = 4 calls.</summary>
     [Fact]
     public async Task CreateProperty_WithStringEnumValuesOverRealJson_Succeeds()
@@ -114,7 +52,7 @@ public class PropertiesEndToEndTests : IAsyncLifetime
         };
         request.Headers.Add("Authorization", $"Bearer {accessToken}");
 
-        var response = await _client.SendAsync(request);
+        var response = await Client.SendAsync(request);
         var body = await response.Content.ReadAsStringAsync();
 
         Assert.True(
@@ -130,64 +68,21 @@ public class PropertiesEndToEndTests : IAsyncLifetime
 
     private async Task<string> RegisterLoginAndVerifyAsync(string email, string password)
     {
-        var registerResponse = await _client.PostAsJsonAsync("/api/auth/register", new
-        {
-            firstName = "Properties",
-            lastName = "Test",
-            email,
-            password,
-            phoneNumber = (string?)null,
-            address = (string?)null,
-            workspaceName = "Properties Json Enum Test Co",
-            portfolioSize = 1,
-            agreedToTerms = true,
-            turnstileToken = "test-token",
-        });
-        Assert.Equal(HttpStatusCode.OK, registerResponse.StatusCode);
-        _emailSender.SentEmails.Clear();
+        await RegisterAsync(email, password, firstName: "Properties", lastName: "Test", workspaceName: "Properties Json Enum Test Co");
+        EmailSender.SentEmails.Clear();
 
-        var loginResponse = await _client.PostAsJsonAsync("/api/auth/login", new { email, password });
+        var loginResponse = await Client.PostAsJsonAsync("/api/auth/login", new { email, password });
         Assert.Equal(HttpStatusCode.OK, loginResponse.StatusCode);
         var loginData = await ReadDataAsync(loginResponse);
         var challengeToken = loginData.GetProperty("challengeToken").GetString()!;
 
-        var sent = Assert.Single(_emailSender.SentEmails, e => e.Subject.Contains("Your Ten21 sign-in code"));
+        var sent = Assert.Single(EmailSender.SentEmails, e => e.Subject.Contains("Your Ten21 sign-in code"));
         var code = ExtractCode(sent.HtmlBody);
 
-        var verifyRequest = new HttpRequestMessage(HttpMethod.Post, "/api/auth/login/verify-2fa")
-        {
-            Content = JsonContent.Create(new { code }),
-        };
-        verifyRequest.Headers.Add("Authorization", $"Bearer {challengeToken}");
-        var verifyResponse = await _client.SendAsync(verifyRequest);
+        var verifyResponse = await PostWithBearerAsync("/api/auth/login/verify-2fa", challengeToken, new { code });
         Assert.Equal(HttpStatusCode.OK, verifyResponse.StatusCode);
 
         var verifyData = await ReadDataAsync(verifyResponse);
         return verifyData.GetProperty("accessToken").GetString()!;
-    }
-
-    private static async Task<JsonElement> ReadDataAsync(HttpResponseMessage response)
-    {
-        var json = await response.Content.ReadAsStringAsync();
-        using var document = JsonDocument.Parse(json);
-        return document.RootElement.GetProperty("data").Clone();
-    }
-
-    private static string ExtractCode(string htmlBody)
-    {
-        var match = Regex.Match(htmlBody, "<strong>([0-9]{6})</strong>");
-        Assert.True(match.Success, $"No 6-digit code found in email body: {htmlBody}");
-        return match.Groups[1].Value;
-    }
-
-    private class FakeEmailSender : IEmailSender
-    {
-        public List<(string ToEmail, string Subject, string HtmlBody)> SentEmails { get; } = [];
-
-        public Task SendAsync(string toEmail, string subject, string htmlBody, CancellationToken cancellationToken = default)
-        {
-            SentEmails.Add((toEmail, subject, htmlBody));
-            return Task.CompletedTask;
-        }
     }
 }

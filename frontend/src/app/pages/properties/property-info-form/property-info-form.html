@@ -1,8 +1,5 @@
 <div [formGroup]="form" class="flex flex-col gap-5">
-  <div class="flex flex-col gap-1.5">
-    <label for="name" class="text-sm font-medium text-slate-navy">
-      {{ 'properties.form.name' | translate }}
-    </label>
+  <app-form-field controlId="name" labelKey="properties.form.name" [control]="form.controls.name" errorKey="properties.form.nameRequired">
     <input
       id="name"
       type="text"
@@ -10,15 +7,9 @@
       [attr.aria-invalid]="form.controls.name.invalid && form.controls.name.touched"
       class="tap-target w-full rounded-md border border-slate-navy/20 px-3 py-2 text-slate-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
     />
-    @if (form.controls.name.invalid && form.controls.name.touched) {
-      <p class="text-sm text-rose">{{ 'properties.form.nameRequired' | translate }}</p>
-    }
-  </div>
+  </app-form-field>
 
-  <div class="flex flex-col gap-1.5">
-    <label for="propertyType" class="text-sm font-medium text-slate-navy">
-      {{ 'properties.form.propertyType' | translate }}
-    </label>
+  <app-form-field controlId="propertyType" labelKey="properties.form.propertyType" [control]="form.controls.propertyType">
     <select
       id="propertyType"
       formControlName="propertyType"
@@ -28,12 +19,9 @@
         <option [value]="type">{{ 'properties.propertyTypes.' + type | translate }}</option>
       }
     </select>
-  </div>
+  </app-form-field>
 
-  <div class="flex flex-col gap-1.5">
-    <label for="streetAddress1" class="text-sm font-medium text-slate-navy">
-      {{ 'properties.form.streetAddress1' | translate }}
-    </label>
+  <app-form-field controlId="streetAddress1" labelKey="properties.form.streetAddress1" [control]="form.controls.streetAddress1" errorKey="properties.form.streetAddress1Required">
     <input
       id="streetAddress1"
       type="text"
@@ -41,28 +29,19 @@
       [attr.aria-invalid]="form.controls.streetAddress1.invalid && form.controls.streetAddress1.touched"
       class="tap-target w-full rounded-md border border-slate-navy/20 px-3 py-2 text-slate-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
     />
-    @if (form.controls.streetAddress1.invalid && form.controls.streetAddress1.touched) {
-      <p class="text-sm text-rose">{{ 'properties.form.streetAddress1Required' | translate }}</p>
-    }
-  </div>
+  </app-form-field>
 
-  <div class="flex flex-col gap-1.5">
-    <label for="streetAddress2" class="text-sm font-medium text-slate-navy">
-      {{ 'properties.form.streetAddress2' | translate }}
-    </label>
+  <app-form-field controlId="streetAddress2" labelKey="properties.form.streetAddress2" [control]="form.controls.streetAddress2">
     <input
       id="streetAddress2"
       type="text"
       formControlName="streetAddress2"
       class="tap-target w-full rounded-md border border-slate-navy/20 px-3 py-2 text-slate-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
     />
-  </div>
+  </app-form-field>
 
   <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
-    <div class="flex flex-col gap-1.5">
-      <label for="city" class="text-sm font-medium text-slate-navy">
-        {{ 'properties.form.city' | translate }}
-      </label>
+    <app-form-field controlId="city" labelKey="properties.form.city" [control]="form.controls.city" errorKey="properties.form.cityRequired">
       <input
         id="city"
         type="text"
@@ -70,15 +49,9 @@
         [attr.aria-invalid]="form.controls.city.invalid && form.controls.city.touched"
         class="tap-target w-full rounded-md border border-slate-navy/20 px-3 py-2 text-slate-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
       />
-      @if (form.controls.city.invalid && form.controls.city.touched) {
-        <p class="text-sm text-rose">{{ 'properties.form.cityRequired' | translate }}</p>
-      }
-    </div>
+    </app-form-field>
 
-    <div class="flex flex-col gap-1.5">
-      <label for="state" class="text-sm font-medium text-slate-navy">
-        {{ 'properties.form.state' | translate }}
-      </label>
+    <app-form-field controlId="state" labelKey="properties.form.state" [control]="form.controls.state" errorKey="properties.form.stateRequired">
       <input
         id="state"
         type="text"
@@ -86,15 +59,9 @@
         [attr.aria-invalid]="form.controls.state.invalid && form.controls.state.touched"
         class="tap-target w-full rounded-md border border-slate-navy/20 px-3 py-2 text-slate-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
       />
-      @if (form.controls.state.invalid && form.controls.state.touched) {
-        <p class="text-sm text-rose">{{ 'properties.form.stateRequired' | translate }}</p>
-      }
-    </div>
+    </app-form-field>
 
-    <div class="flex flex-col gap-1.5">
-      <label for="postalCode" class="text-sm font-medium text-slate-navy">
-        {{ 'properties.form.postalCode' | translate }}
-      </label>
+    <app-form-field controlId="postalCode" labelKey="properties.form.postalCode" [control]="form.controls.postalCode" errorKey="properties.form.postalCodeRequired">
       <input
         id="postalCode"
         type="text"
@@ -102,15 +69,9 @@
         [attr.aria-invalid]="form.controls.postalCode.invalid && form.controls.postalCode.touched"
         class="tap-target w-full rounded-md border border-slate-navy/20 px-3 py-2 text-slate-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
       />
-      @if (form.controls.postalCode.invalid && form.controls.postalCode.touched) {
-        <p class="text-sm text-rose">{{ 'properties.form.postalCodeRequired' | translate }}</p>
-      }
-    </div>
+    </app-form-field>
 
-    <div class="flex flex-col gap-1.5">
-      <label for="country" class="text-sm font-medium text-slate-navy">
-        {{ 'properties.form.country' | translate }}
-      </label>
+    <app-form-field controlId="country" labelKey="properties.form.country" [control]="form.controls.country" errorKey="properties.form.countryRequired">
       <input
         id="country"
         type="text"
@@ -118,31 +79,29 @@
         [attr.aria-invalid]="form.controls.country.invalid && form.controls.country.touched"
         class="tap-target w-full rounded-md border border-slate-navy/20 px-3 py-2 text-slate-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
       />
-      @if (form.controls.country.invalid && form.controls.country.touched) {
-        <p class="text-sm text-rose">{{ 'properties.form.countryRequired' | translate }}</p>
-      }
-    </div>
+    </app-form-field>
   </div>
 
   <div class="grid grid-cols-1 gap-4 sm:grid-cols-3">
-    <div class="flex flex-col gap-1.5">
-      <label for="unitIdentifier" class="text-sm font-medium text-slate-navy">
-        {{ 'properties.form.unitIdentifier' | translate }}
-      </label>
+    <app-form-field
+      controlId="unitIdentifier"
+      labelKey="properties.form.unitIdentifier"
+      [control]="form.controls.unitIdentifier"
+      errorKey="properties.form.unitIdentifierMaxLength"
+      hintKey="properties.form.unitIdentifierHint"
+    >
       <input
         id="unitIdentifier"
         type="text"
         formControlName="unitIdentifier"
+        maxlength="50"
         [placeholder]="'properties.form.unitIdentifierPlaceholder' | translate"
+        [attr.aria-invalid]="form.controls.unitIdentifier.invalid && form.controls.unitIdentifier.touched"
         class="tap-target w-full rounded-md border border-slate-navy/20 px-3 py-2 text-slate-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
       />
-      <p class="text-xs text-slate-navy-light">{{ 'properties.form.unitIdentifierHint' | translate }}</p>
-    </div>
+    </app-form-field>
 
-    <div class="flex flex-col gap-1.5">
-      <label for="targetRent" class="text-sm font-medium text-slate-navy">
-        {{ 'properties.form.targetRent' | translate }}
-      </label>
+    <app-form-field controlId="targetRent" labelKey="properties.form.targetRent" [control]="form.controls.targetRent">
       <input
         id="targetRent"
         type="number"
@@ -151,12 +110,9 @@
         formControlName="targetRent"
         class="tap-target w-full rounded-md border border-slate-navy/20 px-3 py-2 text-slate-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
       />
-    </div>
+    </app-form-field>
 
-    <div class="flex flex-col gap-1.5">
-      <label for="occupancyStatus" class="text-sm font-medium text-slate-navy">
-        {{ 'properties.form.occupancyStatus' | translate }}
-      </label>
+    <app-form-field controlId="occupancyStatus" labelKey="properties.form.occupancyStatus" [control]="form.controls.occupancyStatus">
       <select
         id="occupancyStatus"
         formControlName="occupancyStatus"
@@ -166,6 +122,6 @@
           <option [value]="status">{{ 'properties.occupancyStatuses.' + status | translate }}</option>
         }
       </select>
-    </div>
+    </app-form-field>
   </div>
 </div>

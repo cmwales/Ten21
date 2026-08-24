@@ -179,6 +179,7 @@
       "unitIdentifier": "Unit/Suite #",
       "unitIdentifierPlaceholder": "e.g. Suite A (optional)",
       "unitIdentifierHint": "Leave blank for a standalone property. Fill in when this is one of several suites/units sharing an address.",
+      "unitIdentifierMaxLength": "Unit identifier must be 50 characters or fewer.",
       "targetRent": "Target Rent",
       "occupancyStatus": "Occupancy Status",
       "save": "Save",
@@ -188,6 +189,7 @@
       "savedToast": "Property saved.",
       "validationError": "Please check the highlighted fields and try again.",
       "notFoundError": "This property could not be found.",
+      "duplicateError": "A property with this address and unit identifier already exists.",
       "loadError": "Something went wrong loading this property.",
       "networkError": "Something went wrong. Please try again."
     },

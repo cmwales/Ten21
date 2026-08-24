@@ -149,6 +149,63 @@ public class PropertiesControllerTests : IDisposable
     }
 
     [Fact]
+    public async Task CreateProperty_ThrowsConflict_ForExactDuplicateAddressAndUnitIdentifier()
+    {
+        var (_, controller) = CreateController(Guid.NewGuid());
+        await controller.CreateProperty(NewRequest("Suite A"), CancellationToken.None);
+
+        await Assert.ThrowsAsync<ConflictException>(
+            () => controller.CreateProperty(NewRequest("Suite A"), CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task CreateProperty_AllowsSameAddress_WhenUnitIdentifierDiffers()
+    {
+        var (db, controller) = CreateController(Guid.NewGuid());
+        await controller.CreateProperty(NewRequest("Suite A"), CancellationToken.None);
+
+        await controller.CreateProperty(NewRequest("Suite B"), CancellationToken.None);
+
+        Assert.Equal(2, await db.Properties.CountAsync());
+    }
+
+    [Fact]
+    public async Task UpdateProperty_ThrowsConflict_WhenChangedToMatchAnotherExistingProperty()
+    {
+        var (_, controller) = CreateController(Guid.NewGuid());
+        await controller.CreateProperty(NewRequest("Suite A"), CancellationToken.None);
+        var createdB = await controller.CreateProperty(NewRequest("Suite B"), CancellationToken.None);
+        var propertyBId = Assert.IsType<PropertyResponse>(Assert.IsType<CreatedAtActionResult>(createdB).Value).Id;
+
+        await Assert.ThrowsAsync<ConflictException>(
+            () => controller.UpdateProperty(propertyBId, NewRequest("Suite A"), CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task UpdateProperty_AllowsSavingItsOwnUnchangedAddressAndUnitIdentifier()
+    {
+        var (_, controller) = CreateController(Guid.NewGuid());
+        var created = await controller.CreateProperty(NewRequest("Suite A"), CancellationToken.None);
+        var propertyId = Assert.IsType<PropertyResponse>(Assert.IsType<CreatedAtActionResult>(created).Value).Id;
+
+        var result = await controller.UpdateProperty(
+            propertyId, NewRequest("Suite A") with { TargetRent = 1500m }, CancellationToken.None);
+
+        var response = Assert.IsType<PropertyResponse>(Assert.IsType<OkObjectResult>(result).Value);
+        Assert.Equal(1500m, response.TargetRent);
+    }
+
+    [Fact]
+    public async Task CreateProperty_ThrowsValidationException_WhenUnitIdentifierExceedsMaxLength()
+    {
+        var (_, controller) = CreateController(Guid.NewGuid());
+        var request = NewRequest(new string('A', 51));
+
+        await Assert.ThrowsAsync<ValidationException>(
+            () => controller.CreateProperty(request, CancellationToken.None));
+    }
+
+    [Fact]
     public async Task GetProperty_ThrowsNotFound_ForAnotherTenantsProperty()
     {
         var (_, controllerA) = CreateController(Guid.NewGuid());
@@ -189,7 +246,12 @@ public class PropertiesControllerTests : IDisposable
         var (_, controller) = CreateController(tenantId);
         for (var i = 0; i < 3; i++)
         {
-            await controller.CreateProperty(NewRequest() with { Name = $"Property {i}" }, CancellationToken.None);
+            // Distinct UnitIdentifier per row -- CreateProperty now rejects an exact
+            // duplicate (same address + unit identifier) as a real Conflict, so three
+            // properties sharing an address need to actually look like three real,
+            // independent suites, not three copies of the same one.
+            await controller.CreateProperty(
+                NewRequest($"Unit {i}") with { Name = $"Property {i}" }, CancellationToken.None);
         }
 
         var (_, pageController) = CreateController(tenantId);
@@ -267,6 +329,44 @@ public class PropertiesControllerTests : IDisposable
         Assert.Equal(3, await db.Properties.CountAsync());
         var standalone = await db.Properties.SingleAsync(p => p.Name == "Lone Peak House");
         Assert.Null(standalone.UnitIdentifier);
+    }
+
+    [Fact]
+    public async Task ImportProperties_TwoRowsWithSameAddressAndUnitIdentifier_RejectsTheDuplicateRow()
+    {
+        const string csv = """
+            PropertyName,PropertyType,StreetAddress1,City,State,PostalCode,Country,UnitIdentifier,TargetRent
+            Riverside Apartments,MultiFamily,100 Main St,Provo,UT,84601,USA,Suite A,1200
+            Riverside Apartments,MultiFamily,100 Main St,Provo,UT,84601,USA,Suite A,1200
+            """;
+
+        var (db, controller) = CreateController(Guid.NewGuid());
+        var result = await controller.ImportProperties(CreateCsvFormFile(csv), CancellationToken.None);
+
+        var response = Assert.IsType<ImportPropertiesResponse>(Assert.IsType<OkObjectResult>(result).Value);
+        Assert.False(response.Success);
+        Assert.Equal(1, response.InvalidRowCount);
+        Assert.Contains(response.Rows, r => !r.IsValid && r.Errors.Any(e => e.Contains("Duplicate of another row")));
+        Assert.Equal(0, await db.Properties.CountAsync());
+    }
+
+    [Fact]
+    public async Task ImportProperties_RowMatchingAnExistingProperty_RejectsTheRow()
+    {
+        var (_, controller) = CreateController(Guid.NewGuid());
+        await controller.CreateProperty(NewRequest("Suite A"), CancellationToken.None);
+
+        const string csv = """
+            PropertyName,PropertyType,StreetAddress1,City,State,PostalCode,Country,UnitIdentifier,TargetRent
+            Riverside Apartments,MultiFamily,100 Main St,Provo,UT,84601,USA,Suite A,1200
+            """;
+
+        var result = await controller.ImportProperties(CreateCsvFormFile(csv), CancellationToken.None);
+
+        var response = Assert.IsType<ImportPropertiesResponse>(Assert.IsType<OkObjectResult>(result).Value);
+        Assert.False(response.Success);
+        Assert.Equal(1, response.InvalidRowCount);
+        Assert.Contains(response.Rows, r => !r.IsValid && r.Errors.Any(e => e.Contains("already exists")));
     }
 
     [Fact]

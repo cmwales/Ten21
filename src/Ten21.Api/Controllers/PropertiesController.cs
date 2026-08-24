@@ -70,11 +70,19 @@ public class PropertiesController : ControllerBase
             query = query.Skip((effectivePageNumber - 1) * pageSize.Value).Take(pageSize.Value);
         }
 
-        // ToListAsync() before mapping -- a private mapping method inside .Select() on an
-        // IQueryable can't be translated to SQL by EF Core (a real bug from an earlier
-        // version of this action; see User_Stories_Sprint_3.md's US-20 section).
-        var properties = await query.ToListAsync(cancellationToken);
-        var items = properties.Select(ToListItem).ToList();
+        // Projected directly in the SQL SELECT -- unlike GetProperty/CreateProperty/
+        // UpdateProperty, this action never needs the full Property entity, and
+        // PropertyListItemDto's field list is a straight subset with no nested-collection
+        // mapping, so (now that Property is flat) EF Core can translate the projection
+        // itself instead of materializing every column and mapping in memory. (An earlier
+        // version of this action DID need ToListAsync() first, back when the mapping method
+        // walked a nested Units collection EF Core couldn't translate -- see
+        // User_Stories_Sprint_3.md's US-20 section for that now-resolved history.)
+        var items = await query
+            .Select(p => new PropertyListItemDto(
+                p.Id, p.Name, p.PropertyType, p.StreetAddress1, p.City, p.State, p.PostalCode,
+                p.UnitIdentifier, p.TargetRent, p.OccupancyStatus))
+            .ToListAsync(cancellationToken);
 
         return Ok(new PropertyListResponse(items, totalCount, effectivePageNumber, pageSize ?? totalCount));
     }
@@ -96,19 +104,21 @@ public class PropertiesController : ControllerBase
         [FromBody] UpsertPropertyRequest request, CancellationToken cancellationToken)
     {
         ValidateRequest(request);
+        var fields = SanitizeAddressFields(request);
+        await EnsureNoDuplicatePropertyAsync(fields, excludingId: null, cancellationToken);
 
         var property = new Property
         {
             Id = Guid.NewGuid(),
-            Name = _sanitizer.Sanitize(request.Name)!,
+            Name = fields.Name,
             PropertyType = request.PropertyType,
-            StreetAddress1 = _sanitizer.Sanitize(request.StreetAddress1)!,
-            StreetAddress2 = _sanitizer.Sanitize(request.StreetAddress2),
-            City = _sanitizer.Sanitize(request.City)!,
-            State = _sanitizer.Sanitize(request.State)!,
-            PostalCode = _sanitizer.Sanitize(request.PostalCode)!,
-            Country = _sanitizer.Sanitize(request.Country)!,
-            UnitIdentifier = NullIfBlank(_sanitizer.Sanitize(request.UnitIdentifier)),
+            StreetAddress1 = fields.StreetAddress1,
+            StreetAddress2 = fields.StreetAddress2,
+            City = fields.City,
+            State = fields.State,
+            PostalCode = fields.PostalCode,
+            Country = fields.Country,
+            UnitIdentifier = fields.UnitIdentifier,
             TargetRent = request.TargetRent,
             OccupancyStatus = request.OccupancyStatus,
             CreatedAt = DateTimeOffset.UtcNow,
@@ -131,21 +141,80 @@ public class PropertiesController : ControllerBase
             .FirstOrDefaultAsync(p => p.Id == id, cancellationToken)
             ?? throw new NotFoundException($"Property '{id}' was not found.");
 
-        property.Name = _sanitizer.Sanitize(request.Name)!;
+        var fields = SanitizeAddressFields(request);
+        await EnsureNoDuplicatePropertyAsync(fields, excludingId: id, cancellationToken);
+
+        property.Name = fields.Name;
         property.PropertyType = request.PropertyType;
-        property.StreetAddress1 = _sanitizer.Sanitize(request.StreetAddress1)!;
-        property.StreetAddress2 = _sanitizer.Sanitize(request.StreetAddress2);
-        property.City = _sanitizer.Sanitize(request.City)!;
-        property.State = _sanitizer.Sanitize(request.State)!;
-        property.PostalCode = _sanitizer.Sanitize(request.PostalCode)!;
-        property.Country = _sanitizer.Sanitize(request.Country)!;
-        property.UnitIdentifier = NullIfBlank(_sanitizer.Sanitize(request.UnitIdentifier));
+        property.StreetAddress1 = fields.StreetAddress1;
+        property.StreetAddress2 = fields.StreetAddress2;
+        property.City = fields.City;
+        property.State = fields.State;
+        property.PostalCode = fields.PostalCode;
+        property.Country = fields.Country;
+        property.UnitIdentifier = fields.UnitIdentifier;
         property.TargetRent = request.TargetRent;
         property.OccupancyStatus = request.OccupancyStatus;
 
         await _dbContext.SaveChangesAsync(cancellationToken);
 
         return Ok(ToResponse(property));
+    }
+
+    /// <summary>
+    /// Shared by Create and Update -- Import has its own separate sanitization pipeline
+    /// (FormulaInjectionGuard, row-level validation errors) over a different source type
+    /// (SanitizedImportRow, not UpsertPropertyRequest), so it isn't folded into this one;
+    /// forcing all three through a single method would mean adapting Import's already-valid
+    /// data into a fake UpsertPropertyRequest just to satisfy this method's shape.
+    /// </summary>
+    private SanitizedAddressFields SanitizeAddressFields(UpsertPropertyRequest request) => new(
+        _sanitizer.Sanitize(request.Name)!,
+        _sanitizer.Sanitize(request.StreetAddress1)!,
+        _sanitizer.Sanitize(request.StreetAddress2),
+        _sanitizer.Sanitize(request.City)!,
+        _sanitizer.Sanitize(request.State)!,
+        _sanitizer.Sanitize(request.PostalCode)!,
+        _sanitizer.Sanitize(request.Country)!,
+        NullIfBlank(_sanitizer.Sanitize(request.UnitIdentifier)));
+
+    private sealed record SanitizedAddressFields(
+        string Name,
+        string StreetAddress1,
+        string? StreetAddress2,
+        string City,
+        string State,
+        string PostalCode,
+        string Country,
+        string? UnitIdentifier);
+
+    /// <summary>
+    /// "Each place that can be rented should represent a property" cuts both ways: a duplex
+    /// half and its sibling must both get their own row (no re-merging back into one), but
+    /// the exact same address+unit combination should never exist twice for one tenant --
+    /// most likely a re-submitted form or a re-imported CSV, not two real properties. Not
+    /// backed by a DB-level unique constraint (yet) -- this is the single app-level gate for
+    /// both the interactive form and the bulk importer (see MarkDuplicateRowsAsync).
+    /// </summary>
+    private async Task EnsureNoDuplicatePropertyAsync(
+        SanitizedAddressFields fields, Guid? excludingId, CancellationToken cancellationToken)
+    {
+        var duplicateExists = await _dbContext.Properties.AnyAsync(p =>
+            p.Id != (excludingId ?? Guid.Empty) &&
+            p.StreetAddress1 == fields.StreetAddress1 &&
+            p.City == fields.City &&
+            p.State == fields.State &&
+            p.PostalCode == fields.PostalCode &&
+            p.Country == fields.Country &&
+            p.UnitIdentifier == fields.UnitIdentifier,
+            cancellationToken);
+
+        if (duplicateExists)
+        {
+            throw new ConflictException(fields.UnitIdentifier is null
+                ? $"A property already exists at {fields.StreetAddress1}, {fields.City}, {fields.State} {fields.PostalCode}."
+                : $"A property already exists at {fields.StreetAddress1}, {fields.City}, {fields.State} {fields.PostalCode} with unit identifier '{fields.UnitIdentifier}'.");
+        }
     }
 
     /// <summary>
@@ -234,6 +303,7 @@ public class PropertiesController : ControllerBase
         }
 
         var sanitizedRows = rawRows.Select(SanitizeAndValidateRow).ToList();
+        sanitizedRows = await MarkDuplicateRowsAsync(sanitizedRows, cancellationToken);
         var invalidRowCount = sanitizedRows.Count(r => !r.IsValid);
         var resultRows = sanitizedRows.Select(ToImportRowResult).ToList();
 
@@ -369,6 +439,64 @@ public class PropertiesController : ControllerBase
             unitIdentifier, targetRent, raw.TargetRent, errors.Count == 0, errors);
     }
 
+    /// <summary>
+    /// Import-side counterpart to EnsureNoDuplicatePropertyAsync -- catches both a row that
+    /// duplicates an existing DB property (e.g. the same file re-uploaded after a timed-out
+    /// request the user thought had failed) and two rows within the same file that duplicate
+    /// each other. One query fetches every existing property sharing any of this batch's
+    /// street addresses up front, rather than a per-row round trip.
+    /// </summary>
+    private async Task<List<SanitizedImportRow>> MarkDuplicateRowsAsync(
+        List<SanitizedImportRow> rows, CancellationToken cancellationToken)
+    {
+        var addresses = rows.Where(r => r.IsValid).Select(r => r.StreetAddress1).Distinct().ToList();
+
+        var existingKeys = (await _dbContext.Properties
+                .Where(p => addresses.Contains(p.StreetAddress1))
+                .Select(p => new { p.StreetAddress1, p.City, p.State, p.PostalCode, p.Country, p.UnitIdentifier })
+                .ToListAsync(cancellationToken))
+            .Select(p => (p.StreetAddress1, p.City, p.State, p.PostalCode, p.Country, p.UnitIdentifier))
+            .ToHashSet();
+
+        var seenInFile = new HashSet<(string, string, string, string, string, string?)>();
+        var result = new List<SanitizedImportRow>(rows.Count);
+
+        foreach (var row in rows)
+        {
+            if (!row.IsValid)
+            {
+                result.Add(row);
+                continue;
+            }
+
+            var normalizedUnitIdentifier = NullIfBlank(row.UnitIdentifier);
+            var key = (row.StreetAddress1, row.City, row.State, row.PostalCode, row.Country, normalizedUnitIdentifier);
+
+            if (!seenInFile.Add(key))
+            {
+                result.Add(row with
+                {
+                    IsValid = false,
+                    Errors = [.. row.Errors, "Duplicate of another row in this file (same address and unit identifier)."],
+                });
+            }
+            else if (existingKeys.Contains(key))
+            {
+                result.Add(row with
+                {
+                    IsValid = false,
+                    Errors = [.. row.Errors, "A property with this address and unit identifier already exists."],
+                });
+            }
+            else
+            {
+                result.Add(row);
+            }
+        }
+
+        return result;
+    }
+
     private static ImportRowResult ToImportRowResult(SanitizedImportRow row) => new(
         row.RowNumber,
         row.PropertyName,
@@ -437,6 +565,15 @@ public class PropertiesController : ControllerBase
             errors["TargetRent"] = ["Target rent cannot be negative."];
         }
 
+        // PropertyConfiguration caps this column at 50 chars -- without this check, an
+        // over-length value passes validation here and fails at SaveChangesAsync instead,
+        // as an unhandled DbUpdateException/PostgresException (500) rather than the RFC
+        // 7807 ValidationException response this taxonomy is supposed to guarantee.
+        if (request.UnitIdentifier is { Length: > 50 })
+        {
+            errors["UnitIdentifier"] = ["Unit identifier must be 50 characters or fewer."];
+        }
+
         if (errors.Count > 0)
         {
             throw new ValidationException(errors);
@@ -456,18 +593,6 @@ public class PropertiesController : ControllerBase
         property.State,
         property.PostalCode,
         property.Country,
-        property.UnitIdentifier,
-        property.TargetRent,
-        property.OccupancyStatus);
-
-    private static PropertyListItemDto ToListItem(Property property) => new(
-        property.Id,
-        property.Name,
-        property.PropertyType,
-        property.StreetAddress1,
-        property.City,
-        property.State,
-        property.PostalCode,
         property.UnitIdentifier,
         property.TargetRent,
         property.OccupancyStatus);

@@ -1,6 +1,6 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
-import { TestBed } from '@angular/core/testing';
+import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ActivatedRoute, Router } from '@angular/router';
 import { provideTranslateService } from '@ngx-translate/core';
 import { ApiResponse } from '../../../core/models/auth.models';
@@ -12,6 +12,7 @@ describe('PropertyFormContainer', () => {
   let httpMock: HttpTestingController;
   let router: { navigateByUrl: ReturnType<typeof vi.fn>; navigate: ReturnType<typeof vi.fn> };
   let toastService: { show: ReturnType<typeof vi.fn> };
+  let fixture: ComponentFixture<PropertyFormContainer>;
 
   const property: PropertyResponse = {
     id: 'prop-1',
@@ -44,7 +45,7 @@ describe('PropertyFormContainer', () => {
     });
 
     httpMock = TestBed.inject(HttpTestingController);
-    const fixture = TestBed.createComponent(PropertyFormContainer);
+    fixture = TestBed.createComponent(PropertyFormContainer);
     const component = fixture.componentInstance;
     component.ngOnInit();
     return component;
@@ -95,6 +96,35 @@ describe('PropertyFormContainer', () => {
     expect(router.navigateByUrl).toHaveBeenCalledWith('/properties');
     expect(component.hasUnsavedChanges()).toBe(false);
   });
+
+  it(
+    'regression: a real DOM submit event on the rendered form fires the HTTP request -- ' +
+      'guards against (ngSubmit)="save()" silently doing nothing when the outer <form> ' +
+      'lacks its own [formGroup] binding (a real bug this project shipped once already)',
+    () => {
+      const component = createComponent(null);
+      fixture.detectChanges();
+
+      component['form'].patchValue({
+        name: 'Riverside Apartments - Suite A',
+        streetAddress1: '100 Main St',
+        city: 'Provo',
+        state: 'UT',
+        postalCode: '84601',
+        unitIdentifier: 'Suite A',
+        targetRent: 1200,
+      });
+      fixture.detectChanges();
+
+      const formEl: HTMLFormElement | null = fixture.nativeElement.querySelector('form');
+      expect(formEl).not.toBeNull();
+      formEl!.dispatchEvent(new Event('submit', { cancelable: true }));
+
+      const req = httpMock.expectOne('/api/properties');
+      expect(req.request.method).toBe('POST');
+      req.flush({ success: true, data: property, message: null, statusCode: 201, traceId: 't1' } satisfies ApiResponse<PropertyResponse>);
+    },
+  );
 
   it('edit mode loads the existing property, including its unit identifier', () => {
     const component = createComponent('prop-1');
