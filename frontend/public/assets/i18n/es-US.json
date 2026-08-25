@@ -300,6 +300,49 @@
       "saving": "Guardando…"
     }
   },
+  "leases": {
+    "statuses": {
+      "FixedTerm": "Plazo Fijo",
+      "MonthToMonth": "Mes a Mes",
+      "Ended": "Finalizado"
+    },
+    "drawer": {
+      "viewLeases": "Contratos",
+      "title": "Contratos",
+      "close": "Cerrar",
+      "empty": "Aún no se han agregado contratos.",
+      "addLease": "Agregar Contrato",
+      "edit": "Editar",
+      "remove": "Eliminar",
+      "totalMonthlyDues": "Total de Cuotas Mensuales",
+      "recurringChargeCount": "{{count}} cargo(s) recurrente(s)",
+      "noResidentsHint": "Agregue un residente a esta propiedad antes de crear un contrato.",
+      "savedToast": "Contrato actualizado.",
+      "addedToast": "Contrato agregado.",
+      "removedToast": "Contrato eliminado.",
+      "errorToast": "Algo salió mal. Inténtelo de nuevo."
+    },
+    "form": {
+      "resident": "Residente",
+      "selectResident": "Seleccione un residente",
+      "startDate": "Fecha de Inicio",
+      "endDate": "Fecha de Fin",
+      "monthlyBaseRent": "Renta Base Mensual",
+      "dueDayOfMonth": "Día de Vencimiento del Mes",
+      "status": "Estado",
+      "moveOutNoticeDate": "Fecha de Aviso de Mudanza",
+      "recurringCharges": "Cuotas Recurrentes Adicionales",
+      "addRecurringCharge": "Agregar Cargo",
+      "recurringCharge": "Cargo {{number}}",
+      "chargeName": "Nombre del Cargo",
+      "chargeAmount": "Monto",
+      "chargeAccountingCode": "Código Contable (opcional)",
+      "totalMonthlyDues": "Total de Cuotas Mensuales",
+      "cancel": "Cancelar",
+      "save": "Guardar",
+      "saving": "Guardando…"
+    }
+  },
   "dashboard": {
     "welcome": "Bienvenido de nuevo",
     "role": "Rol",

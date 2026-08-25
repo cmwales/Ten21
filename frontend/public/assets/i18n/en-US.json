@@ -300,6 +300,49 @@
       "saving": "Saving…"
     }
   },
+  "leases": {
+    "statuses": {
+      "FixedTerm": "Fixed Term",
+      "MonthToMonth": "Month-to-Month",
+      "Ended": "Ended"
+    },
+    "drawer": {
+      "viewLeases": "Leases",
+      "title": "Leases",
+      "close": "Close",
+      "empty": "No leases added yet.",
+      "addLease": "Add Lease",
+      "edit": "Edit",
+      "remove": "Remove",
+      "totalMonthlyDues": "Total Monthly Dues",
+      "recurringChargeCount": "{{count}} recurring charge(s)",
+      "noResidentsHint": "Add a resident to this property first before creating a lease.",
+      "savedToast": "Lease updated.",
+      "addedToast": "Lease added.",
+      "removedToast": "Lease removed.",
+      "errorToast": "Something went wrong. Please try again."
+    },
+    "form": {
+      "resident": "Resident",
+      "selectResident": "Select a resident",
+      "startDate": "Start Date",
+      "endDate": "End Date",
+      "monthlyBaseRent": "Monthly Base Rent",
+      "dueDayOfMonth": "Due Day of Month",
+      "status": "Status",
+      "moveOutNoticeDate": "Move-Out Notice Date",
+      "recurringCharges": "Recurring Add-On Dues",
+      "addRecurringCharge": "Add Charge",
+      "recurringCharge": "Charge {{number}}",
+      "chargeName": "Charge Name",
+      "chargeAmount": "Amount",
+      "chargeAccountingCode": "GL Code (optional)",
+      "totalMonthlyDues": "Total Monthly Dues",
+      "cancel": "Cancel",
+      "save": "Save",
+      "saving": "Saving…"
+    }
+  },
   "dashboard": {
     "welcome": "Welcome back",
     "role": "Role",

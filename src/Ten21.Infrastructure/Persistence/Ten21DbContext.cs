@@ -63,6 +63,8 @@ public class Ten21DbContext : IdentityDbContext<ApplicationUser, ApplicationRole
     public DbSet<EmergencyContact> EmergencyContacts => Set<EmergencyContact>();
     public DbSet<UnitTier> UnitTiers => Set<UnitTier>();
     public DbSet<UnitGroup> UnitGroups => Set<UnitGroup>();
+    public DbSet<Lease> Leases => Set<Lease>();
+    public DbSet<LeaseRecurringCharge> LeaseRecurringCharges => Set<LeaseRecurringCharge>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

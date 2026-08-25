@@ -38,7 +38,7 @@ public static class RolePermissions
             [
                 Permissions.Ledger.Read, Permissions.Arc.Submit, Permissions.Voting.Cast,
                 Permissions.WorkOrders.Read, Permissions.Announcements.Read,
-                Permissions.Property.Read,
+                Permissions.Property.Read, Permissions.Lease.Read,
             ],
 
             // "Day-to-day operations, vendor routing, work orders, and community admin.
@@ -60,6 +60,7 @@ public static class RolePermissions
                 Permissions.Property.Manage, Permissions.Property.Read,
                 Permissions.Property.Import, Permissions.Property.Delete,
                 Permissions.Resident.Manage, Permissions.Resident.Read,
+                Permissions.Lease.Manage, Permissions.Lease.Read,
             ],
 
             // "Restricted strictly to maintenance tickets, amenity booking, and community
