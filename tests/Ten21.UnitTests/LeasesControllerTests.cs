@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Ten21.Api.Contracts.Leases;
+using Ten21.Api.Contracts.ManualCharges;
 using Ten21.Api.Controllers;
 using Ten21.Domain.Entities;
 using Ten21.Domain.Enums;
@@ -213,5 +214,150 @@ public class LeasesControllerTests : IDisposable
         var leases = Assert.IsAssignableFrom<IReadOnlyList<LeaseResponse>>(Assert.IsType<OkObjectResult>(result).Value);
         var lease = Assert.Single(leases);
         Assert.Equal(residentOfA.Id, lease.ResidentId);
+    }
+
+    // US-32: pro-rated move-in charges + effective status/expiring-soon computation.
+
+    [Fact]
+    public async Task CreateMoveInCharge_SameCalendarMonth_ComputesProratedAmount()
+    {
+        var (db, controller) = CreateController(Guid.NewGuid());
+        var property = await SeedPropertyAsync(db);
+        var resident = await SeedResidentAsync(db, property.Id);
+        // DueDayOfMonth 1 -> moving in Aug 25 bills through Aug 31 (7 days of 31).
+        var request = NewRequest(resident.Id) with { StartDate = new DateOnly(2026, 8, 1), DueDayOfMonth = 1 };
+        var created = await controller.CreateLease(property.Id, request, CancellationToken.None);
+        var leaseId = Assert.IsType<LeaseResponse>(Assert.IsType<CreatedAtActionResult>(created).Value).Id;
+
+        var result = await controller.CreateMoveInCharge(
+            property.Id, leaseId, new CreateMoveInChargeRequest(new DateOnly(2026, 8, 25)), CancellationToken.None);
+
+        var response = Assert.IsType<ManualChargeResponse>(Assert.IsType<OkObjectResult>(result).Value);
+        Assert.Equal(resident.Id, response.ResidentId);
+        // 1450m / 31 days * 7 days = 327.42 (rounded).
+        Assert.Equal(Math.Round(1450m / 31 * 7, 2), response.Amount);
+        Assert.Contains("Aug 25", response.Description);
+        Assert.Equal(1, await db.ManualCharges.CountAsync());
+    }
+
+    [Fact]
+    public async Task CreateMoveInCharge_DueDayAfterMoveInDay_BillsThroughTheNextMonthsAnchor()
+    {
+        var (db, controller) = CreateController(Guid.NewGuid());
+        var property = await SeedPropertyAsync(db);
+        var resident = await SeedResidentAsync(db, property.Id);
+        // DueDayOfMonth 5 -> moving in Aug 25 bills through Sep 4 (11 days), not just to Aug 31.
+        var request = NewRequest(resident.Id) with { StartDate = new DateOnly(2026, 8, 1), DueDayOfMonth = 5 };
+        var created = await controller.CreateLease(property.Id, request, CancellationToken.None);
+        var leaseId = Assert.IsType<LeaseResponse>(Assert.IsType<CreatedAtActionResult>(created).Value).Id;
+
+        var result = await controller.CreateMoveInCharge(
+            property.Id, leaseId, new CreateMoveInChargeRequest(new DateOnly(2026, 8, 25)), CancellationToken.None);
+
+        var response = Assert.IsType<ManualChargeResponse>(Assert.IsType<OkObjectResult>(result).Value);
+        Assert.Equal(Math.Round(1450m / 31 * 11, 2), response.Amount);
+    }
+
+    [Fact]
+    public async Task CreateMoveInCharge_ThrowsValidationException_WhenMoveInDateIsBeforeLeaseStart()
+    {
+        var (db, controller) = CreateController(Guid.NewGuid());
+        var property = await SeedPropertyAsync(db);
+        var resident = await SeedResidentAsync(db, property.Id);
+        var request = NewRequest(resident.Id) with { StartDate = new DateOnly(2026, 9, 1) };
+        var created = await controller.CreateLease(property.Id, request, CancellationToken.None);
+        var leaseId = Assert.IsType<LeaseResponse>(Assert.IsType<CreatedAtActionResult>(created).Value).Id;
+
+        await Assert.ThrowsAsync<ValidationException>(() => controller.CreateMoveInCharge(
+            property.Id, leaseId, new CreateMoveInChargeRequest(new DateOnly(2026, 8, 1)), CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task CreateMoveInCharge_ThrowsNotFound_WhenLeaseBelongsToADifferentProperty()
+    {
+        var (db, controller) = CreateController(Guid.NewGuid());
+        var propertyA = await SeedPropertyAsync(db);
+        var propertyB = await SeedPropertyAsync(db);
+        var residentOfA = await SeedResidentAsync(db, propertyA.Id);
+        var created = await controller.CreateLease(propertyA.Id, NewRequest(residentOfA.Id), CancellationToken.None);
+        var leaseId = Assert.IsType<LeaseResponse>(Assert.IsType<CreatedAtActionResult>(created).Value).Id;
+
+        await Assert.ThrowsAsync<NotFoundException>(() => controller.CreateMoveInCharge(
+            propertyB.Id, leaseId, new CreateMoveInChargeRequest(new DateOnly(2026, 9, 1)), CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task GetLease_EffectiveStatusRollsOverToMonthToMonth_WhenEndDateHasPassedWithNoNotice()
+    {
+        var (db, controller) = CreateController(Guid.NewGuid());
+        var property = await SeedPropertyAsync(db);
+        var resident = await SeedResidentAsync(db, property.Id);
+        // Both dates safely in the past relative to "today" so EndDate < today is guaranteed.
+        var request = NewRequest(resident.Id) with { StartDate = new DateOnly(2020, 1, 1), EndDate = new DateOnly(2020, 12, 31) };
+        var created = await controller.CreateLease(property.Id, request, CancellationToken.None);
+        var leaseId = Assert.IsType<LeaseResponse>(Assert.IsType<CreatedAtActionResult>(created).Value).Id;
+
+        var result = await controller.GetLease(property.Id, leaseId, CancellationToken.None);
+
+        var response = Assert.IsType<LeaseResponse>(Assert.IsType<OkObjectResult>(result).Value);
+        Assert.Equal(LeaseStatus.FixedTerm, response.Status); // stored value untouched
+        Assert.Equal(LeaseStatus.MonthToMonth, response.EffectiveStatus); // computed rollover
+        Assert.False(response.IsExpiringSoon); // already rolled over, not "expiring soon" anymore
+    }
+
+    [Fact]
+    public async Task GetLease_DoesNotRollOverToMonthToMonth_WhenAMoveOutNoticeIsOnFile()
+    {
+        var (db, controller) = CreateController(Guid.NewGuid());
+        var property = await SeedPropertyAsync(db);
+        var resident = await SeedResidentAsync(db, property.Id);
+        var request = NewRequest(resident.Id) with
+        {
+            StartDate = new DateOnly(2020, 1, 1),
+            EndDate = new DateOnly(2020, 12, 31),
+            MoveOutNoticeDate = new DateOnly(2020, 11, 1),
+        };
+        var created = await controller.CreateLease(property.Id, request, CancellationToken.None);
+        var leaseId = Assert.IsType<LeaseResponse>(Assert.IsType<CreatedAtActionResult>(created).Value).Id;
+
+        var result = await controller.GetLease(property.Id, leaseId, CancellationToken.None);
+
+        var response = Assert.IsType<LeaseResponse>(Assert.IsType<OkObjectResult>(result).Value);
+        Assert.Equal(LeaseStatus.FixedTerm, response.EffectiveStatus);
+    }
+
+    [Fact]
+    public async Task GetLease_IsExpiringSoon_WhenEndDateIsWithinTheThresholdWindow()
+    {
+        var (db, controller) = CreateController(Guid.NewGuid());
+        var property = await SeedPropertyAsync(db);
+        var resident = await SeedResidentAsync(db, property.Id);
+        var soon = DateOnly.FromDateTime(DateTime.UtcNow).AddDays(30);
+        var request = NewRequest(resident.Id) with { StartDate = soon.AddYears(-1), EndDate = soon };
+        var created = await controller.CreateLease(property.Id, request, CancellationToken.None);
+        var leaseId = Assert.IsType<LeaseResponse>(Assert.IsType<CreatedAtActionResult>(created).Value).Id;
+
+        var result = await controller.GetLease(property.Id, leaseId, CancellationToken.None);
+
+        var response = Assert.IsType<LeaseResponse>(Assert.IsType<OkObjectResult>(result).Value);
+        Assert.True(response.IsExpiringSoon);
+        Assert.Equal(LeaseStatus.FixedTerm, response.EffectiveStatus);
+    }
+
+    [Fact]
+    public async Task GetLease_IsNotExpiringSoon_WhenEndDateIsFarInTheFuture()
+    {
+        var (db, controller) = CreateController(Guid.NewGuid());
+        var property = await SeedPropertyAsync(db);
+        var resident = await SeedResidentAsync(db, property.Id);
+        var farOut = DateOnly.FromDateTime(DateTime.UtcNow).AddYears(2);
+        var request = NewRequest(resident.Id) with { StartDate = farOut.AddYears(-3), EndDate = farOut };
+        var created = await controller.CreateLease(property.Id, request, CancellationToken.None);
+        var leaseId = Assert.IsType<LeaseResponse>(Assert.IsType<CreatedAtActionResult>(created).Value).Id;
+
+        var result = await controller.GetLease(property.Id, leaseId, CancellationToken.None);
+
+        var response = Assert.IsType<LeaseResponse>(Assert.IsType<OkObjectResult>(result).Value);
+        Assert.False(response.IsExpiringSoon);
     }
 }

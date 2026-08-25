@@ -36,7 +36,9 @@ export interface UpsertLeaseRequest {
 }
 
 /** Mirrors Ten21.Api.Contracts.Leases.LeaseResponse. TotalMonthlyDues is computed
- * server-side (MonthlyBaseRent + Sum(RecurringCharges)), never stored. */
+ * server-side (MonthlyBaseRent + Sum(RecurringCharges)), never stored. US-32:
+ * effectiveStatus/isExpiringSoon are also computed server-side at read time -- status stays
+ * the raw stored value, effectiveStatus is what the UI should actually display/badge. */
 export interface LeaseResponse {
   id: string;
   propertyId: string;
@@ -49,4 +51,11 @@ export interface LeaseResponse {
   moveOutNoticeDate: string | null;
   totalMonthlyDues: number;
   recurringCharges: LeaseRecurringChargeResponse[];
+  effectiveStatus: LeaseStatusValue;
+  isExpiringSoon: boolean;
+}
+
+/** Mirrors Ten21.Api.Contracts.Leases.CreateMoveInChargeRequest (US-32). */
+export interface CreateMoveInChargeRequest {
+  moveInDate: string;
 }

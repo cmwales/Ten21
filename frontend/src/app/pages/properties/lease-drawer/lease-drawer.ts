@@ -1,5 +1,5 @@
 import { Component, EventEmitter, Input, OnChanges, Output, SimpleChanges, inject, signal } from '@angular/core';
-import { FormArray, FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
+import { FormArray, FormBuilder, FormGroup, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { TranslatePipe } from '@ngx-translate/core';
 import { LeaseResponse, LeaseStatusValue, LeaseStatuses } from '../../../core/models/lease.models';
 import { ResidentResponse } from '../../../core/models/resident.models';
@@ -33,7 +33,7 @@ interface LeaseFormControls {
  */
 @Component({
   selector: 'app-lease-drawer',
-  imports: [ReactiveFormsModule, TranslatePipe],
+  imports: [ReactiveFormsModule, FormsModule, TranslatePipe],
   templateUrl: './lease-drawer.html',
 })
 export class LeaseDrawer implements OnChanges {
@@ -53,6 +53,9 @@ export class LeaseDrawer implements OnChanges {
   protected readonly submitting = signal(false);
   protected readonly showForm = signal(false);
   protected readonly editingLeaseId = signal<string | null>(null);
+  protected readonly moveInChargeLeaseId = signal<string | null>(null);
+  protected readonly moveInDate = signal('');
+  protected readonly creatingMoveInCharge = signal(false);
 
   protected form: FormGroup<LeaseFormControls> = this.buildForm();
 
@@ -185,6 +188,36 @@ export class LeaseDrawer implements OnChanges {
         this.loadLeases();
       },
       error: () => this.toastService.show('leases.drawer.errorToast'),
+    });
+  }
+
+  protected startMoveInCharge(lease: LeaseResponse): void {
+    this.moveInChargeLeaseId.set(lease.id);
+    this.moveInDate.set(lease.startDate.substring(0, 10));
+  }
+
+  protected cancelMoveInCharge(): void {
+    this.moveInChargeLeaseId.set(null);
+  }
+
+  protected createMoveInCharge(lease: LeaseResponse): void {
+    if (this.creatingMoveInCharge()) {
+      return;
+    }
+
+    this.creatingMoveInCharge.set(true);
+    this.leaseService.createMoveInCharge(this.propertyId, lease.id, { moveInDate: this.moveInDate() }).subscribe({
+      next: () => {
+        this.creatingMoveInCharge.set(false);
+        this.moveInChargeLeaseId.set(null);
+        // Amount/description are visible in the Charges & Fines modal (US-31) -- the created
+        // record IS a ManualCharge, no separate confirmation view needed.
+        this.toastService.show('leases.drawer.moveInChargeCreatedToast');
+      },
+      error: () => {
+        this.creatingMoveInCharge.set(false);
+        this.toastService.show('leases.drawer.errorToast');
+      },
     });
   }
 

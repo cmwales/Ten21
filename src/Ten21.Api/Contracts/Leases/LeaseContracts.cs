@@ -22,7 +22,10 @@ public record UpsertLeaseRequest(
     LeaseStatus Status = LeaseStatus.FixedTerm);
 
 /// <summary>TotalMonthlyDues is computed at read time (MonthlyBaseRent + Sum(RecurringCharges)),
-/// never stored -- see Lease's own class comment.</summary>
+/// never stored -- see Lease's own class comment. EffectiveStatus/IsExpiringSoon are US-32
+/// additions, also computed at read time rather than a background job (see
+/// LeasesController.ComputeEffectiveStatus's own comment) -- Status stays the raw stored
+/// value so existing US-30 callers reading it see no behavior change.</summary>
 public record LeaseResponse(
     Guid Id,
     Guid PropertyId,
@@ -34,4 +37,12 @@ public record LeaseResponse(
     LeaseStatus Status,
     DateOnly? MoveOutNoticeDate,
     decimal TotalMonthlyDues,
-    IReadOnlyList<LeaseRecurringChargeResponse> RecurringCharges);
+    IReadOnlyList<LeaseRecurringChargeResponse> RecurringCharges,
+    LeaseStatus EffectiveStatus,
+    bool IsExpiringSoon);
+
+/// <summary>US-32: the "Create Move-In Charge" action -- MoveInDate is the resident's actual
+/// move-in day (usually, but not necessarily, the same as Lease.StartDate), used to compute
+/// the partial-period amount owed before the lease's regular DueDayOfMonth billing cycle
+/// begins.</summary>
+public record CreateMoveInChargeRequest(DateOnly MoveInDate);
