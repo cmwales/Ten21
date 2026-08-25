@@ -40,6 +40,8 @@ describe('LeaseDrawer', () => {
     moveOutNoticeDate: null,
     totalMonthlyDues: 1500,
     recurringCharges: [{ id: 'charge-1', chargeName: 'Pet Rent', amount: 50, accountingCode: 'GL-4030' }],
+    effectiveStatus: 'FixedTerm',
+    isExpiringSoon: false,
   };
 
   function createComponent(): LeaseDrawer {
@@ -191,6 +193,41 @@ describe('LeaseDrawer', () => {
     reload.flush({ success: true, data: [], message: null, statusCode: 200, traceId: 't1' } satisfies ApiResponse<LeaseResponse[]>);
 
     expect(toastService.show).toHaveBeenCalledWith('leases.drawer.removedToast');
+  });
+
+  it('startMoveInCharge()/cancelMoveInCharge() toggle the inline move-in form, defaulted to the lease start date', () => {
+    const component = createComponent();
+    open(component);
+
+    component['startMoveInCharge'](lease);
+    expect(component['moveInChargeLeaseId']()).toBe('lease-1');
+    expect(component['moveInDate']()).toBe('2026-09-01');
+
+    component['cancelMoveInCharge']();
+    expect(component['moveInChargeLeaseId']()).toBeNull();
+  });
+
+  it('createMoveInCharge() posts the move-in date and shows a confirmation toast', () => {
+    const component = createComponent();
+    open(component);
+    component['startMoveInCharge'](lease);
+    component['moveInDate'].set('2026-09-05');
+
+    component['createMoveInCharge'](lease);
+
+    const req = httpMock.expectOne('/api/properties/prop-1/leases/lease-1/move-in-charge');
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toEqual({ moveInDate: '2026-09-05' });
+    req.flush({
+      success: true,
+      data: { id: 'charge-1', propertyId: 'prop-1', residentId: 'resident-1', description: 'Pro-Rated Rent', amount: 200, dueDate: '2026-09-05', accountingCode: null },
+      message: null,
+      statusCode: 200,
+      traceId: 't1',
+    });
+
+    expect(toastService.show).toHaveBeenCalledWith('leases.drawer.moveInChargeCreatedToast');
+    expect(component['moveInChargeLeaseId']()).toBeNull();
   });
 
   it('close() emits the closed output', () => {

@@ -31,9 +31,16 @@
             <div class="flex items-start justify-between gap-2">
               <div>
                 <p class="font-semibold text-slate-navy">{{ residentName(lease.residentId) }}</p>
-                <span class="mt-1 inline-block rounded-full bg-slate-navy/10 px-2 py-0.5 text-xs font-medium text-slate-navy">
-                  {{ 'leases.statuses.' + lease.status | translate }}
-                </span>
+                <div class="mt-1 flex flex-wrap gap-1.5">
+                  <span class="inline-block rounded-full bg-slate-navy/10 px-2 py-0.5 text-xs font-medium text-slate-navy">
+                    {{ 'leases.statuses.' + lease.effectiveStatus | translate }}
+                  </span>
+                  @if (lease.isExpiringSoon) {
+                    <span class="inline-block rounded-full bg-amber/10 px-2 py-0.5 text-xs font-medium text-amber">
+                      {{ 'leases.drawer.expiringSoon' | translate }}
+                    </span>
+                  }
+                </div>
               </div>
               <div class="flex gap-2">
                 <button
@@ -62,6 +69,44 @@
               <p class="text-xs text-slate-navy-light">
                 {{ 'leases.drawer.recurringChargeCount' | translate: { count: lease.recurringCharges.length } }}
               </p>
+            }
+
+            @if (moveInChargeLeaseId() === lease.id) {
+              <div class="mt-2 flex flex-wrap items-center gap-2 rounded-md border border-slate-navy/10 p-3">
+                <label [attr.for]="'moveInDate-' + lease.id" class="text-xs font-medium text-slate-navy">
+                  {{ 'leases.drawer.moveInDate' | translate }}
+                </label>
+                <input
+                  [id]="'moveInDate-' + lease.id"
+                  type="date"
+                  [ngModel]="moveInDate()"
+                  (ngModelChange)="moveInDate.set($event)"
+                  class="tap-target rounded-md border border-slate-navy/20 px-2 py-1.5 text-sm text-slate-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
+                />
+                <button
+                  type="button"
+                  (click)="createMoveInCharge(lease)"
+                  [disabled]="creatingMoveInCharge()"
+                  class="tap-target rounded-md bg-emerald px-3 py-1.5 text-sm font-semibold text-white disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
+                >
+                  {{ 'leases.drawer.generateCharge' | translate }}
+                </button>
+                <button
+                  type="button"
+                  (click)="cancelMoveInCharge()"
+                  class="tap-target rounded-md border border-slate-navy/20 px-3 py-1.5 text-sm font-semibold text-slate-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
+                >
+                  {{ 'leases.form.cancel' | translate }}
+                </button>
+              </div>
+            } @else {
+              <button
+                type="button"
+                (click)="startMoveInCharge(lease)"
+                class="tap-target mt-1 self-start text-sm font-medium text-emerald focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
+              >
+                {{ 'leases.drawer.createMoveInCharge' | translate }}
+              </button>
             }
           </div>
         }

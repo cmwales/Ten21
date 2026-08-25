@@ -320,7 +320,12 @@
       "savedToast": "Lease updated.",
       "addedToast": "Lease added.",
       "removedToast": "Lease removed.",
-      "errorToast": "Something went wrong. Please try again."
+      "errorToast": "Something went wrong. Please try again.",
+      "expiringSoon": "Lease Expiring Soon",
+      "createMoveInCharge": "Create Move-In Charge",
+      "moveInDate": "Move-in date",
+      "generateCharge": "Generate Charge",
+      "moveInChargeCreatedToast": "Move-in charge created."
     },
     "form": {
       "resident": "Resident",

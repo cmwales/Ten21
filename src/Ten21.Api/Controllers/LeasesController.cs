@@ -2,9 +2,11 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Ten21.Api.Contracts.Leases;
+using Ten21.Api.Contracts.ManualCharges;
 using Ten21.Application.Abstractions;
 using Ten21.Domain.Common;
 using Ten21.Domain.Entities;
+using Ten21.Domain.Enums;
 using Ten21.Domain.Exceptions;
 using Ten21.Infrastructure.Persistence;
 
@@ -22,6 +24,12 @@ namespace Ten21.Api.Controllers;
 [Route("api/properties/{propertyId:guid}/leases")]
 public class LeasesController : ControllerBase
 {
+    /// <summary>US-32: no threshold is named in the acceptance criteria ("Displays a visual
+    /// 'Lease Expiring Soon' status badge... when approaching EndDate") -- 60 days is a
+    /// standard leasing-industry renewal-notice window, chosen as a sensible default rather
+    /// than left unspecified.</summary>
+    private const int ExpiringSoonThresholdDays = 60;
+
     private readonly Ten21DbContext _dbContext;
     private readonly IInputSanitizer _sanitizer;
 
@@ -123,6 +131,75 @@ public class LeasesController : ControllerBase
         await _dbContext.SaveChangesAsync(cancellationToken);
 
         return Ok(ToResponse(lease, newCharges));
+    }
+
+    /// <summary>
+    /// US-32: "Create Move-In Charge" -- generates a one-time ManualCharge covering the
+    /// partial period from MoveInDate through the day before the lease's next regular
+    /// DueDayOfMonth billing cycle. Deliberately reuses ManualCharge (US-31) rather than a
+    /// separate ProRatedCharge table -- the two are functionally identical open ledger line
+    /// items (unit + optional resident + description + amount + due date + GL code); the
+    /// only thing distinguishing a "pro-rated" charge is that ITS amount is computed instead
+    /// of typed in, which doesn't need its own storage shape.
+    /// </summary>
+    [HttpPost("{id:guid}/move-in-charge")]
+    [Authorize(Policy = Permissions.Lease.Manage)]
+    public async Task<IActionResult> CreateMoveInCharge(
+        Guid propertyId, Guid id, [FromBody] CreateMoveInChargeRequest request, CancellationToken cancellationToken)
+    {
+        var lease = await FindLeaseAsync(propertyId, id, cancellationToken)
+            ?? throw new NotFoundException($"Lease '{id}' was not found on this property.");
+
+        if (request.MoveInDate < lease.StartDate || request.MoveInDate >= lease.EndDate)
+        {
+            throw new ValidationException(new Dictionary<string, string[]>
+            {
+                [nameof(request.MoveInDate)] = ["Move-in date must fall within the lease's start and end dates."],
+            });
+        }
+
+        var (description, amount) = ComputeProration(lease, request.MoveInDate);
+
+        var charge = new ManualCharge
+        {
+            Id = Guid.NewGuid(),
+            PropertyId = propertyId,
+            ResidentId = lease.ResidentId,
+            Description = description,
+            Amount = amount,
+            DueDate = request.MoveInDate,
+            CreatedAt = DateTimeOffset.UtcNow,
+        };
+
+        _dbContext.ManualCharges.Add(charge);
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        return Ok(new ManualChargeResponse(
+            charge.Id, charge.PropertyId, charge.ResidentId, charge.Description, charge.Amount, charge.DueDate, charge.AccountingCode));
+    }
+
+    /// <summary>
+    /// The daily rate is MonthlyBaseRent / days-in-the-move-in-month -- a common, simple
+    /// landlord convention. The billed PERIOD itself can still cross into the next calendar
+    /// month (e.g. a due day of 5 with an Aug 25 move-in bills through Sep 4), matching the
+    /// acceptance criteria's "prior to standard monthly billing anchor start" wording rather
+    /// than a plain calendar-month cutoff.
+    /// </summary>
+    private static (string Description, decimal Amount) ComputeProration(Lease lease, DateOnly moveInDate)
+    {
+        var billingStart = moveInDate.Day < lease.DueDayOfMonth
+            ? new DateOnly(moveInDate.Year, moveInDate.Month, lease.DueDayOfMonth)
+            : new DateOnly(moveInDate.Year, moveInDate.Month, lease.DueDayOfMonth).AddMonths(1);
+
+        var daysInPeriod = billingStart.DayNumber - moveInDate.DayNumber;
+        var daysInMoveInMonth = DateTime.DaysInMonth(moveInDate.Year, moveInDate.Month);
+        var dailyRate = lease.MonthlyBaseRent / daysInMoveInMonth;
+        var amount = Math.Round(dailyRate * daysInPeriod, 2);
+
+        var periodEnd = billingStart.AddDays(-1);
+        var description = $"Pro-Rated Rent: {moveInDate:MMM d} - {periodEnd:MMM d}";
+
+        return (description, amount);
     }
 
     /// <summary>Always a soft delete (Lease is ISoftDelete, and AuditSaveChangesInterceptor
@@ -234,16 +311,57 @@ public class LeasesController : ControllerBase
     private static string? NullIfBlank(string? value) =>
         string.IsNullOrWhiteSpace(value) ? null : value;
 
-    private static LeaseResponse ToResponse(Lease lease, IReadOnlyList<LeaseRecurringCharge> charges) => new(
-        lease.Id,
-        lease.PropertyId,
-        lease.ResidentId,
-        lease.StartDate,
-        lease.EndDate,
-        lease.MonthlyBaseRent,
-        lease.DueDayOfMonth,
-        lease.Status,
-        lease.MoveOutNoticeDate,
-        lease.MonthlyBaseRent + charges.Sum(c => c.Amount),
-        charges.Select(c => new LeaseRecurringChargeResponse(c.Id, c.ChargeName, c.Amount, c.AccountingCode)).ToList());
+    /// <summary>
+    /// US-32: "automatically transition into continuous month-to-month billing status
+    /// without requiring manual contract extension records" -- computed here at read time
+    /// rather than a stored transition a background job would need to run (this codebase has
+    /// no scheduler yet; Phase 1 is still pending). The stored Status column is left
+    /// untouched -- a GET having the side effect of mutating a row would be its own kind of
+    /// surprising. The only thing that stops the rollover is a move-out notice being on file,
+    /// regardless of whether that notice date has itself passed yet.
+    /// </summary>
+    private static LeaseStatus ComputeEffectiveStatus(Lease lease, DateOnly today)
+    {
+        if (lease.Status == LeaseStatus.FixedTerm && today > lease.EndDate && lease.MoveOutNoticeDate is null)
+        {
+            return LeaseStatus.MonthToMonth;
+        }
+
+        return lease.Status;
+    }
+
+    /// <summary>US-32: only meaningful while the lease is still genuinely FixedTerm and
+    /// hasn't already rolled over -- a month-to-month or ended lease isn't "expiring soon" in
+    /// the sense this banner means.</summary>
+    private static bool ComputeIsExpiringSoon(Lease lease, DateOnly today, LeaseStatus effectiveStatus)
+    {
+        if (effectiveStatus != LeaseStatus.FixedTerm)
+        {
+            return false;
+        }
+
+        var daysUntilExpiration = lease.EndDate.DayNumber - today.DayNumber;
+        return daysUntilExpiration is >= 0 and <= ExpiringSoonThresholdDays;
+    }
+
+    private static LeaseResponse ToResponse(Lease lease, IReadOnlyList<LeaseRecurringCharge> charges)
+    {
+        var today = DateOnly.FromDateTime(DateTimeOffset.UtcNow.DateTime);
+        var effectiveStatus = ComputeEffectiveStatus(lease, today);
+
+        return new LeaseResponse(
+            lease.Id,
+            lease.PropertyId,
+            lease.ResidentId,
+            lease.StartDate,
+            lease.EndDate,
+            lease.MonthlyBaseRent,
+            lease.DueDayOfMonth,
+            lease.Status,
+            lease.MoveOutNoticeDate,
+            lease.MonthlyBaseRent + charges.Sum(c => c.Amount),
+            charges.Select(c => new LeaseRecurringChargeResponse(c.Id, c.ChargeName, c.Amount, c.AccountingCode)).ToList(),
+            effectiveStatus,
+            ComputeIsExpiringSoon(lease, today, effectiveStatus));
+    }
 }

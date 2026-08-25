@@ -320,7 +320,12 @@
       "savedToast": "Bail mis à jour.",
       "addedToast": "Bail ajouté.",
       "removedToast": "Bail retiré.",
-      "errorToast": "Une erreur s'est produite. Veuillez réessayer."
+      "errorToast": "Une erreur s'est produite. Veuillez réessayer.",
+      "expiringSoon": "Bail Bientôt Échu",
+      "createMoveInCharge": "Créer des Frais d'Emménagement",
+      "moveInDate": "Date d'emménagement",
+      "generateCharge": "Générer les Frais",
+      "moveInChargeCreatedToast": "Frais d'emménagement créés."
     },
     "form": {
       "resident": "Résident",

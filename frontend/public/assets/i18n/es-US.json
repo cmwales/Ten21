@@ -320,7 +320,12 @@
       "savedToast": "Contrato actualizado.",
       "addedToast": "Contrato agregado.",
       "removedToast": "Contrato eliminado.",
-      "errorToast": "Algo salió mal. Inténtelo de nuevo."
+      "errorToast": "Algo salió mal. Inténtelo de nuevo.",
+      "expiringSoon": "Contrato por Vencer",
+      "createMoveInCharge": "Crear Cargo de Mudanza",
+      "moveInDate": "Fecha de mudanza",
+      "generateCharge": "Generar Cargo",
+      "moveInChargeCreatedToast": "Cargo de mudanza creado."
     },
     "form": {
       "resident": "Residente",
