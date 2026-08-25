@@ -2,6 +2,33 @@ using Ten21.Domain.Enums;
 
 namespace Ten21.Api.Contracts.Properties;
 
+/// <summary>US-29: a single row's matrix-editor state -- sent as a full snapshot on
+/// blur/change (same "full replace, not true PATCH" convention as UpdateProperty) rather
+/// than field-by-field, so the auto-save call is one request regardless of which column
+/// changed.</summary>
+public record UpdatePropertyMatrixRowRequest(
+    Guid? UnitGroupId,
+    Guid? UnitTierId,
+    decimal? TargetRent);
+
+/// <summary>US-29: applies one column to many rows at once. Field names which column so a
+/// null ValueId can mean "clear it" rather than being ambiguous with "leave it alone" --
+/// see MatrixBatchField's own doc comment. Assigning a tier also overwrites TargetRent on
+/// every targeted row to the tier's DefaultRent (there's no per-row prefill step to
+/// override in a batch action, unlike the single-row inline edit); assigning a group never
+/// touches TargetRent.</summary>
+public record BatchAssignMatrixRequest(
+    IReadOnlyList<Guid> PropertyIds,
+    MatrixBatchField Field,
+    Guid? ValueId);
+
+public record PropertyMatrixRowResponse(
+    Guid Id,
+    string? UnitIdentifier,
+    Guid? UnitGroupId,
+    Guid? UnitTierId,
+    decimal? TargetRent);
+
 /// <summary>
 /// A single flat, standalone leasable space -- a whole single-family house, or one suite
 /// within a larger building. UnitIdentifier is null/omitted for a standalone property, set
@@ -39,7 +66,9 @@ public record PropertyResponse(
     string? UnitIdentifier,
     decimal? TargetRent,
     OccupancyStatus OccupancyStatus,
-    bool AllowTenantDirectory);
+    bool AllowTenantDirectory,
+    Guid? UnitGroupId = null,
+    Guid? UnitTierId = null);
 
 /// <summary>US-20: the "lightweight PropertyListDto" the acceptance criteria calls for --
 /// drops StreetAddress2/Country (not shown in the flat list view) relative to the full
@@ -54,7 +83,11 @@ public record PropertyListItemDto(
     string PostalCode,
     string? UnitIdentifier,
     decimal? TargetRent,
-    OccupancyStatus OccupancyStatus);
+    OccupancyStatus OccupancyStatus,
+    // US-29: included so the matrix editor can reuse this same unpaginated list endpoint
+    // as its row source instead of a second GET endpoint returning near-identical data.
+    Guid? UnitGroupId = null,
+    Guid? UnitTierId = null);
 
 /// <summary>TotalCount is always the total row count, matching the "Showing 1-15 of 42"
 /// acceptance-criteria wording -- when pageSize is omitted, Items contains every property

@@ -30,11 +30,15 @@ public static class RolePermissions
             ],
 
             // "Personal dues ledgers, ARC submissions, tax forms, and official owner
-            // election ballots."
+            // election ballots." Property.Read added in Sprint 6 (US-29) -- that story
+            // names Property Owner as an authorized secondary role ("Permissions.Property.Read")
+            // for both the property list and the unit tier/group matrix, a read-only grant
+            // this bundle didn't have yet.
             [RoleNames.PropertyOwner] =
             [
                 Permissions.Ledger.Read, Permissions.Arc.Submit, Permissions.Voting.Cast,
                 Permissions.WorkOrders.Read, Permissions.Announcements.Read,
+                Permissions.Property.Read,
             ],
 
             // "Day-to-day operations, vendor routing, work orders, and community admin.

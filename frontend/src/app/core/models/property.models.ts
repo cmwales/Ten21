@@ -72,6 +72,11 @@ export interface PropertyListItemDto {
   unitIdentifier: string | null;
   targetRent: number | null;
   occupancyStatus: OccupancyStatusValue;
+  /** US-29: matrix editor assignments -- included here so the matrix page can reuse this
+   * same list endpoint as its row source instead of a second near-identical GET. Optional
+   * (not just nullable) so PropertyListItemDto fixtures predating this field still compile. */
+  unitGroupId?: string | null;
+  unitTierId?: string | null;
 }
 
 /** Mirrors Ten21.Api.Contracts.Properties.PropertyListResponse (US-20). */

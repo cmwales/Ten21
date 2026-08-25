@@ -8,6 +8,7 @@ using Ten21.Domain.Common;
 using Ten21.Domain.Entities;
 using Ten21.Domain.Exceptions;
 using Ten21.Infrastructure.Persistence;
+using Ten21.Domain.Enums;
 using DomainPropertyType = Ten21.Domain.Enums.PropertyType;
 using DomainOccupancyStatus = Ten21.Domain.Enums.OccupancyStatus;
 
@@ -81,7 +82,7 @@ public class PropertiesController : ControllerBase
         var items = await query
             .Select(p => new PropertyListItemDto(
                 p.Id, p.Name, p.PropertyType, p.StreetAddress1, p.City, p.State, p.PostalCode,
-                p.UnitIdentifier, p.TargetRent, p.OccupancyStatus))
+                p.UnitIdentifier, p.TargetRent, p.OccupancyStatus, p.UnitGroupId, p.UnitTierId))
             .ToListAsync(cancellationToken);
 
         return Ok(new PropertyListResponse(items, totalCount, effectivePageNumber, pageSize ?? totalCount));
@@ -161,6 +162,124 @@ public class PropertiesController : ControllerBase
         await _dbContext.SaveChangesAsync(cancellationToken);
 
         return Ok(ToResponse(property));
+    }
+
+    /// <summary>
+    /// US-29: single-row matrix auto-save (blur/change). Full replace of the three matrix
+    /// columns, same "send the current full row state" convention as UpdateProperty --
+    /// there is no true JSON Patch here, the frontend keeps each row's live state and PATCHes
+    /// the whole matrix-relevant slice of it on every field change.
+    /// </summary>
+    [HttpPatch("{id:guid}/matrix")]
+    [Authorize(Policy = Permissions.Property.Manage)]
+    public async Task<IActionResult> UpdatePropertyMatrixRow(
+        Guid id, [FromBody] UpdatePropertyMatrixRowRequest request, CancellationToken cancellationToken)
+    {
+        var property = await _dbContext.Properties
+            .FirstOrDefaultAsync(p => p.Id == id, cancellationToken)
+            ?? throw new NotFoundException($"Property '{id}' was not found.");
+
+        if (request.UnitGroupId is { } groupId)
+        {
+            await EnsureUnitGroupExistsAsync(groupId, cancellationToken);
+        }
+
+        if (request.UnitTierId is { } tierId)
+        {
+            await EnsureUnitTierExistsAsync(tierId, cancellationToken);
+        }
+
+        property.UnitGroupId = request.UnitGroupId;
+        property.UnitTierId = request.UnitTierId;
+        property.TargetRent = request.TargetRent;
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        return Ok(new PropertyMatrixRowResponse(
+            property.Id, property.UnitIdentifier, property.UnitGroupId, property.UnitTierId, property.TargetRent));
+    }
+
+    /// <summary>
+    /// US-29: the matrix editor's batch toolbar -- applies one UnitGroup or UnitTier to
+    /// every checked row in a single request. Assigning a tier also overwrites TargetRent on
+    /// every targeted row to the tier's DefaultRent (see BatchAssignMatrixRequest's doc
+    /// comment for why); assigning/clearing a group never touches TargetRent.
+    /// </summary>
+    [HttpPatch("matrix/batch")]
+    [Authorize(Policy = Permissions.Property.Manage)]
+    public async Task<IActionResult> BatchAssignMatrix(
+        [FromBody] BatchAssignMatrixRequest request, CancellationToken cancellationToken)
+    {
+        if (request.PropertyIds.Count == 0)
+        {
+            throw new ValidationException(new Dictionary<string, string[]>
+            {
+                ["PropertyIds"] = ["At least one property must be selected."],
+            });
+        }
+
+        var properties = await _dbContext.Properties
+            .Where(p => request.PropertyIds.Contains(p.Id))
+            .ToListAsync(cancellationToken);
+
+        if (properties.Count != request.PropertyIds.Distinct().Count())
+        {
+            throw new NotFoundException("One or more selected properties were not found.");
+        }
+
+        if (request.Field == MatrixBatchField.UnitGroup)
+        {
+            if (request.ValueId is { } groupId)
+            {
+                await EnsureUnitGroupExistsAsync(groupId, cancellationToken);
+            }
+
+            foreach (var property in properties)
+            {
+                property.UnitGroupId = request.ValueId;
+            }
+        }
+        else
+        {
+            UnitTier? tier = null;
+            if (request.ValueId is { } tierId)
+            {
+                tier = await _dbContext.UnitTiers.FirstOrDefaultAsync(t => t.Id == tierId, cancellationToken)
+                    ?? throw new NotFoundException($"Unit tier '{tierId}' was not found.");
+            }
+
+            foreach (var property in properties)
+            {
+                property.UnitTierId = request.ValueId;
+                if (tier is not null)
+                {
+                    property.TargetRent = tier.DefaultRent;
+                }
+            }
+        }
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        return Ok(properties.Select(p => new PropertyMatrixRowResponse(
+            p.Id, p.UnitIdentifier, p.UnitGroupId, p.UnitTierId, p.TargetRent)));
+    }
+
+    private async Task EnsureUnitGroupExistsAsync(Guid unitGroupId, CancellationToken cancellationToken)
+    {
+        var exists = await _dbContext.UnitGroups.AnyAsync(g => g.Id == unitGroupId, cancellationToken);
+        if (!exists)
+        {
+            throw new NotFoundException($"Unit group '{unitGroupId}' was not found.");
+        }
+    }
+
+    private async Task EnsureUnitTierExistsAsync(Guid unitTierId, CancellationToken cancellationToken)
+    {
+        var exists = await _dbContext.UnitTiers.AnyAsync(t => t.Id == unitTierId, cancellationToken);
+        if (!exists)
+        {
+            throw new NotFoundException($"Unit tier '{unitTierId}' was not found.");
+        }
     }
 
     /// <summary>
@@ -598,5 +717,7 @@ public class PropertiesController : ControllerBase
         property.UnitIdentifier,
         property.TargetRent,
         property.OccupancyStatus,
-        property.AllowTenantDirectory);
+        property.AllowTenantDirectory,
+        property.UnitGroupId,
+        property.UnitTierId);
 }
