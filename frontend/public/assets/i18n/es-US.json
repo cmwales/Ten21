@@ -343,6 +343,33 @@
       "saving": "Guardando…"
     }
   },
+  "manualCharges": {
+    "modal": {
+      "addChargeFine": "Agregar Cargo / Multa",
+      "title": "Cargos y Multas",
+      "close": "Cerrar",
+      "empty": "Aún no se han registrado cargos o multas.",
+      "addCharge": "Agregar Cargo / Multa",
+      "remove": "Eliminar",
+      "unitGenerally": "Facturado a la unidad",
+      "dueOn": "vence el",
+      "addedToast": "Cargo registrado.",
+      "removedToast": "Cargo eliminado.",
+      "errorToast": "Algo salió mal. Inténtelo de nuevo."
+    },
+    "form": {
+      "resident": "Facturar a",
+      "unitGenerally": "Unidad en general (sin residente específico)",
+      "description": "Descripción",
+      "amount": "Monto",
+      "dueDate": "Fecha de Vencimiento",
+      "accountingCode": "Categoría Contable",
+      "accountingCodePlaceholder": "p. ej. GL-4100 (opcional)",
+      "cancel": "Cancelar",
+      "save": "Guardar",
+      "saving": "Guardando…"
+    }
+  },
   "dashboard": {
     "welcome": "Bienvenido de nuevo",
     "role": "Rol",

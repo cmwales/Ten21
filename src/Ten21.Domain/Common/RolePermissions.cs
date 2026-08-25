@@ -42,9 +42,7 @@ public static class RolePermissions
             ],
 
             // "Day-to-day operations, vendor routing, work orders, and community admin.
-            // Cannot cast HOA board votes" -- deliberately no Voting.* grant. Ledger.Read
-            // only (operational visibility) -- BUSINESS_RULES §1 reserves ledger statements
-            // and financial write authority to Property Owner / Board / Accountant, not PM.
+            // Cannot cast HOA board votes" -- deliberately no Voting.* grant.
             // Sprint 3 (US-19-22): "Primary Role: Property Manager" on every property-setup
             // story, and no other role is named as an authorized secondary -- least
             // privilege, so only PropertyManager (and SuperAdmin, via Permissions.All) gets
@@ -52,11 +50,20 @@ public static class RolePermissions
             // Sprint 4 (US-23): "Primary Role: Property Manager" on the resident-directory
             // story, no other role named as an authorized secondary -- same
             // least-privilege reasoning as Sprint 3's Property.* grants above.
+            // Ledger.Write added in Sprint 6 (US-31): BUSINESS_RULES §1's "ledger statements
+            // ... strictly reserved for Property Owner" reads as an HOA-governance rule
+            // (owners' confidentiality FROM PMC staff), not a landlord-context rule -- and
+            // this phase's V1 Landlord MVP has no separate Property Owner actively using the
+            // app day-to-day. US-31's own acceptance criteria names Property Manager as the
+            // PRIMARY role for posting manual charges/fines ("Permissions.Ledger.Write"),
+            // which is unusable without this grant. Flagged explicitly rather than silently
+            // widened -- worth reconfirming if/when a true HOA board-governed tenant needs
+            // the original confidentiality boundary enforced.
             [RoleNames.PropertyManager] =
             [
                 Permissions.WorkOrders.Read, Permissions.WorkOrders.Write,
                 Permissions.Announcements.Read, Permissions.Announcements.Write,
-                Permissions.Ledger.Read,
+                Permissions.Ledger.Read, Permissions.Ledger.Write,
                 Permissions.Property.Manage, Permissions.Property.Read,
                 Permissions.Property.Import, Permissions.Property.Delete,
                 Permissions.Resident.Manage, Permissions.Resident.Read,

@@ -1,0 +1,148 @@
+@if (open) {
+  <div class="fixed inset-0 z-40 flex items-center justify-center bg-slate-navy/40 p-4" (click)="close()">
+    <div
+      class="flex max-h-[90vh] w-full max-w-md flex-col gap-6 overflow-y-auto rounded-xl bg-surface-card p-6 shadow-xl"
+      role="dialog"
+      [attr.aria-label]="'manualCharges.modal.title' | translate"
+      (click)="$event.stopPropagation()"
+    >
+      <div class="flex items-center justify-between border-b border-slate-navy/10 pb-4">
+        <h2 class="text-xl font-bold text-slate-navy">{{ 'manualCharges.modal.title' | translate }}</h2>
+        <button
+          type="button"
+          (click)="close()"
+          [attr.aria-label]="'manualCharges.modal.close' | translate"
+          class="tap-target rounded-md border border-slate-navy/20 px-3 py-2 text-slate-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
+        >
+          &times;
+        </button>
+      </div>
+
+      @if (loading()) {
+        <p class="text-sm text-slate-navy-light">{{ 'common.loading' | translate }}</p>
+      } @else if (!showForm()) {
+        <div class="flex flex-col gap-4">
+          @if (charges().length === 0) {
+            <p class="text-sm text-slate-navy-light">{{ 'manualCharges.modal.empty' | translate }}</p>
+          }
+
+          @for (charge of charges(); track charge.id) {
+            <div class="flex flex-col gap-1 rounded-md border border-slate-navy/10 p-4">
+              <div class="flex items-start justify-between gap-2">
+                <div>
+                  <p class="font-semibold text-slate-navy">{{ charge.description }}</p>
+                  <p class="text-xs text-slate-navy-light">
+                    {{ residentName(charge.residentId) ?? ('manualCharges.modal.unitGenerally' | translate) }}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  (click)="deleteCharge(charge)"
+                  [attr.aria-label]="'manualCharges.modal.remove' | translate"
+                  class="tap-target rounded-md border border-rose/40 px-3 py-1.5 text-sm font-semibold text-rose focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose"
+                >
+                  {{ 'manualCharges.modal.remove' | translate }}
+                </button>
+              </div>
+              <p class="text-sm text-slate-navy">${{ charge.amount }} &middot; {{ 'manualCharges.modal.dueOn' | translate }} {{ charge.dueDate }}</p>
+            </div>
+          }
+
+          <button
+            type="button"
+            (click)="startAdd()"
+            class="tap-target rounded-md bg-emerald px-4 py-2 font-semibold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
+          >
+            {{ 'manualCharges.modal.addCharge' | translate }}
+          </button>
+        </div>
+      } @else {
+        <form [formGroup]="form" class="flex flex-col gap-4" (ngSubmit)="save()" novalidate>
+          <div class="flex flex-col gap-1.5">
+            <label for="residentId" class="text-sm font-medium text-slate-navy">
+              {{ 'manualCharges.form.resident' | translate }}
+            </label>
+            <select
+              id="residentId"
+              formControlName="residentId"
+              class="tap-target w-full rounded-md border border-slate-navy/20 px-3 py-2 text-slate-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
+            >
+              <option [ngValue]="null">{{ 'manualCharges.form.unitGenerally' | translate }}</option>
+              @for (resident of residents(); track resident.id) {
+                <option [value]="resident.id">{{ resident.firstName }} {{ resident.lastName }}</option>
+              }
+            </select>
+          </div>
+
+          <div class="flex flex-col gap-1.5">
+            <label for="description" class="text-sm font-medium text-slate-navy">
+              {{ 'manualCharges.form.description' | translate }}
+            </label>
+            <input
+              id="description"
+              type="text"
+              formControlName="description"
+              [attr.aria-invalid]="form.controls.description.invalid && form.controls.description.touched"
+              class="tap-target w-full rounded-md border border-slate-navy/20 px-3 py-2 text-slate-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
+            />
+          </div>
+
+          <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div class="flex flex-col gap-1.5">
+              <label for="amount" class="text-sm font-medium text-slate-navy">{{ 'manualCharges.form.amount' | translate }}</label>
+              <input
+                id="amount"
+                type="number"
+                min="0.01"
+                step="0.01"
+                formControlName="amount"
+                [attr.aria-invalid]="form.controls.amount.invalid && form.controls.amount.touched"
+                class="tap-target w-full rounded-md border border-slate-navy/20 px-3 py-2 text-slate-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
+              />
+            </div>
+            <div class="flex flex-col gap-1.5">
+              <label for="dueDate" class="text-sm font-medium text-slate-navy">{{ 'manualCharges.form.dueDate' | translate }}</label>
+              <input
+                id="dueDate"
+                type="date"
+                formControlName="dueDate"
+                [attr.aria-invalid]="form.controls.dueDate.invalid && form.controls.dueDate.touched"
+                class="tap-target w-full rounded-md border border-slate-navy/20 px-3 py-2 text-slate-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
+              />
+            </div>
+          </div>
+
+          <div class="flex flex-col gap-1.5">
+            <label for="accountingCode" class="text-sm font-medium text-slate-navy">
+              {{ 'manualCharges.form.accountingCode' | translate }}
+            </label>
+            <input
+              id="accountingCode"
+              type="text"
+              formControlName="accountingCode"
+              [placeholder]="'manualCharges.form.accountingCodePlaceholder' | translate"
+              class="tap-target w-full rounded-md border border-slate-navy/20 px-3 py-2 text-slate-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
+            />
+          </div>
+
+          <div class="flex justify-end gap-3 border-t border-slate-navy/10 pt-4">
+            <button
+              type="button"
+              (click)="cancelForm()"
+              class="tap-target rounded-md border border-slate-navy/20 px-4 py-2 font-semibold text-slate-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
+            >
+              {{ 'manualCharges.form.cancel' | translate }}
+            </button>
+            <button
+              type="submit"
+              [disabled]="submitting()"
+              class="tap-target rounded-md bg-emerald px-4 py-2 font-semibold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald disabled:opacity-60"
+            >
+              {{ (submitting() ? 'manualCharges.form.saving' : 'manualCharges.form.save') | translate }}
+            </button>
+          </div>
+        </form>
+      }
+    </div>
+  </div>
+}

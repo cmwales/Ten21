@@ -343,6 +343,33 @@
       "saving": "Enregistrement…"
     }
   },
+  "manualCharges": {
+    "modal": {
+      "addChargeFine": "Ajouter des Frais / une Amende",
+      "title": "Frais et Amendes",
+      "close": "Fermer",
+      "empty": "Aucun frais ou amende publié pour le moment.",
+      "addCharge": "Ajouter des Frais / une Amende",
+      "remove": "Retirer",
+      "unitGenerally": "Facturé à l'unité",
+      "dueOn": "échéance le",
+      "addedToast": "Frais publiés.",
+      "removedToast": "Frais retirés.",
+      "errorToast": "Une erreur s'est produite. Veuillez réessayer."
+    },
+    "form": {
+      "resident": "Facturer à",
+      "unitGenerally": "Unité en général (aucun résident spécifique)",
+      "description": "Description",
+      "amount": "Montant",
+      "dueDate": "Date d'Échéance",
+      "accountingCode": "Catégorie Comptable",
+      "accountingCodePlaceholder": "p. ex. GL-4100 (facultatif)",
+      "cancel": "Annuler",
+      "save": "Enregistrer",
+      "saving": "Enregistrement…"
+    }
+  },
   "dashboard": {
     "welcome": "Content de vous revoir",
     "role": "Rôle",

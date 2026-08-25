@@ -21,6 +21,13 @@
             >
               {{ 'leases.drawer.viewLeases' | translate }}
             </button>
+            <button
+              type="button"
+              (click)="manualChargeModalOpen.set(true)"
+              class="tap-target rounded-md border border-emerald px-4 py-2 font-semibold text-emerald focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
+            >
+              {{ 'manualCharges.modal.addChargeFine' | translate }}
+            </button>
           </div>
         }
       </div>
@@ -72,5 +79,10 @@
   @if (propertyId()) {
     <app-resident-drawer [propertyId]="propertyId()!" [open]="residentDrawerOpen()" (closed)="residentDrawerOpen.set(false)" />
     <app-lease-drawer [propertyId]="propertyId()!" [open]="leaseDrawerOpen()" (closed)="leaseDrawerOpen.set(false)" />
+    <app-manual-charge-modal
+      [propertyId]="propertyId()!"
+      [open]="manualChargeModalOpen()"
+      (closed)="manualChargeModalOpen.set(false)"
+    />
   }
 </div>

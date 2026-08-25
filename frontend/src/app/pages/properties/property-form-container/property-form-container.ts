@@ -8,6 +8,7 @@ import { OccupancyStatusValue, PropertyResponse, PropertyTypeValue } from '../..
 import { PropertyService } from '../../../core/services/property.service';
 import { ToastService } from '../../../core/services/toast.service';
 import { LeaseDrawer } from '../lease-drawer/lease-drawer';
+import { ManualChargeModal } from '../manual-charge-modal/manual-charge-modal';
 import { PropertyInfoForm } from '../property-info-form/property-info-form';
 import { PropertyFormGroup } from '../property-form.types';
 import { ResidentDrawer } from '../resident-drawer/resident-drawer';
@@ -22,7 +23,7 @@ import { ResidentDrawer } from '../resident-drawer/resident-drawer';
  */
 @Component({
   selector: 'app-property-form-container',
-  imports: [ReactiveFormsModule, TranslatePipe, PropertyInfoForm, ResidentDrawer, LeaseDrawer],
+  imports: [ReactiveFormsModule, TranslatePipe, PropertyInfoForm, ResidentDrawer, LeaseDrawer, ManualChargeModal],
   templateUrl: './property-form-container.html',
 })
 export class PropertyFormContainer implements OnInit, ComponentWithUnsavedChanges {
@@ -38,6 +39,7 @@ export class PropertyFormContainer implements OnInit, ComponentWithUnsavedChange
   protected readonly propertyId = signal<string | null>(null);
   protected readonly residentDrawerOpen = signal(false);
   protected readonly leaseDrawerOpen = signal(false);
+  protected readonly manualChargeModalOpen = signal(false);
 
   protected readonly form: PropertyFormGroup = this.fb.nonNullable.group({
     name: ['', Validators.required],
