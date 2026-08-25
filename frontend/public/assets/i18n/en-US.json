@@ -343,6 +343,33 @@
       "saving": "Saving…"
     }
   },
+  "manualCharges": {
+    "modal": {
+      "addChargeFine": "Add Charge / Fine",
+      "title": "Charges & Fines",
+      "close": "Close",
+      "empty": "No charges or fines posted yet.",
+      "addCharge": "Add Charge / Fine",
+      "remove": "Remove",
+      "unitGenerally": "Billed to the unit",
+      "dueOn": "due",
+      "addedToast": "Charge posted.",
+      "removedToast": "Charge removed.",
+      "errorToast": "Something went wrong. Please try again."
+    },
+    "form": {
+      "resident": "Bill To",
+      "unitGenerally": "Unit generally (no specific resident)",
+      "description": "Description",
+      "amount": "Amount",
+      "dueDate": "Due Date",
+      "accountingCode": "GL Category",
+      "accountingCodePlaceholder": "e.g. GL-4100 (optional)",
+      "cancel": "Cancel",
+      "save": "Save",
+      "saving": "Saving…"
+    }
+  },
   "dashboard": {
     "welcome": "Welcome back",
     "role": "Role",
