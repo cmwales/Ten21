@@ -25,6 +25,25 @@ public class PropertyConfiguration : IEntityTypeConfiguration<Property>
         builder.Property(p => p.AllowTenantDirectory).IsRequired();
         builder.Property(p => p.CreatedAt).IsRequired();
 
+        // US-29: Restrict, not Cascade -- deleting a tier/group while properties still
+        // reference it should fail loudly (UnitTiersController/UnitGroupsController's own
+        // delete actions already guard against this explicitly with a ConflictException
+        // before EF Core would ever hit this constraint), not silently null out the
+        // assignment. No navigation property, same scalar-FK convention as
+        // ResidentProfileConfiguration's Property FK.
+        builder.HasOne<UnitGroup>()
+            .WithMany()
+            .HasForeignKey(p => p.UnitGroupId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasOne<UnitTier>()
+            .WithMany()
+            .HasForeignKey(p => p.UnitTierId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasIndex(p => p.UnitGroupId);
+        builder.HasIndex(p => p.UnitTierId);
+
         // TenantId index is also added generically for every ITenantScopedEntity in
         // Ten21DbContext.OnModelCreating; EF Core no-ops the duplicate definition, so this
         // comment stands in place of repeating it here.

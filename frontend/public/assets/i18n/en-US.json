@@ -154,6 +154,7 @@
       "title": "Properties",
       "addProperty": "Add Property",
       "importProperties": "Import Properties",
+      "openMatrix": "Unit Tiers & Groups",
       "addFirstProperty": "Add First Property",
       "downloadTemplate": "Download Sample Spreadsheet Template",
       "emptyTitle": "No properties yet",
@@ -209,6 +210,42 @@
       "duplicateError": "A property with this address and unit identifier already exists.",
       "loadError": "Something went wrong loading this property.",
       "networkError": "Something went wrong. Please try again."
+    },
+    "matrix": {
+      "title": "Unit Tiers & Groups",
+      "subtitle": "Assign pricing tiers and physical sections to every property in your portfolio at once.",
+      "none": "None",
+      "remove": "Remove",
+      "saving": "Saving…",
+      "saved": "Saved",
+      "saveStatus": "Save status",
+      "selectAll": "Select all properties",
+      "selectRow": "Select {{name}}",
+      "loadError": "Something went wrong loading the matrix.",
+      "saveError": "Something went wrong saving that change. Please try again.",
+      "tierInUseError": "This tier is still assigned to one or more properties and can't be removed.",
+      "groupInUseError": "This group is still assigned to one or more properties and can't be removed.",
+      "batchAppliedToast": "Applied to the selected properties.",
+      "tiers": {
+        "title": "Unit Tiers",
+        "name": "Tier name",
+        "defaultRent": "Default rent",
+        "accountingCode": "GL code (optional)",
+        "add": "Add Tier",
+        "empty": "No tiers yet."
+      },
+      "groups": {
+        "title": "Unit Groups",
+        "name": "Group name",
+        "add": "Add Group",
+        "empty": "No groups yet."
+      },
+      "batch": {
+        "selectedCount": "{{count}} selected",
+        "fieldLabel": "Column to apply",
+        "valueLabel": "Value to apply",
+        "apply": "Apply to Selected"
+      }
     },
     "propertyTypes": {
       "SingleFamily": "Single Family",

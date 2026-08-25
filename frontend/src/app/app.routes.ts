@@ -85,6 +85,14 @@ export const routes: Routes = [
       ),
   },
   {
+    // US-29: "Prohibited Roles: Non-owner Tenants, Vendors" -- must be registered before
+    // properties/:id, otherwise the :id route would swallow "matrix" as a property id.
+    path: 'properties/matrix',
+    canActivate: [authGuard, denyRolesGuard([RoleNames.Tenant, RoleNames.Vendor])],
+    loadComponent: () =>
+      import('./pages/properties/property-matrix/property-matrix').then((m) => m.PropertyMatrix),
+  },
+  {
     path: 'properties/:id',
     canActivate: [authGuard, denyRolesGuard([RoleNames.Tenant, RoleNames.Vendor])],
     canDeactivate: [unsavedChangesGuard],

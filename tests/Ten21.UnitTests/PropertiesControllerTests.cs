@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using Ten21.Api.Contracts.Properties;
 using Ten21.Api.Controllers;
 using Ten21.Application.Abstractions;
+using Ten21.Domain.Entities;
 using Ten21.Domain.Enums;
 using Ten21.Domain.Exceptions;
 using Ten21.Infrastructure.Import;
@@ -415,5 +416,149 @@ public class PropertiesControllerTests : IDisposable
 
         await Assert.ThrowsAsync<ValidationException>(
             () => controller.ImportProperties(CreateCsvFormFile("irrelevant", "properties.txt"), CancellationToken.None));
+    }
+
+    // US-29: matrix editor endpoints. Tiers/groups are inserted directly against the shared
+    // Ten21DbContext rather than through UnitTiersController/UnitGroupsController -- those
+    // controllers already have their own dedicated test files; here they're just fixture
+    // data for exercising PropertiesController's matrix actions.
+
+    private static async Task<UnitTier> SeedUnitTierAsync(Ten21DbContext db, decimal defaultRent = 2200m)
+    {
+        var tier = new UnitTier { Id = Guid.NewGuid(), TierName = "Ocean View 2BR", DefaultRent = defaultRent, CreatedAt = DateTimeOffset.UtcNow };
+        db.UnitTiers.Add(tier);
+        await db.SaveChangesAsync();
+        return tier;
+    }
+
+    private static async Task<UnitGroup> SeedUnitGroupAsync(Ten21DbContext db)
+    {
+        var group = new UnitGroup { Id = Guid.NewGuid(), GroupName = "North Wing", CreatedAt = DateTimeOffset.UtcNow };
+        db.UnitGroups.Add(group);
+        await db.SaveChangesAsync();
+        return group;
+    }
+
+    [Fact]
+    public async Task UpdatePropertyMatrixRow_SetsGroupAndTier_AndStoresGivenTargetRent()
+    {
+        var (db, controller) = CreateController(Guid.NewGuid());
+        var created = await controller.CreateProperty(NewRequest("Suite A"), CancellationToken.None);
+        var propertyId = Assert.IsType<PropertyResponse>(Assert.IsType<CreatedAtActionResult>(created).Value).Id;
+        var tier = await SeedUnitTierAsync(db);
+        var group = await SeedUnitGroupAsync(db);
+
+        var result = await controller.UpdatePropertyMatrixRow(
+            propertyId, new UpdatePropertyMatrixRowRequest(group.Id, tier.Id, 2350m), CancellationToken.None);
+
+        var response = Assert.IsType<PropertyMatrixRowResponse>(Assert.IsType<OkObjectResult>(result).Value);
+        Assert.Equal(group.Id, response.UnitGroupId);
+        Assert.Equal(tier.Id, response.UnitTierId);
+        // Manual override retained -- not silently reset to the tier's DefaultRent (2200m).
+        Assert.Equal(2350m, response.TargetRent);
+    }
+
+    [Fact]
+    public async Task UpdatePropertyMatrixRow_ThrowsNotFound_WhenUnitTierDoesNotExist()
+    {
+        var (_, controller) = CreateController(Guid.NewGuid());
+        var created = await controller.CreateProperty(NewRequest("Suite A"), CancellationToken.None);
+        var propertyId = Assert.IsType<PropertyResponse>(Assert.IsType<CreatedAtActionResult>(created).Value).Id;
+
+        await Assert.ThrowsAsync<NotFoundException>(() => controller.UpdatePropertyMatrixRow(
+            propertyId, new UpdatePropertyMatrixRowRequest(null, Guid.NewGuid(), null), CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task BatchAssignMatrix_UnitTier_SetsTierAndOverwritesTargetRentOnEveryRow()
+    {
+        var (db, controller) = CreateController(Guid.NewGuid());
+        var a = await controller.CreateProperty(NewRequest("Suite A") with { TargetRent = 999m }, CancellationToken.None);
+        var b = await controller.CreateProperty(NewRequest("Suite B") with { TargetRent = 999m }, CancellationToken.None);
+        var idA = Assert.IsType<PropertyResponse>(Assert.IsType<CreatedAtActionResult>(a).Value).Id;
+        var idB = Assert.IsType<PropertyResponse>(Assert.IsType<CreatedAtActionResult>(b).Value).Id;
+        var tier = await SeedUnitTierAsync(db, defaultRent: 2200m);
+
+        var result = await controller.BatchAssignMatrix(
+            new BatchAssignMatrixRequest([idA, idB], MatrixBatchField.UnitTier, tier.Id), CancellationToken.None);
+
+        var rows = Assert.IsAssignableFrom<IEnumerable<PropertyMatrixRowResponse>>(Assert.IsType<OkObjectResult>(result).Value);
+        Assert.All(rows, r =>
+        {
+            Assert.Equal(tier.Id, r.UnitTierId);
+            Assert.Equal(2200m, r.TargetRent);
+        });
+    }
+
+    [Fact]
+    public async Task BatchAssignMatrix_UnitGroup_DoesNotChangeTargetRent()
+    {
+        var (db, controller) = CreateController(Guid.NewGuid());
+        var created = await controller.CreateProperty(NewRequest("Suite A") with { TargetRent = 1500m }, CancellationToken.None);
+        var propertyId = Assert.IsType<PropertyResponse>(Assert.IsType<CreatedAtActionResult>(created).Value).Id;
+        var group = await SeedUnitGroupAsync(db);
+
+        var result = await controller.BatchAssignMatrix(
+            new BatchAssignMatrixRequest([propertyId], MatrixBatchField.UnitGroup, group.Id), CancellationToken.None);
+
+        var row = Assert.Single(Assert.IsAssignableFrom<IEnumerable<PropertyMatrixRowResponse>>(Assert.IsType<OkObjectResult>(result).Value));
+        Assert.Equal(group.Id, row.UnitGroupId);
+        Assert.Equal(1500m, row.TargetRent);
+    }
+
+    [Fact]
+    public async Task BatchAssignMatrix_ClearsField_WhenValueIdIsNull()
+    {
+        var (db, controller) = CreateController(Guid.NewGuid());
+        var tier = await SeedUnitTierAsync(db);
+        var created = await controller.CreateProperty(NewRequest("Suite A"), CancellationToken.None);
+        var propertyId = Assert.IsType<PropertyResponse>(Assert.IsType<CreatedAtActionResult>(created).Value).Id;
+        await controller.UpdatePropertyMatrixRow(propertyId, new UpdatePropertyMatrixRowRequest(null, tier.Id, 2200m), CancellationToken.None);
+
+        var result = await controller.BatchAssignMatrix(
+            new BatchAssignMatrixRequest([propertyId], MatrixBatchField.UnitTier, null), CancellationToken.None);
+
+        var row = Assert.Single(Assert.IsAssignableFrom<IEnumerable<PropertyMatrixRowResponse>>(Assert.IsType<OkObjectResult>(result).Value));
+        Assert.Null(row.UnitTierId);
+        // Clearing the tier doesn't touch TargetRent -- it stays whatever it was.
+        Assert.Equal(2200m, row.TargetRent);
+    }
+
+    [Fact]
+    public async Task BatchAssignMatrix_ThrowsValidationException_WhenNoPropertyIdsGiven()
+    {
+        var (_, controller) = CreateController(Guid.NewGuid());
+
+        await Assert.ThrowsAsync<ValidationException>(() => controller.BatchAssignMatrix(
+            new BatchAssignMatrixRequest([], MatrixBatchField.UnitGroup, null), CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task BatchAssignMatrix_ThrowsNotFound_WhenAPropertyIdBelongsToAnotherTenant()
+    {
+        var (_, controllerA) = CreateController(Guid.NewGuid());
+        var created = await controllerA.CreateProperty(NewRequest("Suite A"), CancellationToken.None);
+        var otherTenantsPropertyId = Assert.IsType<PropertyResponse>(Assert.IsType<CreatedAtActionResult>(created).Value).Id;
+
+        var (_, controllerB) = CreateController(Guid.NewGuid());
+
+        await Assert.ThrowsAsync<NotFoundException>(() => controllerB.BatchAssignMatrix(
+            new BatchAssignMatrixRequest([otherTenantsPropertyId], MatrixBatchField.UnitGroup, null), CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task GetProperties_IncludesMatrixAssignments()
+    {
+        var (db, controller) = CreateController(Guid.NewGuid());
+        var tier = await SeedUnitTierAsync(db);
+        var created = await controller.CreateProperty(NewRequest("Suite A"), CancellationToken.None);
+        var propertyId = Assert.IsType<PropertyResponse>(Assert.IsType<CreatedAtActionResult>(created).Value).Id;
+        await controller.UpdatePropertyMatrixRow(propertyId, new UpdatePropertyMatrixRowRequest(null, tier.Id, 2200m), CancellationToken.None);
+
+        var result = await controller.GetProperties(null, null, CancellationToken.None);
+
+        var response = Assert.IsType<PropertyListResponse>(Assert.IsType<OkObjectResult>(result).Value);
+        var item = Assert.Single(response.Items);
+        Assert.Equal(tier.Id, item.UnitTierId);
     }
 }

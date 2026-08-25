@@ -154,6 +154,7 @@
       "title": "Propriétés",
       "addProperty": "Ajouter une propriété",
       "importProperties": "Importer des propriétés",
+      "openMatrix": "Niveaux et groupes d'unités",
       "addFirstProperty": "Ajouter la première propriété",
       "downloadTemplate": "Télécharger le modèle de feuille de calcul",
       "emptyTitle": "Aucune propriété pour le moment",
@@ -209,6 +210,42 @@
       "duplicateError": "Une propriété avec cette adresse et cet identifiant d'unité existe déjà.",
       "loadError": "Une erreur s'est produite lors du chargement de cette propriété.",
       "networkError": "Une erreur s'est produite. Veuillez réessayer."
+    },
+    "matrix": {
+      "title": "Niveaux et groupes d'unités",
+      "subtitle": "Attribuez des niveaux de tarification et des sections physiques à toutes les propriétés de votre portefeuille à la fois.",
+      "none": "Aucun",
+      "remove": "Retirer",
+      "saving": "Enregistrement…",
+      "saved": "Enregistré",
+      "saveStatus": "État de l'enregistrement",
+      "selectAll": "Sélectionner toutes les propriétés",
+      "selectRow": "Sélectionner {{name}}",
+      "loadError": "Une erreur s'est produite lors du chargement de la matrice.",
+      "saveError": "Une erreur s'est produite lors de l'enregistrement de ce changement. Veuillez réessayer.",
+      "tierInUseError": "Ce niveau est encore attribué à une ou plusieurs propriétés et ne peut pas être retiré.",
+      "groupInUseError": "Ce groupe est encore attribué à une ou plusieurs propriétés et ne peut pas être retiré.",
+      "batchAppliedToast": "Appliqué aux propriétés sélectionnées.",
+      "tiers": {
+        "title": "Niveaux d'unité",
+        "name": "Nom du niveau",
+        "defaultRent": "Loyer par défaut",
+        "accountingCode": "Code comptable (facultatif)",
+        "add": "Ajouter un niveau",
+        "empty": "Aucun niveau pour le moment."
+      },
+      "groups": {
+        "title": "Groupes d'unité",
+        "name": "Nom du groupe",
+        "add": "Ajouter un groupe",
+        "empty": "Aucun groupe pour le moment."
+      },
+      "batch": {
+        "selectedCount": "{{count}} sélectionnée(s)",
+        "fieldLabel": "Colonne à appliquer",
+        "valueLabel": "Valeur à appliquer",
+        "apply": "Appliquer à la sélection"
+      }
     },
     "propertyTypes": {
       "SingleFamily": "Unifamiliale",

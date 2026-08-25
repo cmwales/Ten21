@@ -61,6 +61,8 @@ public class Ten21DbContext : IdentityDbContext<ApplicationUser, ApplicationRole
     public DbSet<AuditLog> AuditLogs => Set<AuditLog>();
     public DbSet<ResidentProfile> ResidentProfiles => Set<ResidentProfile>();
     public DbSet<EmergencyContact> EmergencyContacts => Set<EmergencyContact>();
+    public DbSet<UnitTier> UnitTiers => Set<UnitTier>();
+    public DbSet<UnitGroup> UnitGroups => Set<UnitGroup>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

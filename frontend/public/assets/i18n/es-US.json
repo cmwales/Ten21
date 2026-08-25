@@ -154,6 +154,7 @@
       "title": "Propiedades",
       "addProperty": "Agregar propiedad",
       "importProperties": "Importar propiedades",
+      "openMatrix": "Niveles y grupos de unidades",
       "addFirstProperty": "Agregar primera propiedad",
       "downloadTemplate": "Descargar plantilla de hoja de cálculo",
       "emptyTitle": "Aún no hay propiedades",
@@ -209,6 +210,42 @@
       "duplicateError": "Ya existe una propiedad con esta dirección e identificador de unidad.",
       "loadError": "Algo salió mal al cargar esta propiedad.",
       "networkError": "Algo salió mal. Inténtelo de nuevo."
+    },
+    "matrix": {
+      "title": "Niveles y grupos de unidades",
+      "subtitle": "Asigne niveles de precio y secciones físicas a todas las propiedades de su cartera a la vez.",
+      "none": "Ninguno",
+      "remove": "Quitar",
+      "saving": "Guardando…",
+      "saved": "Guardado",
+      "saveStatus": "Estado de guardado",
+      "selectAll": "Seleccionar todas las propiedades",
+      "selectRow": "Seleccionar {{name}}",
+      "loadError": "Algo salió mal al cargar la matriz.",
+      "saveError": "Algo salió mal al guardar ese cambio. Inténtelo de nuevo.",
+      "tierInUseError": "Este nivel todavía está asignado a una o más propiedades y no se puede quitar.",
+      "groupInUseError": "Este grupo todavía está asignado a una o más propiedades y no se puede quitar.",
+      "batchAppliedToast": "Aplicado a las propiedades seleccionadas.",
+      "tiers": {
+        "title": "Niveles de unidad",
+        "name": "Nombre del nivel",
+        "defaultRent": "Renta predeterminada",
+        "accountingCode": "Código contable (opcional)",
+        "add": "Agregar nivel",
+        "empty": "Aún no hay niveles."
+      },
+      "groups": {
+        "title": "Grupos de unidad",
+        "name": "Nombre del grupo",
+        "add": "Agregar grupo",
+        "empty": "Aún no hay grupos."
+      },
+      "batch": {
+        "selectedCount": "{{count}} seleccionadas",
+        "fieldLabel": "Columna a aplicar",
+        "valueLabel": "Valor a aplicar",
+        "apply": "Aplicar a las seleccionadas"
+      }
     },
     "propertyTypes": {
       "SingleFamily": "Unifamiliar",
