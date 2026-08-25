@@ -300,6 +300,49 @@
       "saving": "Enregistrement…"
     }
   },
+  "leases": {
+    "statuses": {
+      "FixedTerm": "Durée Déterminée",
+      "MonthToMonth": "Mois par Mois",
+      "Ended": "Terminé"
+    },
+    "drawer": {
+      "viewLeases": "Baux",
+      "title": "Baux",
+      "close": "Fermer",
+      "empty": "Aucun bail ajouté pour le moment.",
+      "addLease": "Ajouter un Bail",
+      "edit": "Modifier",
+      "remove": "Retirer",
+      "totalMonthlyDues": "Total des Frais Mensuels",
+      "recurringChargeCount": "{{count}} frais récurrent(s)",
+      "noResidentsHint": "Ajoutez d'abord un résident à cette propriété avant de créer un bail.",
+      "savedToast": "Bail mis à jour.",
+      "addedToast": "Bail ajouté.",
+      "removedToast": "Bail retiré.",
+      "errorToast": "Une erreur s'est produite. Veuillez réessayer."
+    },
+    "form": {
+      "resident": "Résident",
+      "selectResident": "Sélectionnez un résident",
+      "startDate": "Date de Début",
+      "endDate": "Date de Fin",
+      "monthlyBaseRent": "Loyer de Base Mensuel",
+      "dueDayOfMonth": "Jour d'Échéance du Mois",
+      "status": "Statut",
+      "moveOutNoticeDate": "Date de Préavis de Départ",
+      "recurringCharges": "Frais Récurrents Additionnels",
+      "addRecurringCharge": "Ajouter des Frais",
+      "recurringCharge": "Frais {{number}}",
+      "chargeName": "Nom des Frais",
+      "chargeAmount": "Montant",
+      "chargeAccountingCode": "Code Comptable (facultatif)",
+      "totalMonthlyDues": "Total des Frais Mensuels",
+      "cancel": "Annuler",
+      "save": "Enregistrer",
+      "saving": "Enregistrement…"
+    }
+  },
   "dashboard": {
     "welcome": "Content de vous revoir",
     "role": "Rôle",

@@ -6,13 +6,22 @@
           {{ (propertyId() ? 'properties.form.editTitle' : 'properties.form.createTitle') | translate }}
         </h1>
         @if (propertyId()) {
-          <button
-            type="button"
-            (click)="residentDrawerOpen.set(true)"
-            class="tap-target rounded-md border border-emerald px-4 py-2 font-semibold text-emerald focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
-          >
-            {{ 'residents.drawer.viewResidents' | translate }}
-          </button>
+          <div class="flex flex-wrap gap-3">
+            <button
+              type="button"
+              (click)="residentDrawerOpen.set(true)"
+              class="tap-target rounded-md border border-emerald px-4 py-2 font-semibold text-emerald focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
+            >
+              {{ 'residents.drawer.viewResidents' | translate }}
+            </button>
+            <button
+              type="button"
+              (click)="leaseDrawerOpen.set(true)"
+              class="tap-target rounded-md border border-emerald px-4 py-2 font-semibold text-emerald focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
+            >
+              {{ 'leases.drawer.viewLeases' | translate }}
+            </button>
+          </div>
         }
       </div>
 
@@ -62,5 +71,6 @@
 
   @if (propertyId()) {
     <app-resident-drawer [propertyId]="propertyId()!" [open]="residentDrawerOpen()" (closed)="residentDrawerOpen.set(false)" />
+    <app-lease-drawer [propertyId]="propertyId()!" [open]="leaseDrawerOpen()" (closed)="leaseDrawerOpen.set(false)" />
   }
 </div>
