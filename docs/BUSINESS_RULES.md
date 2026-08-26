@@ -16,3 +16,9 @@
 - Mobile-First Single-Action UI: Every view must maintain a single primary call-to-action, a responsive card-stack layout for phones/tablets, and minimum 48×48px touch targets.
 - Accessibility Mandate (WCAG 2.1 AA): All UI views must meet 4.5:1 color contrast ratios, support relative `rem` font scaling, include visible keyboard focus rings (`focus-visible:ring-2`), and utilize explicit `aria-label` tags for screen readers.
 - North American Multi-Language Support (i18n): All system UI labels are fully localized via `@ngx-translate` supporting English (`en-US`), Canadian French (`fr-CA`), and US Spanish (`es-US`). Initial locale auto-detects from `navigator.language` while allowing manual overriding saved to user preferences.
+
+## 4. Statutory Payment Waterfall Allocation (Sprint 7)
+
+- Order of Application: A logged payment is applied to a unit's outstanding `Charges` in strict priority order — (1) Late Fees/Interest, (2) Legal Fees, (3) Base Rent, (4) Add-Ons, (5) Special Assessments — never chosen per-charge by the PM. Charges of equal priority are applied oldest-`DueDate`-first.
+- Partial & Overpayment Handling: A payment that doesn't fully cover a charge partially satisfies it and moves on; a payment left over once every outstanding charge is satisfied is recorded on the `PaymentTransaction` (so it still counts toward the unit's balance as a credit) but is not tied to any one charge.
+- Locked Charges: Once any amount has been allocated to a `Charge`, its `Amount` can no longer be edited, deleted, or voided directly — the only correction path is a `ChargeAdjustment` (a signed credit/debit with a mandatory reason), preserving an audit-compliant history instead of rewriting what was actually charged or paid.
