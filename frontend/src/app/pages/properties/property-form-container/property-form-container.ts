@@ -1,14 +1,14 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { ActivatedRoute, Router } from '@angular/router';
+import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { TranslatePipe } from '@ngx-translate/core';
 import { ComponentWithUnsavedChanges } from '../../../core/guards/unsaved-changes.guard';
 import { OccupancyStatusValue, PropertyResponse, PropertyTypeValue } from '../../../core/models/property.models';
 import { PropertyService } from '../../../core/services/property.service';
 import { ToastService } from '../../../core/services/toast.service';
+import { ChargeModal } from '../charge-modal/charge-modal';
 import { LeaseDrawer } from '../lease-drawer/lease-drawer';
-import { ManualChargeModal } from '../manual-charge-modal/manual-charge-modal';
 import { PropertyInfoForm } from '../property-info-form/property-info-form';
 import { PropertyFormGroup } from '../property-form.types';
 import { ResidentDrawer } from '../resident-drawer/resident-drawer';
@@ -23,7 +23,7 @@ import { ResidentDrawer } from '../resident-drawer/resident-drawer';
  */
 @Component({
   selector: 'app-property-form-container',
-  imports: [ReactiveFormsModule, TranslatePipe, PropertyInfoForm, ResidentDrawer, LeaseDrawer, ManualChargeModal],
+  imports: [ReactiveFormsModule, TranslatePipe, RouterLink, PropertyInfoForm, ResidentDrawer, LeaseDrawer, ChargeModal],
   templateUrl: './property-form-container.html',
 })
 export class PropertyFormContainer implements OnInit, ComponentWithUnsavedChanges {
@@ -39,7 +39,7 @@ export class PropertyFormContainer implements OnInit, ComponentWithUnsavedChange
   protected readonly propertyId = signal<string | null>(null);
   protected readonly residentDrawerOpen = signal(false);
   protected readonly leaseDrawerOpen = signal(false);
-  protected readonly manualChargeModalOpen = signal(false);
+  protected readonly chargeModalOpen = signal(false);
 
   protected readonly form: PropertyFormGroup = this.fb.nonNullable.group({
     name: ['', Validators.required],

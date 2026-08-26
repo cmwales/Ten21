@@ -2,7 +2,7 @@ import { HttpClient } from '@angular/common/http';
 import { Injectable, inject } from '@angular/core';
 import { Observable, map } from 'rxjs';
 import { ApiResponse } from '../models/auth.models';
-import { ManualChargeResponse } from '../models/manual-charge.models';
+import { ChargeResponse } from '../models/charge.models';
 import { CreateMoveInChargeRequest, LeaseResponse, UpsertLeaseRequest } from '../models/lease.models';
 
 /** US-30: lease CRUD calls, nested under a property. Same interceptor-attaches-the-token
@@ -33,13 +33,14 @@ export class LeaseService {
     return this.http.delete<void>(`/api/properties/${propertyId}/leases/${leaseId}`);
   }
 
-  /** US-32: "Create Move-In Charge" -- generates a one-time pro-rated charge covering the
-   * partial period from moveInDate through the day before the lease's next regular billing
-   * anchor. Returns the created ManualCharge (see LeasesController's own doc comment for why
-   * this reuses that shape instead of a separate ProRatedCharge type). */
-  createMoveInCharge(propertyId: string, leaseId: string, request: CreateMoveInChargeRequest): Observable<ManualChargeResponse> {
+  /** US-32: "Create Move-In Charge" -- generates a one-time pro-rated charge (Category=BaseRent)
+   * covering the partial period from moveInDate through the day before the lease's next
+   * regular billing anchor. Returns the created Charge (see LeasesController's own doc
+   * comment for why this reuses the general Charge entity instead of a separate
+   * ProRatedCharge type). */
+  createMoveInCharge(propertyId: string, leaseId: string, request: CreateMoveInChargeRequest): Observable<ChargeResponse> {
     return this.http
-      .post<ApiResponse<ManualChargeResponse>>(`/api/properties/${propertyId}/leases/${leaseId}/move-in-charge`, request)
+      .post<ApiResponse<ChargeResponse>>(`/api/properties/${propertyId}/leases/${leaseId}/move-in-charge`, request)
       .pipe(map((response) => response.data!));
   }
 }

@@ -350,25 +350,23 @@
       "saving": "Enregistrement…"
     }
   },
-  "manualCharges": {
+  "charges": {
     "modal": {
-      "addChargeFine": "Ajouter des Frais / une Amende",
       "title": "Frais et Amendes",
       "close": "Fermer",
       "empty": "Aucun frais ou amende publié pour le moment.",
       "addCharge": "Ajouter des Frais / une Amende",
       "remove": "Retirer",
       "dueOn": "échéance le",
-      "paidDate": "Date de Paiement",
-      "markPaidToday": "Marquer comme Payé Aujourd'hui",
-      "paid": "Payé",
-      "saving": "Enregistrement…",
+      "lockedHint": "Ces frais ont déjà des paiements appliqués et ne peuvent pas être retirés. Publiez plutôt un ajustement de crédit.",
       "addedToast": "Frais publiés.",
       "removedToast": "Frais retirés.",
-      "errorToast": "Une erreur s'est produite. Veuillez réessayer."
+      "errorToast": "Une erreur s'est produite. Veuillez réessayer.",
+      "lockedErrorToast": "Ces frais ont déjà des paiements appliqués et ne peuvent pas être retirés."
     },
     "form": {
       "description": "Description",
+      "category": "Catégorie",
       "amount": "Montant",
       "dueDate": "Date d'Échéance",
       "accountingCode": "Catégorie Comptable",
@@ -376,7 +374,26 @@
       "cancel": "Annuler",
       "save": "Enregistrer",
       "saving": "Enregistrement…"
+    },
+    "categories": {
+      "LateFee": "Frais de Retard",
+      "Legal": "Juridique",
+      "BaseRent": "Loyer de Base",
+      "AddOn": "Frais Additionnel",
+      "SpecialAssessment": "Cotisation Spéciale"
+    },
+    "paymentStatuses": {
+      "Unpaid": "Impayé",
+      "Partial": "Partiel",
+      "Paid": "Payé"
     }
+  },
+  "tenderTypes": {
+    "Cash": "Comptant",
+    "Check": "Chèque",
+    "Zelle": "Zelle",
+    "Venmo": "Venmo",
+    "DirectDeposit": "Dépôt Direct"
   },
   "dashboard": {
     "welcome": "Content de vous revoir",
@@ -386,7 +403,24 @@
   },
   "ledger": {
     "title": "Grand Livre Financier",
-    "placeholder": "Les vues détaillées du grand livre arriveront dans une phase ultérieure."
+    "placeholder": "Les vues détaillées du grand livre arriveront dans une phase ultérieure.",
+    "viewStatement": "Voir le Relevé",
+    "statement": {
+      "title": "Relevé de l'Unité",
+      "backToProperty": "Retour à la Propriété",
+      "balance": "Solde Actuel",
+      "charges": "Frais",
+      "payments": "Paiements",
+      "noCharges": "Aucun frais publié pour le moment.",
+      "noPayments": "Aucun paiement enregistré pour le moment.",
+      "voided": "Annulé",
+      "reference": "Réf",
+      "loadError": "Une erreur s'est produite lors du chargement de ce relevé.",
+      "adjustmentTypes": {
+        "CreditAdjustment": "Crédit",
+        "DebitAdjustment": "Débit"
+      }
+    }
   },
   "common": {
     "loading": "Chargement…"
