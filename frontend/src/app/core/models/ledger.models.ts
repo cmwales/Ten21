@@ -37,6 +37,14 @@ export const RefundReasons = {
 
 export type RefundReasonValue = (typeof RefundReasons)[keyof typeof RefundReasons];
 
+/** Mirrors Ten21.Domain.Enums.PaymentTransactionStatus. */
+export const PaymentTransactionStatuses = {
+  Cleared: 'Cleared',
+  Reversed: 'Reversed',
+} as const;
+
+export type PaymentTransactionStatusValue = (typeof PaymentTransactionStatuses)[keyof typeof PaymentTransactionStatuses];
+
 /** Mirrors Ten21.Api.Contracts.Charges.ChargeAdjustmentResponse. */
 export interface ChargeAdjustmentResponse {
   id: string;
@@ -63,7 +71,8 @@ export interface PaymentAllocationSummaryResponse {
 /** Mirrors Ten21.Api.Contracts.Charges.PaymentTransactionResponse. ResidentProfileId is
  * required -- money belongs to a specific payee (for refund routing, co-tenant attribution,
  * and per-resident history), even though Charges stay unit-scoped. unallocatedAmount (US-37)
- * is this payment's own retained credit, drawn down over time. */
+ * is this payment's own retained credit, drawn down over time. status/reversalReason/
+ * reallocatedToId (US-38) -- a Reversed payment's allocations always come back empty. */
 export interface PaymentTransactionResponse {
   id: string;
   propertyId: string;
@@ -75,6 +84,9 @@ export interface PaymentTransactionResponse {
   referenceNumber: string | null;
   notes: string | null;
   unallocatedAmount: number;
+  status: PaymentTransactionStatusValue;
+  reversalReason: string | null;
+  reallocatedToId: string | null;
   allocations: PaymentAllocationSummaryResponse[];
 }
 

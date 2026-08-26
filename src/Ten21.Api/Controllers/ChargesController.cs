@@ -127,6 +127,7 @@ public class ChargesController : ControllerBase
         var paymentResponses = payments.Select(p => new PaymentTransactionResponse(
             p.Id, p.PropertyId, p.ResidentProfileId, residentNamesById.GetValueOrDefault(p.ResidentProfileId, "(unknown resident)"),
             p.PaymentDate, p.AmountPaid, p.TenderType, p.ReferenceNumber, p.Notes, p.UnallocatedAmount,
+            p.Status, p.ReversalReason, p.ReallocatedToId,
             p.Allocations.Select(a => new PaymentAllocationSummaryResponse(
                 a.ChargeId,
                 chargeDescriptionsById.GetValueOrDefault(a.ChargeId, "(unknown charge)"),
@@ -147,11 +148,14 @@ public class ChargesController : ControllerBase
         // See UnitStatementResponse's own comment for why Payments uses total AmountPaid
         // (not just allocated amounts) -- an overpayment should show as a credit (negative
         // balance), not just floor debt at zero. Refunds are added BACK (US-37): once a
-        // resident's held credit is actually paid out, the unit no longer owes it.
+        // resident's held credit is actually paid out, the unit no longer owes it. Reversed
+        // payments (US-38) are excluded entirely -- a bounced/misposted payment never really
+        // cleared, so it shouldn't count toward money the unit has received.
+        var clearedPayments = payments.Where(p => p.Status != PaymentTransactionStatus.Reversed).ToList();
         var sumActiveCharges = charges.Where(c => c.Status == ChargeLifecycleStatus.Active).Sum(c => c.Amount);
         var sumDebits = allAdjustments.Where(a => a.AdjustmentType == AdjustmentType.DebitAdjustment).Sum(a => a.Amount);
         var sumCredits = allAdjustments.Where(a => a.AdjustmentType == AdjustmentType.CreditAdjustment).Sum(a => a.Amount);
-        var sumPayments = payments.Sum(p => p.AmountPaid);
+        var sumPayments = clearedPayments.Sum(p => p.AmountPaid);
         var sumRefunds = refunds.Sum(r => r.Amount);
         var balance = sumActiveCharges + sumDebits - sumPayments - sumCredits + sumRefunds;
 
@@ -162,7 +166,7 @@ public class ChargesController : ControllerBase
         // actions actually operate against. Applying credit to a charge moves money from here
         // into a charge's AllocatedAmount; refunding it moves money out the door (reflected in
         // Balance above instead) -- neither changes Balance directly.
-        var availableCredit = payments.Sum(p => p.UnallocatedAmount);
+        var availableCredit = clearedPayments.Sum(p => p.UnallocatedAmount);
 
         return Ok(new UnitStatementResponse(
             propertyId, balance, availableCredit, chargeStatementItems, paymentResponses, creditResponses, refundResponses));

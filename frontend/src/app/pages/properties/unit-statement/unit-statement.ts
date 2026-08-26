@@ -9,6 +9,7 @@ import { PropertyService } from '../../../core/services/property.service';
 import { ToastService } from '../../../core/services/toast.service';
 import { AppHeader } from '../../../shared/app-header/app-header';
 import { LogPaymentModal } from '../log-payment-modal/log-payment-modal';
+import { PaymentActionModal } from '../payment-action-modal/payment-action-modal';
 import { RefundCreditModal } from '../refund-credit-modal/refund-credit-modal';
 
 /**
@@ -29,7 +30,7 @@ import { RefundCreditModal } from '../refund-credit-modal/refund-credit-modal';
  */
 @Component({
   selector: 'app-unit-statement',
-  imports: [TranslatePipe, RouterLink, AppHeader, LogPaymentModal, RefundCreditModal],
+  imports: [TranslatePipe, RouterLink, AppHeader, LogPaymentModal, RefundCreditModal, PaymentActionModal],
   templateUrl: './unit-statement.html',
 })
 export class UnitStatement implements OnInit {
@@ -47,6 +48,7 @@ export class UnitStatement implements OnInit {
   protected readonly logPaymentModalOpen = signal(false);
   protected readonly refundModalOpen = signal(false);
   protected readonly applyingCredits = signal(false);
+  protected readonly paymentActionTargetId = signal<string | null>(null);
 
   ngOnInit(): void {
     const id = this.route.snapshot.paramMap.get('id');

@@ -412,6 +412,24 @@
       "referenceNumber": "Numéro de Référence",
       "referenceNumberPlaceholder": "p. ex. numéro de chèque (facultatif)",
       "notes": "Notes"
+    },
+    "action": {
+      "trigger": "Annuler / Réaffecter",
+      "title": "Annuler ou Réaffecter le Paiement",
+      "close": "Fermer",
+      "whatHappened": "Qu'est-il arrivé à ce paiement?",
+      "reverse": "L'annuler (chèque sans provision / rejeté)",
+      "reallocate": "Le réaffecter (enregistré sur la mauvaise propriété)",
+      "targetProperty": "Propriété Correcte",
+      "targetPropertyPlaceholder": "Sélectionnez la propriété correcte",
+      "targetResident": "Résident Correct",
+      "reason": "Motif",
+      "reasonLabel": "Motif",
+      "save": "Confirmer",
+      "reversedBadge": "Annulé",
+      "reversedToast": "Paiement annulé.",
+      "reallocatedToast": "Paiement réaffecté.",
+      "errorToast": "Une erreur s'est produite. Veuillez réessayer."
     }
   },
   "refunds": {

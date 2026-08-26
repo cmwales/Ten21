@@ -98,6 +98,158 @@ public class PaymentsController : ControllerBase
     }
 
     /// <summary>
+    /// US-38: "Reverse Payment" -- an NSF/bounced payment. Un-links this payment's
+    /// PaymentAllocation rows (restoring the charges they were applied to back toward Unpaid,
+    /// since those charges' AllocatedAmount is always computed live from the surviving rows --
+    /// see ChargesController's own comment) and any CreditAllocation rows sourced from it
+    /// (the money it was "holding as credit" never really existed either), then zeroes its own
+    /// UnallocatedAmount. The row itself is never deleted -- see PaymentTransaction's own
+    /// class comment on why.
+    /// </summary>
+    [HttpPost("{id:guid}/reverse")]
+    [Authorize(Policy = Permissions.Ledger.Write)]
+    public async Task<IActionResult> ReversePayment(
+        Guid propertyId, Guid id, [FromBody] ReversePaymentRequest request, CancellationToken cancellationToken)
+    {
+        var payment = await _dbContext.PaymentTransactions
+            .Include(p => p.Allocations)
+            .FirstOrDefaultAsync(p => p.PropertyId == propertyId && p.Id == id, cancellationToken)
+            ?? throw new NotFoundException($"Payment '{id}' was not found on this property.");
+
+        if (payment.Status == PaymentTransactionStatus.Reversed)
+        {
+            throw new ConflictException("This payment has already been reversed.");
+        }
+
+        var reason = ValidateAndSanitizeReason(request.ReversalReason);
+
+        await ReverseAllocationsAsync(payment.Id, cancellationToken);
+        payment.Status = PaymentTransactionStatus.Reversed;
+        payment.ReversalReason = reason;
+        payment.UnallocatedAmount = 0m;
+        payment.Allocations.Clear();
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        var residentName = await GetResidentNameAsync(payment.ResidentProfileId, cancellationToken);
+        return Ok(ToResponse(payment, residentName, []));
+    }
+
+    /// <summary>
+    /// US-38: "Reallocate Payment" -- a cross-property posting error, not an NSF reversal (the
+    /// money is real, it just landed on the wrong door). Reverses this payment exactly like
+    /// ReversePayment above, then atomically creates a brand-new PaymentTransaction under the
+    /// correct property/resident and runs the statutory waterfall against it, same as a fresh
+    /// LogPayment. Both rows end up cross-referencing each other: the original via
+    /// ReallocatedToId + ReversalReason, the new one via its own Notes.
+    /// </summary>
+    [HttpPost("{id:guid}/reallocate")]
+    [Authorize(Policy = Permissions.Ledger.Write)]
+    public async Task<IActionResult> ReallocatePayment(
+        Guid propertyId, Guid id, [FromBody] ReallocatePaymentRequest request, CancellationToken cancellationToken)
+    {
+        var payment = await _dbContext.PaymentTransactions
+            .Include(p => p.Allocations)
+            .FirstOrDefaultAsync(p => p.PropertyId == propertyId && p.Id == id, cancellationToken)
+            ?? throw new NotFoundException($"Payment '{id}' was not found on this property.");
+
+        if (payment.Status == PaymentTransactionStatus.Reversed)
+        {
+            throw new ConflictException("This payment has already been reversed.");
+        }
+
+        var reason = ValidateAndSanitizeReason(request.ReversalReason);
+
+        if (request.TargetPropertyId == propertyId)
+        {
+            throw new ValidationException(new Dictionary<string, string[]>
+            {
+                [nameof(request.TargetPropertyId)] = ["Reallocation target must be a different property than the one this payment is currently posted to."],
+            });
+        }
+
+        await EnsurePropertyExistsAsync(request.TargetPropertyId, cancellationToken);
+        var targetResident = await _dbContext.ResidentProfiles
+            .FirstOrDefaultAsync(r => r.PropertyId == request.TargetPropertyId && r.Id == request.TargetResidentProfileId, cancellationToken)
+            ?? throw new NotFoundException($"Resident '{request.TargetResidentProfileId}' was not found on the target property.");
+
+        await ReverseAllocationsAsync(payment.Id, cancellationToken);
+
+        var newPayment = new PaymentTransaction
+        {
+            Id = Guid.NewGuid(),
+            PropertyId = request.TargetPropertyId,
+            ResidentProfileId = targetResident.Id,
+            PaymentDate = payment.PaymentDate,
+            AmountPaid = payment.AmountPaid,
+            TenderType = payment.TenderType,
+            ReferenceNumber = payment.ReferenceNumber,
+            Notes = $"Reallocated from payment {payment.Id} originally posted to property {propertyId}. {reason}",
+            CreatedAt = DateTimeOffset.UtcNow,
+        };
+        _dbContext.PaymentTransactions.Add(newPayment);
+
+        var newAllocations = await BuildWaterfallAllocationsAsync(request.TargetPropertyId, newPayment.Id, payment.AmountPaid, cancellationToken);
+        _dbContext.PaymentAllocations.AddRange(newAllocations);
+        newPayment.Allocations = newAllocations;
+        newPayment.UnallocatedAmount = payment.AmountPaid - newAllocations.Sum(a => a.AllocatedAmount);
+
+        payment.Status = PaymentTransactionStatus.Reversed;
+        payment.ReallocatedToId = newPayment.Id;
+        payment.ReversalReason = $"Reallocated to property {request.TargetPropertyId} as payment {newPayment.Id}. {reason}";
+        payment.UnallocatedAmount = 0m;
+        payment.Allocations.Clear();
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        var chargeDescriptionsById = await GetChargeDescriptionsAsync(newAllocations.Select(a => a.ChargeId), cancellationToken);
+        var residentName = $"{targetResident.FirstName} {targetResident.LastName}";
+        return CreatedAtAction(
+            nameof(GetPayment), new { propertyId = request.TargetPropertyId, id = newPayment.Id },
+            ToResponse(newPayment, residentName, chargeDescriptionsById));
+    }
+
+    /// <summary>Un-links (deletes) every PaymentAllocation this payment produced and every
+    /// CreditAllocation later drawn FROM its retained credit -- both count toward a charge's
+    /// AllocatedAmount identically (see ChargesController's own comment), so removing both
+    /// naturally restores every affected charge's computed PaymentStatus without touching the
+    /// Charge rows themselves.</summary>
+    private async Task ReverseAllocationsAsync(Guid paymentId, CancellationToken cancellationToken)
+    {
+        var paymentAllocations = await _dbContext.PaymentAllocations
+            .Where(a => a.PaymentTransactionId == paymentId)
+            .ToListAsync(cancellationToken);
+        _dbContext.PaymentAllocations.RemoveRange(paymentAllocations);
+
+        var creditAllocations = await _dbContext.CreditAllocations
+            .Where(a => a.SourcePaymentTransactionId == paymentId)
+            .ToListAsync(cancellationToken);
+        _dbContext.CreditAllocations.RemoveRange(creditAllocations);
+    }
+
+    private string ValidateAndSanitizeReason(string reason)
+    {
+        var sanitized = _sanitizer.Sanitize(reason)!;
+        var errors = new Dictionary<string, string[]>();
+
+        if (string.IsNullOrWhiteSpace(sanitized))
+        {
+            errors["ReversalReason"] = ["Reversal reason is required."];
+        }
+        else if (sanitized.Length > 250)
+        {
+            errors["ReversalReason"] = ["Reversal reason must be 250 characters or fewer."];
+        }
+
+        if (errors.Count > 0)
+        {
+            throw new ValidationException(errors);
+        }
+
+        return sanitized;
+    }
+
+    /// <summary>
     /// The waterfall itself: loads every Active charge on the unit, works out each one's
     /// current outstanding balance (Amount + net adjustments - amount already allocated), and
     /// walks them in priority order applying as much of the payment as each charge still owes
@@ -198,6 +350,9 @@ public class PaymentsController : ControllerBase
         payment.ReferenceNumber,
         payment.Notes,
         payment.UnallocatedAmount,
+        payment.Status,
+        payment.ReversalReason,
+        payment.ReallocatedToId,
         payment.Allocations.Select(a => new PaymentAllocationSummaryResponse(
             a.ChargeId,
             chargeDescriptionsById.GetValueOrDefault(a.ChargeId, "(unknown charge)"),

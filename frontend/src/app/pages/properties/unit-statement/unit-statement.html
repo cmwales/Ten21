@@ -163,6 +163,11 @@
                   <div>
                     <p class="font-semibold text-slate-navy">
                       {{ 'tenderTypes.' + payment.tenderType | translate }} &middot; {{ payment.paymentDate }}
+                      @if (payment.status === 'Reversed') {
+                        <span class="ml-2 rounded-full bg-rose/10 px-2 py-0.5 text-xs font-semibold text-rose">
+                          {{ 'payments.action.reversedBadge' | translate }}
+                        </span>
+                      }
                     </p>
                     <p class="text-xs text-slate-navy-light">{{ 'ledger.statement.paidBy' | translate }}: {{ payment.residentName }}</p>
                     @if (payment.referenceNumber) {
@@ -171,8 +176,23 @@
                     @if (payment.notes) {
                       <p class="text-xs text-slate-navy-light">{{ payment.notes }}</p>
                     }
+                    @if (payment.reversalReason) {
+                      <p class="text-xs text-rose">{{ 'payments.action.reasonLabel' | translate }}: {{ payment.reversalReason }}</p>
+                    }
                   </div>
-                  <span class="font-semibold text-emerald">${{ payment.amountPaid }}</span>
+                  <div class="flex items-center gap-2">
+                    <span class="font-semibold text-emerald">${{ payment.amountPaid }}</span>
+                    @if (payment.status !== 'Reversed') {
+                      <button
+                        type="button"
+                        (click)="paymentActionTargetId.set(payment.id)"
+                        [attr.aria-label]="'payments.action.trigger' | translate"
+                        class="tap-target rounded-md border border-rose/40 px-2 py-1 text-xs font-semibold text-rose focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose"
+                      >
+                        {{ 'payments.action.trigger' | translate }}
+                      </button>
+                    }
+                  </div>
                 </div>
                 @if (payment.allocations.length > 0) {
                   <div class="mt-2 text-xs text-slate-navy-light">
@@ -190,6 +210,16 @@
             }
           </div>
         </section>
+
+        @if (paymentActionTargetId()) {
+          <app-payment-action-modal
+            [propertyId]="propertyId()"
+            [paymentId]="paymentActionTargetId()!"
+            [open]="true"
+            (closed)="paymentActionTargetId.set(null)"
+            (saved)="loadStatement(propertyId())"
+          />
+        }
 
         @if (statement()!.credits.length > 0) {
           <section class="mt-6">

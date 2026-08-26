@@ -412,6 +412,24 @@
       "referenceNumber": "Reference Number",
       "referenceNumberPlaceholder": "e.g. check number (optional)",
       "notes": "Notes"
+    },
+    "action": {
+      "trigger": "Reverse / Reallocate",
+      "title": "Reverse or Reallocate Payment",
+      "close": "Close",
+      "whatHappened": "What happened to this payment?",
+      "reverse": "Reverse it (NSF / bounced)",
+      "reallocate": "Reallocate it (posted to the wrong property)",
+      "targetProperty": "Correct Property",
+      "targetPropertyPlaceholder": "Select the correct property",
+      "targetResident": "Correct Resident",
+      "reason": "Reason",
+      "reasonLabel": "Reason",
+      "save": "Confirm",
+      "reversedBadge": "Reversed",
+      "reversedToast": "Payment reversed.",
+      "reallocatedToast": "Payment reallocated.",
+      "errorToast": "Something went wrong. Please try again."
     }
   },
   "refunds": {

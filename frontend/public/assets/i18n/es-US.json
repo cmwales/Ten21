@@ -412,6 +412,24 @@
       "referenceNumber": "Número de Referencia",
       "referenceNumberPlaceholder": "p. ej. número de cheque (opcional)",
       "notes": "Notas"
+    },
+    "action": {
+      "trigger": "Revertir / Reasignar",
+      "title": "Revertir o Reasignar Pago",
+      "close": "Cerrar",
+      "whatHappened": "¿Qué pasó con este pago?",
+      "reverse": "Revertirlo (rebotado / fondos insuficientes)",
+      "reallocate": "Reasignarlo (registrado en la propiedad incorrecta)",
+      "targetProperty": "Propiedad Correcta",
+      "targetPropertyPlaceholder": "Seleccione la propiedad correcta",
+      "targetResident": "Residente Correcto",
+      "reason": "Motivo",
+      "reasonLabel": "Motivo",
+      "save": "Confirmar",
+      "reversedBadge": "Revertido",
+      "reversedToast": "Pago revertido.",
+      "reallocatedToast": "Pago reasignado.",
+      "errorToast": "Algo salió mal. Inténtalo de nuevo."
     }
   },
   "refunds": {

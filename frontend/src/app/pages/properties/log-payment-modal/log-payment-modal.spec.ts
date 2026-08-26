@@ -40,6 +40,9 @@ describe('LogPaymentModal', () => {
     referenceNumber: 'CHK-1001',
     notes: null,
     unallocatedAmount: 0,
+    status: 'Cleared',
+    reversalReason: null,
+    reallocatedToId: null,
     allocations: [],
   };
 
