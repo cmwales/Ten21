@@ -1,7 +1,60 @@
-<div class="min-h-screen bg-surface px-4 py-10 sm:px-8">
-  <a routerLink="/dashboard" class="text-sm font-medium text-emerald focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald">
-    ← {{ 'nav.dashboard' | translate }}
-  </a>
-  <h1 class="mt-4 text-2xl font-bold text-slate-navy">{{ 'ledger.title' | translate }}</h1>
-  <p class="mt-2 text-slate-navy-light">{{ 'ledger.placeholder' | translate }}</p>
+<div class="flex min-h-screen flex-col bg-slate-navy">
+  <app-header />
+
+  <main class="flex flex-1 justify-center px-4 py-8">
+    <div class="w-full max-w-4xl">
+      <h1 class="text-2xl font-bold text-white">{{ 'ledger.title' | translate }}</h1>
+
+      @if (errorKey()) {
+        <div role="alert" class="mt-6 rounded-md border border-rose bg-rose/10 px-4 py-3 text-sm font-medium text-rose">
+          {{ errorKey()! | translate }}
+        </div>
+      }
+
+      @if (loading()) {
+        <p class="mt-6 text-sm text-white">{{ 'common.loading' | translate }}</p>
+      } @else if (ledger()) {
+        <div class="mt-6 rounded-xl bg-surface-card p-6 shadow-xl">
+          <p class="text-sm font-medium text-slate-navy-light">{{ 'ledger.totalBalance' | translate }}</p>
+          <p
+            class="text-3xl font-bold"
+            [class.text-rose]="ledger()!.totalBalance > 0"
+            [class.text-emerald]="ledger()!.totalBalance <= 0"
+          >
+            ${{ ledger()!.totalBalance }}
+          </p>
+        </div>
+
+        <section class="mt-6">
+          <h2 class="text-lg font-semibold text-white">{{ 'ledger.properties' | translate }}</h2>
+          <div class="mt-3 flex flex-col gap-3">
+            @if (ledger()!.properties.length === 0) {
+              <p class="rounded-xl bg-surface-card p-4 text-sm text-slate-navy-light shadow-xl">
+                {{ 'ledger.noProperties' | translate }}
+              </p>
+            }
+            @for (property of ledger()!.properties; track property.propertyId) {
+              <a
+                [routerLink]="['/properties', property.propertyId, 'ledger']"
+                class="flex items-center justify-between rounded-xl bg-surface-card p-4 shadow-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
+              >
+                <div>
+                  <p class="font-semibold text-slate-navy">
+                    {{ property.propertyName }}@if (property.unitIdentifier) {, {{ property.unitIdentifier }}}
+                  </p>
+                </div>
+                <span
+                  class="font-semibold"
+                  [class.text-rose]="property.balance > 0"
+                  [class.text-emerald]="property.balance <= 0"
+                >
+                  ${{ property.balance }}
+                </span>
+              </a>
+            }
+          </div>
+        </section>
+      }
+    </div>
+  </main>
 </div>
