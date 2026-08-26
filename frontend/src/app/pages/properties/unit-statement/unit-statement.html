@@ -12,13 +12,29 @@
             </p>
           }
         </div>
-        <a
-          [routerLink]="['/properties', propertyId()]"
-          class="tap-target flex items-center rounded-md border border-white/40 px-4 py-2 font-semibold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
-        >
-          {{ 'ledger.statement.backToProperty' | translate }}
-        </a>
+        <div class="flex items-center gap-3">
+          <button
+            type="button"
+            (click)="logPaymentModalOpen.set(true)"
+            class="tap-target flex items-center rounded-md bg-emerald px-4 py-2 font-semibold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
+          >
+            {{ 'ledger.statement.logPayment' | translate }}
+          </button>
+          <a
+            [routerLink]="['/properties', propertyId()]"
+            class="tap-target flex items-center rounded-md border border-white/40 px-4 py-2 font-semibold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
+          >
+            {{ 'ledger.statement.backToProperty' | translate }}
+          </a>
+        </div>
       </div>
+
+      <app-log-payment-modal
+        [propertyId]="propertyId()"
+        [open]="logPaymentModalOpen()"
+        (closed)="logPaymentModalOpen.set(false)"
+        (saved)="loadStatement(propertyId())"
+      />
 
       @if (errorKey()) {
         <div role="alert" class="mt-6 rounded-md border border-rose bg-rose/10 px-4 py-3 text-sm font-medium text-rose">

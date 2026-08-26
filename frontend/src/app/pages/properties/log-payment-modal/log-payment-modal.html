@@ -1,0 +1,102 @@
+@if (open) {
+  <div class="fixed inset-0 z-40 flex items-center justify-center bg-slate-navy/40 p-4" (click)="close()">
+    <div
+      class="flex max-h-[90vh] w-full max-w-md flex-col gap-6 overflow-y-auto rounded-xl bg-surface-card p-6 shadow-xl"
+      role="dialog"
+      [attr.aria-label]="'payments.modal.title' | translate"
+      (click)="$event.stopPropagation()"
+    >
+      <div class="flex items-center justify-between border-b border-slate-navy/10 pb-4">
+        <h2 class="text-xl font-bold text-slate-navy">{{ 'payments.modal.title' | translate }}</h2>
+        <button
+          type="button"
+          (click)="close()"
+          [attr.aria-label]="'payments.modal.close' | translate"
+          class="tap-target rounded-md border border-slate-navy/20 px-3 py-2 text-slate-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
+        >
+          &times;
+        </button>
+      </div>
+
+      <form [formGroup]="form" class="flex flex-col gap-4" (ngSubmit)="save()" novalidate>
+        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div class="flex flex-col gap-1.5">
+            <label for="amountPaid" class="text-sm font-medium text-slate-navy">{{ 'payments.form.amountPaid' | translate }}</label>
+            <input
+              id="amountPaid"
+              type="number"
+              min="0.01"
+              step="0.01"
+              formControlName="amountPaid"
+              [attr.aria-invalid]="form.controls.amountPaid.invalid && form.controls.amountPaid.touched"
+              class="tap-target w-full rounded-md border border-slate-navy/20 px-3 py-2 text-slate-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
+            />
+          </div>
+          <div class="flex flex-col gap-1.5">
+            <label for="paymentDate" class="text-sm font-medium text-slate-navy">{{ 'payments.form.paymentDate' | translate }}</label>
+            <input
+              id="paymentDate"
+              type="date"
+              formControlName="paymentDate"
+              [attr.aria-invalid]="form.controls.paymentDate.invalid && form.controls.paymentDate.touched"
+              class="tap-target w-full rounded-md border border-slate-navy/20 px-3 py-2 text-slate-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
+            />
+          </div>
+        </div>
+
+        <div class="flex flex-col gap-1.5">
+          <label for="tenderType" class="text-sm font-medium text-slate-navy">{{ 'payments.form.tenderType' | translate }}</label>
+          <select
+            id="tenderType"
+            formControlName="tenderType"
+            class="tap-target w-full rounded-md border border-slate-navy/20 px-3 py-2 text-slate-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
+          >
+            @for (tenderType of tenderTypes; track tenderType) {
+              <option [value]="tenderType">{{ 'tenderTypes.' + tenderType | translate }}</option>
+            }
+          </select>
+        </div>
+
+        <div class="flex flex-col gap-1.5">
+          <label for="referenceNumber" class="text-sm font-medium text-slate-navy">
+            {{ 'payments.form.referenceNumber' | translate }}
+          </label>
+          <input
+            id="referenceNumber"
+            type="text"
+            formControlName="referenceNumber"
+            [placeholder]="'payments.form.referenceNumberPlaceholder' | translate"
+            class="tap-target w-full rounded-md border border-slate-navy/20 px-3 py-2 text-slate-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
+          />
+        </div>
+
+        <div class="flex flex-col gap-1.5">
+          <label for="notes" class="text-sm font-medium text-slate-navy">{{ 'payments.form.notes' | translate }}</label>
+          <textarea
+            id="notes"
+            rows="2"
+            formControlName="notes"
+            class="tap-target w-full rounded-md border border-slate-navy/20 px-3 py-2 text-slate-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
+          ></textarea>
+        </div>
+
+        <div class="flex justify-end gap-3 border-t border-slate-navy/10 pt-4">
+          <button
+            type="button"
+            (click)="close()"
+            class="tap-target rounded-md border border-slate-navy/20 px-4 py-2 font-semibold text-slate-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
+          >
+            {{ 'charges.form.cancel' | translate }}
+          </button>
+          <button
+            type="submit"
+            [disabled]="submitting()"
+            class="tap-target rounded-md bg-emerald px-4 py-2 font-semibold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald disabled:opacity-60"
+          >
+            {{ (submitting() ? 'charges.form.saving' : 'payments.modal.save') | translate }}
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+}

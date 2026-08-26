@@ -6,23 +6,23 @@ import { ChargeService } from '../../../core/services/charge.service';
 import { UnitStatementResponse } from '../../../core/models/ledger.models';
 import { PropertyService } from '../../../core/services/property.service';
 import { AppHeader } from '../../../shared/app-header/app-header';
+import { LogPaymentModal } from '../log-payment-modal/log-payment-modal';
 
 /**
- * US-33: the "lifetime financial statement screen" for one unit -- every charge (with its
- * adjustments nested directly beneath it), every logged payment, and the dynamic running
+ * US-33/US-34: the "lifetime financial statement screen" for one unit -- every charge (with
+ * its adjustments nested directly beneath it), every logged payment, and the dynamic running
  * Balance. In this codebase's flattened Property model (one Property row = one door/unit,
  * see Property's own class comment), a unit's statement and "the property's ledger" are the
  * same thing -- so this page also serves as US-36's per-property ledger view, at the exact
  * route (/properties/:id/ledger) that story names.
  *
- * The "Log Payment" quick action the acceptance criteria calls for ships with US-34
- * (Multi-Tender Manual Payment Entry), not here -- a button with no working modal behind it
- * yet would be a half-finished feature; the trigger and its form are one cohesive unit best
- * shipped together.
+ * The "Log Payment" quick action (US-34) opens LogPaymentModal, which posts the payment and
+ * lets the server run the statutory waterfall allocation; on success this page just reloads
+ * the statement so the new payment/allocations/balance show up.
  */
 @Component({
   selector: 'app-unit-statement',
-  imports: [TranslatePipe, RouterLink, AppHeader],
+  imports: [TranslatePipe, RouterLink, AppHeader, LogPaymentModal],
   templateUrl: './unit-statement.html',
 })
 export class UnitStatement implements OnInit {
@@ -35,6 +35,7 @@ export class UnitStatement implements OnInit {
   protected readonly statement = signal<UnitStatementResponse | null>(null);
   protected readonly loading = signal(true);
   protected readonly errorKey = signal<string | null>(null);
+  protected readonly logPaymentModalOpen = signal(false);
 
   ngOnInit(): void {
     const id = this.route.snapshot.paramMap.get('id');
@@ -48,7 +49,11 @@ export class UnitStatement implements OnInit {
     this.propertyService.getProperty(id).subscribe({
       next: (property) => this.property.set(property),
     });
-    this.chargeService.getStatement(id).subscribe({
+    this.loadStatement(id);
+  }
+
+  protected loadStatement(propertyId: string): void {
+    this.chargeService.getStatement(propertyId).subscribe({
       next: (statement) => {
         this.statement.set(statement);
         this.loading.set(false);

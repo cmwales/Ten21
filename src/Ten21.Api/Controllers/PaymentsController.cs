@@ -1,0 +1,216 @@
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using Ten21.Api.Contracts.Charges;
+using Ten21.Application.Abstractions;
+using Ten21.Domain.Common;
+using Ten21.Domain.Entities;
+using Ten21.Domain.Enums;
+using Ten21.Domain.Exceptions;
+using Ten21.Infrastructure.Persistence;
+
+namespace Ten21.Api.Controllers;
+
+/// <summary>
+/// US-34: logging a manually-received payment against a property and running the statutory
+/// waterfall allocation against that unit's outstanding Charges. Separate from
+/// ChargesController because PaymentTransaction is its own resource (append-only, never
+/// edited/deleted -- see that entity's own comment), even though both read from/write to the
+/// same unit ledger. Same BOLA/IDOR-safe convention as ChargesController: nested under
+/// Property, every action re-checks PropertyId == the route's propertyId.
+/// </summary>
+[ApiController]
+[Route("api/properties/{propertyId:guid}/payments")]
+public class PaymentsController : ControllerBase
+{
+    private readonly Ten21DbContext _dbContext;
+    private readonly IInputSanitizer _sanitizer;
+
+    public PaymentsController(Ten21DbContext dbContext, IInputSanitizer sanitizer)
+    {
+        _dbContext = dbContext;
+        _sanitizer = sanitizer;
+    }
+
+    [HttpGet("{id:guid}")]
+    [Authorize(Policy = Permissions.Ledger.Read)]
+    public async Task<IActionResult> GetPayment(Guid propertyId, Guid id, CancellationToken cancellationToken)
+    {
+        var payment = await _dbContext.PaymentTransactions
+            .Include(p => p.Allocations)
+            .FirstOrDefaultAsync(p => p.PropertyId == propertyId && p.Id == id, cancellationToken)
+            ?? throw new NotFoundException($"Payment '{id}' was not found on this property.");
+
+        var chargeDescriptionsById = await GetChargeDescriptionsAsync(payment.Allocations.Select(a => a.ChargeId), cancellationToken);
+        return Ok(ToResponse(payment, chargeDescriptionsById));
+    }
+
+    /// <summary>
+    /// US-34: creates the PaymentTransaction, then immediately allocates the full AmountPaid
+    /// across the property's outstanding Charges in statutory priority order (Charge's own
+    /// stored AllocationPriority, ascending -- lower number = paid first), oldest DueDate
+    /// first within the same priority. Any amount left over once every outstanding charge is
+    /// satisfied (an overpayment) is deliberately left unallocated: it still counts toward the
+    /// unit's Balance via PaymentTransaction.AmountPaid (see UnitStatementResponse's balance
+    /// formula), it just isn't tied to any one charge.
+    /// </summary>
+    [HttpPost]
+    [Authorize(Policy = Permissions.Ledger.Write)]
+    public async Task<IActionResult> LogPayment(
+        Guid propertyId, [FromBody] LogPaymentRequest request, CancellationToken cancellationToken)
+    {
+        await EnsurePropertyExistsAsync(propertyId, cancellationToken);
+        var fields = ValidateAndSanitize(request);
+
+        var payment = new PaymentTransaction
+        {
+            Id = Guid.NewGuid(),
+            PropertyId = propertyId,
+            PaymentDate = request.PaymentDate,
+            AmountPaid = request.AmountPaid,
+            TenderType = request.TenderType,
+            ReferenceNumber = fields.ReferenceNumber,
+            Notes = fields.Notes,
+            CreatedAt = DateTimeOffset.UtcNow,
+        };
+        _dbContext.PaymentTransactions.Add(payment);
+
+        var allocations = await BuildWaterfallAllocationsAsync(propertyId, payment.Id, request.AmountPaid, cancellationToken);
+        _dbContext.PaymentAllocations.AddRange(allocations);
+        payment.Allocations = allocations;
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        var chargeDescriptionsById = await GetChargeDescriptionsAsync(allocations.Select(a => a.ChargeId), cancellationToken);
+        return CreatedAtAction(
+            nameof(GetPayment), new { propertyId, id = payment.Id }, ToResponse(payment, chargeDescriptionsById));
+    }
+
+    /// <summary>
+    /// The waterfall itself: loads every Active charge on the unit, works out each one's
+    /// current outstanding balance (Amount + net adjustments - amount already allocated), and
+    /// walks them in priority order applying as much of the payment as each charge still owes
+    /// until either the payment is exhausted or every charge is satisfied. Voided charges are
+    /// excluded (nothing is owed on them), same as the read-side balance calc in
+    /// ChargesController.GetStatement.
+    /// </summary>
+    private async Task<List<PaymentAllocation>> BuildWaterfallAllocationsAsync(
+        Guid propertyId, Guid paymentTransactionId, decimal amountToAllocate, CancellationToken cancellationToken)
+    {
+        var activeCharges = await _dbContext.Charges
+            .Where(c => c.PropertyId == propertyId && c.Status == ChargeLifecycleStatus.Active)
+            .ToListAsync(cancellationToken);
+        var chargeIds = activeCharges.Select(c => c.Id).ToList();
+
+        var existingAllocations = await _dbContext.PaymentAllocations
+            .Where(a => chargeIds.Contains(a.ChargeId))
+            .ToListAsync(cancellationToken);
+        var existingAdjustments = await _dbContext.ChargeAdjustments
+            .Where(a => chargeIds.Contains(a.TargetChargeId))
+            .ToListAsync(cancellationToken);
+
+        var orderedCharges = activeCharges
+            .OrderBy(c => c.AllocationPriority)
+            .ThenBy(c => c.DueDate)
+            .ToList();
+
+        var newAllocations = new List<PaymentAllocation>();
+        var remaining = amountToAllocate;
+
+        foreach (var charge in orderedCharges)
+        {
+            if (remaining <= 0)
+            {
+                break;
+            }
+
+            var alreadyAllocated = existingAllocations.Where(a => a.ChargeId == charge.Id).Sum(a => a.AllocatedAmount);
+            var netAdjustment = existingAdjustments.Where(a => a.TargetChargeId == charge.Id)
+                .Sum(a => a.AdjustmentType == AdjustmentType.DebitAdjustment ? a.Amount : -a.Amount);
+            var outstanding = Math.Max(0m, charge.Amount + netAdjustment - alreadyAllocated);
+
+            if (outstanding <= 0)
+            {
+                continue;
+            }
+
+            var amountToApply = Math.Min(remaining, outstanding);
+            newAllocations.Add(new PaymentAllocation
+            {
+                Id = Guid.NewGuid(),
+                PaymentTransactionId = paymentTransactionId,
+                ChargeId = charge.Id,
+                AllocatedAmount = amountToApply,
+                CreatedAt = DateTimeOffset.UtcNow,
+            });
+            remaining -= amountToApply;
+        }
+
+        return newAllocations;
+    }
+
+    private async Task EnsurePropertyExistsAsync(Guid propertyId, CancellationToken cancellationToken)
+    {
+        var exists = await _dbContext.Properties.AnyAsync(p => p.Id == propertyId, cancellationToken);
+        if (!exists)
+        {
+            throw new NotFoundException($"Property '{propertyId}' was not found.");
+        }
+    }
+
+    private async Task<Dictionary<Guid, string>> GetChargeDescriptionsAsync(IEnumerable<Guid> chargeIds, CancellationToken cancellationToken)
+    {
+        var ids = chargeIds.Distinct().ToList();
+        return await _dbContext.Charges
+            .Where(c => ids.Contains(c.Id))
+            .ToDictionaryAsync(c => c.Id, c => c.Description, cancellationToken);
+    }
+
+    private static PaymentTransactionResponse ToResponse(PaymentTransaction payment, Dictionary<Guid, string> chargeDescriptionsById) => new(
+        payment.Id,
+        payment.PropertyId,
+        payment.PaymentDate,
+        payment.AmountPaid,
+        payment.TenderType,
+        payment.ReferenceNumber,
+        payment.Notes,
+        payment.Allocations.Select(a => new PaymentAllocationSummaryResponse(
+            a.ChargeId,
+            chargeDescriptionsById.GetValueOrDefault(a.ChargeId, "(unknown charge)"),
+            a.AllocatedAmount)).ToList());
+
+    private sealed record SanitizedFields(string? ReferenceNumber, string? Notes);
+
+    private SanitizedFields ValidateAndSanitize(LogPaymentRequest request)
+    {
+        var referenceNumber = NullIfBlank(_sanitizer.Sanitize(request.ReferenceNumber));
+        var notes = NullIfBlank(_sanitizer.Sanitize(request.Notes));
+
+        var errors = new Dictionary<string, string[]>();
+
+        if (request.AmountPaid <= 0)
+        {
+            errors[nameof(request.AmountPaid)] = ["Amount paid must be greater than zero."];
+        }
+
+        if (referenceNumber is { Length: > 100 })
+        {
+            errors[nameof(request.ReferenceNumber)] = ["Reference number must be 100 characters or fewer."];
+        }
+
+        if (notes is { Length: > 500 })
+        {
+            errors[nameof(request.Notes)] = ["Notes must be 500 characters or fewer."];
+        }
+
+        if (errors.Count > 0)
+        {
+            throw new ValidationException(errors);
+        }
+
+        return new SanitizedFields(referenceNumber, notes);
+    }
+
+    private static string? NullIfBlank(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? null : value;
+}
