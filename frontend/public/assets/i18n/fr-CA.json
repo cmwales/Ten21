@@ -429,7 +429,10 @@
   },
   "ledger": {
     "title": "Grand Livre Financier",
-    "placeholder": "Les vues détaillées du grand livre arriveront dans une phase ultérieure.",
+    "totalBalance": "Solde Total du Portefeuille",
+    "properties": "Propriétés",
+    "noProperties": "Aucune propriété pour le moment.",
+    "loadError": "Une erreur s'est produite lors du chargement du grand livre de l'espace de travail.",
     "viewStatement": "Voir le Relevé",
     "statement": {
       "title": "Relevé de l'Unité",

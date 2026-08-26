@@ -429,7 +429,10 @@
   },
   "ledger": {
     "title": "Libro Contable Financiero",
-    "placeholder": "Las vistas detalladas del libro contable llegarán en una fase posterior.",
+    "totalBalance": "Saldo Total de la Cartera",
+    "properties": "Propiedades",
+    "noProperties": "Aún no hay propiedades.",
+    "loadError": "Algo salió mal al cargar el libro contable del espacio de trabajo.",
     "viewStatement": "Ver Estado de Cuenta",
     "statement": {
       "title": "Estado de Cuenta de la Unidad",

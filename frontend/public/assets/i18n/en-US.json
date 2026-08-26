@@ -429,7 +429,10 @@
   },
   "ledger": {
     "title": "Financial Ledger",
-    "placeholder": "Ledger detail views are coming in a later phase.",
+    "totalBalance": "Total Portfolio Balance",
+    "properties": "Properties",
+    "noProperties": "No properties yet.",
+    "loadError": "Something went wrong loading the workspace ledger.",
     "viewStatement": "View Statement",
     "statement": {
       "title": "Unit Statement",
