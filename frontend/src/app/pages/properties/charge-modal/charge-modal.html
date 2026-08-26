@@ -20,6 +20,66 @@
 
       @if (loading()) {
         <p class="text-sm text-slate-navy-light">{{ 'common.loading' | translate }}</p>
+      } @else if (adjustingCharge()) {
+        <form [formGroup]="adjustmentForm" class="flex flex-col gap-4" (ngSubmit)="saveAdjustment()" novalidate>
+          <p class="text-sm text-slate-navy-light">
+            {{ 'charges.modal.adjustingHint' | translate }} <span class="font-semibold text-slate-navy">{{ adjustingCharge()!.description }}</span>
+          </p>
+
+          <div class="flex flex-col gap-1.5">
+            <label for="adjustmentType" class="text-sm font-medium text-slate-navy">{{ 'charges.form.adjustmentType' | translate }}</label>
+            <select
+              id="adjustmentType"
+              formControlName="adjustmentType"
+              class="tap-target w-full rounded-md border border-slate-navy/20 px-3 py-2 text-slate-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
+            >
+              @for (adjustmentType of adjustmentTypes; track adjustmentType) {
+                <option [value]="adjustmentType">{{ 'ledger.statement.adjustmentTypes.' + adjustmentType | translate }}</option>
+              }
+            </select>
+          </div>
+
+          <div class="flex flex-col gap-1.5">
+            <label for="adjustmentAmount" class="text-sm font-medium text-slate-navy">{{ 'charges.form.amount' | translate }}</label>
+            <input
+              id="adjustmentAmount"
+              type="number"
+              min="0.01"
+              step="0.01"
+              formControlName="amount"
+              [attr.aria-invalid]="adjustmentForm.controls.amount.invalid && adjustmentForm.controls.amount.touched"
+              class="tap-target w-full rounded-md border border-slate-navy/20 px-3 py-2 text-slate-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
+            />
+          </div>
+
+          <div class="flex flex-col gap-1.5">
+            <label for="reason" class="text-sm font-medium text-slate-navy">{{ 'charges.form.reason' | translate }}</label>
+            <textarea
+              id="reason"
+              rows="2"
+              formControlName="reason"
+              [attr.aria-invalid]="adjustmentForm.controls.reason.invalid && adjustmentForm.controls.reason.touched"
+              class="tap-target w-full rounded-md border border-slate-navy/20 px-3 py-2 text-slate-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
+            ></textarea>
+          </div>
+
+          <div class="flex justify-end gap-3 border-t border-slate-navy/10 pt-4">
+            <button
+              type="button"
+              (click)="cancelAdjust()"
+              class="tap-target rounded-md border border-slate-navy/20 px-4 py-2 font-semibold text-slate-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
+            >
+              {{ 'charges.form.cancel' | translate }}
+            </button>
+            <button
+              type="submit"
+              [disabled]="submitting()"
+              class="tap-target rounded-md bg-emerald px-4 py-2 font-semibold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald disabled:opacity-60"
+            >
+              {{ (submitting() ? 'charges.form.saving' : 'charges.form.save') | translate }}
+            </button>
+          </div>
+        </form>
       } @else if (!showForm()) {
         <div class="flex flex-col gap-4">
           @if (charges().length === 0) {
@@ -33,29 +93,54 @@
                   <p class="font-semibold text-slate-navy">{{ charge.description }}</p>
                   <span class="text-xs text-slate-navy-light">{{ 'charges.categories.' + charge.category | translate }}</span>
                 </div>
-                <button
-                  type="button"
-                  (click)="deleteCharge(charge)"
-                  [disabled]="charge.isLocked"
-                  [attr.title]="charge.isLocked ? ('charges.modal.lockedHint' | translate) : null"
-                  [attr.aria-label]="'charges.modal.remove' | translate"
-                  class="tap-target rounded-md border border-rose/40 px-3 py-1.5 text-sm font-semibold text-rose focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  {{ 'charges.modal.remove' | translate }}
-                </button>
+                @if (charge.status === 'Voided') {
+                  <span class="rounded-full bg-slate-navy/10 px-2 py-0.5 text-xs font-semibold text-slate-navy">
+                    {{ 'ledger.statement.voided' | translate }}
+                  </span>
+                } @else if (charge.isLocked) {
+                  <button
+                    type="button"
+                    (click)="startAdjust(charge)"
+                    [attr.aria-label]="'charges.modal.adjust' | translate"
+                    class="tap-target rounded-md border border-slate-navy/40 px-3 py-1.5 text-sm font-semibold text-slate-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
+                  >
+                    {{ 'charges.modal.adjust' | translate }}
+                  </button>
+                } @else {
+                  <div class="flex gap-2">
+                    <button
+                      type="button"
+                      (click)="voidCharge(charge)"
+                      [attr.aria-label]="'charges.modal.void' | translate"
+                      class="tap-target rounded-md border border-slate-navy/40 px-3 py-1.5 text-sm font-semibold text-slate-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
+                    >
+                      {{ 'charges.modal.void' | translate }}
+                    </button>
+                    <button
+                      type="button"
+                      (click)="deleteCharge(charge)"
+                      [attr.aria-label]="'charges.modal.remove' | translate"
+                      class="tap-target rounded-md border border-rose/40 px-3 py-1.5 text-sm font-semibold text-rose focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose"
+                    >
+                      {{ 'charges.modal.remove' | translate }}
+                    </button>
+                  </div>
+                }
               </div>
               <div class="flex flex-wrap items-center gap-2">
                 <p class="text-sm text-slate-navy">${{ charge.amount }} &middot; {{ 'charges.modal.dueOn' | translate }} {{ charge.dueDate }}</p>
-                <span
-                  class="rounded-full px-2 py-0.5 text-xs font-semibold"
-                  [class.bg-emerald]="charge.paymentStatus === 'Paid'"
-                  [class.bg-amber]="charge.paymentStatus === 'Partial'"
-                  [class.bg-rose]="charge.paymentStatus === 'Unpaid'"
-                  [class.text-white]="charge.paymentStatus === 'Paid' || charge.paymentStatus === 'Unpaid'"
-                  [class.text-slate-navy]="charge.paymentStatus === 'Partial'"
-                >
-                  {{ 'charges.paymentStatuses.' + charge.paymentStatus | translate }}
-                </span>
+                @if (charge.status !== 'Voided') {
+                  <span
+                    class="rounded-full px-2 py-0.5 text-xs font-semibold"
+                    [class.bg-emerald]="charge.paymentStatus === 'Paid'"
+                    [class.bg-amber]="charge.paymentStatus === 'Partial'"
+                    [class.bg-rose]="charge.paymentStatus === 'Unpaid'"
+                    [class.text-white]="charge.paymentStatus === 'Paid' || charge.paymentStatus === 'Unpaid'"
+                    [class.text-slate-navy]="charge.paymentStatus === 'Partial'"
+                  >
+                    {{ 'charges.paymentStatuses.' + charge.paymentStatus | translate }}
+                  </span>
+                }
               </div>
             </div>
           }

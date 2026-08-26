@@ -307,4 +307,109 @@ public class ChargesControllerTests : IDisposable
         var statement = Assert.IsType<UnitStatementResponse>(Assert.IsType<OkObjectResult>(result).Value);
         Assert.Equal(0m, statement.Balance);
     }
+
+    [Fact]
+    public async Task VoidCharge_MarksVoided_WhenUnlocked()
+    {
+        var (db, controller) = CreateController(Guid.NewGuid());
+        var property = await SeedPropertyAsync(db);
+        var created = await controller.CreateCharge(property.Id, NewRequest(), CancellationToken.None);
+        var id = Assert.IsType<ChargeResponse>(Assert.IsType<CreatedAtActionResult>(created).Value).Id;
+
+        var result = await controller.VoidCharge(property.Id, id, CancellationToken.None);
+
+        var response = Assert.IsType<ChargeResponse>(Assert.IsType<OkObjectResult>(result).Value);
+        Assert.Equal(ChargeLifecycleStatus.Voided, response.Status);
+        Assert.Equal(0m, response.OutstandingAmount);
+    }
+
+    [Fact]
+    public async Task VoidCharge_ThrowsConflict_OnceAPaymentHasBeenAllocated()
+    {
+        var (db, controller) = CreateController(Guid.NewGuid());
+        var property = await SeedPropertyAsync(db);
+        var created = await controller.CreateCharge(property.Id, NewRequest(), CancellationToken.None);
+        var id = Assert.IsType<ChargeResponse>(Assert.IsType<CreatedAtActionResult>(created).Value).Id;
+        await AllocatePaymentAsync(db, id, 25m);
+
+        await Assert.ThrowsAsync<ConflictException>(() => controller.VoidCharge(property.Id, id, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task VoidCharge_ThrowsConflict_WhenAlreadyVoided()
+    {
+        var (db, controller) = CreateController(Guid.NewGuid());
+        var property = await SeedPropertyAsync(db);
+        var created = await controller.CreateCharge(property.Id, NewRequest(), CancellationToken.None);
+        var id = Assert.IsType<ChargeResponse>(Assert.IsType<CreatedAtActionResult>(created).Value).Id;
+        await controller.VoidCharge(property.Id, id, CancellationToken.None);
+
+        await Assert.ThrowsAsync<ConflictException>(() => controller.VoidCharge(property.Id, id, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task CreateChargeAdjustment_ReducesOutstandingAmount_OnALockedCharge()
+    {
+        var (db, controller) = CreateController(Guid.NewGuid());
+        var property = await SeedPropertyAsync(db);
+        var created = await controller.CreateCharge(property.Id, NewRequest(), CancellationToken.None);
+        var id = Assert.IsType<ChargeResponse>(Assert.IsType<CreatedAtActionResult>(created).Value).Id;
+        await AllocatePaymentAsync(db, id, 25m); // locks the charge -- Update/Delete/Void would now throw
+
+        var result = await controller.CreateChargeAdjustment(
+            property.Id, id, new CreateChargeAdjustmentRequest(AdjustmentType.CreditAdjustment, 50m, "Goodwill credit for late maintenance"),
+            CancellationToken.None);
+
+        var created201 = Assert.IsType<ObjectResult>(result);
+        Assert.Equal(201, created201.StatusCode);
+        var adjustmentResponse = Assert.IsType<ChargeAdjustmentResponse>(created201.Value);
+        Assert.Equal(50m, adjustmentResponse.Amount);
+
+        var chargeAfter = Assert.IsType<ChargeResponse>(Assert.IsType<OkObjectResult>(
+            await controller.GetCharge(property.Id, id, CancellationToken.None)).Value);
+        // Amount(75) - CreditAdjustment(50) - Allocated(25) = 0 outstanding.
+        Assert.Equal(0m, chargeAfter.OutstandingAmount);
+        Assert.Equal(ChargePaymentStatus.Paid, chargeAfter.PaymentStatus);
+    }
+
+    [Fact]
+    public async Task CreateChargeAdjustment_ThrowsValidationException_WhenReasonIsMissing()
+    {
+        var (db, controller) = CreateController(Guid.NewGuid());
+        var property = await SeedPropertyAsync(db);
+        var created = await controller.CreateCharge(property.Id, NewRequest(), CancellationToken.None);
+        var id = Assert.IsType<ChargeResponse>(Assert.IsType<CreatedAtActionResult>(created).Value).Id;
+
+        await Assert.ThrowsAsync<ValidationException>(() => controller.CreateChargeAdjustment(
+            property.Id, id, new CreateChargeAdjustmentRequest(AdjustmentType.DebitAdjustment, 10m, ""), CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task CreateChargeAdjustment_ThrowsValidationException_WhenAmountIsNotPositive()
+    {
+        var (db, controller) = CreateController(Guid.NewGuid());
+        var property = await SeedPropertyAsync(db);
+        var created = await controller.CreateCharge(property.Id, NewRequest(), CancellationToken.None);
+        var id = Assert.IsType<ChargeResponse>(Assert.IsType<CreatedAtActionResult>(created).Value).Id;
+
+        await Assert.ThrowsAsync<ValidationException>(() => controller.CreateChargeAdjustment(
+            property.Id, id, new CreateChargeAdjustmentRequest(AdjustmentType.DebitAdjustment, 0m, "Late fee correction"), CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task CreateChargeAdjustment_DebitIncreasesOutstandingAmount_OnAnUnlockedCharge()
+    {
+        var (db, controller) = CreateController(Guid.NewGuid());
+        var property = await SeedPropertyAsync(db);
+        var created = await controller.CreateCharge(property.Id, NewRequest(), CancellationToken.None);
+        var id = Assert.IsType<ChargeResponse>(Assert.IsType<CreatedAtActionResult>(created).Value).Id;
+
+        await controller.CreateChargeAdjustment(
+            property.Id, id, new CreateChargeAdjustmentRequest(AdjustmentType.DebitAdjustment, 15m, "Additional cleaning cost found"),
+            CancellationToken.None);
+
+        var chargeAfter = Assert.IsType<ChargeResponse>(Assert.IsType<OkObjectResult>(
+            await controller.GetCharge(property.Id, id, CancellationToken.None)).Value);
+        Assert.Equal(90m, chargeAfter.OutstandingAmount); // 75 + 15 debit, still unpaid
+    }
 }

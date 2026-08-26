@@ -143,4 +143,81 @@ describe('ChargeModal', () => {
 
     expect(emitted).toHaveBeenCalled();
   });
+
+  it('voidCharge() calls POST .../void and reloads the list', () => {
+    const component = createComponent();
+    open(component);
+
+    component['voidCharge'](charge);
+
+    const req = httpMock.expectOne('/api/properties/prop-1/charges/charge-1/void');
+    expect(req.request.method).toBe('POST');
+    req.flush({ success: true, data: { ...charge, status: 'Voided' }, message: null, statusCode: 200, traceId: 't1' } satisfies ApiResponse<ChargeResponse>);
+
+    const reload = httpMock.expectOne('/api/properties/prop-1/charges');
+    reload.flush({ success: true, data: [charge], message: null, statusCode: 200, traceId: 't1' } satisfies ApiResponse<ChargeResponse[]>);
+
+    expect(toastService.show).toHaveBeenCalledWith('charges.modal.voidedToast');
+  });
+
+  it('voidCharge() shows a locked-error toast when the server rejects it', () => {
+    const component = createComponent();
+    open(component);
+
+    component['voidCharge']({ ...charge, isLocked: true });
+
+    const req = httpMock.expectOne('/api/properties/prop-1/charges/charge-1/void');
+    req.flush({ type: 'about:blank', title: 'Conflict', status: 409 }, { status: 409, statusText: 'Conflict' });
+
+    expect(toastService.show).toHaveBeenCalledWith('charges.modal.lockedErrorToast');
+  });
+
+  it('startAdjust() shows a form defaulted to CreditAdjustment, and saveAdjustment() posts against the charge', () => {
+    const component = createComponent();
+    open(component);
+
+    component['startAdjust'](charge);
+    expect(component['adjustingCharge']()).toEqual(charge);
+    expect(component['adjustmentForm'].controls.adjustmentType.value).toBe('CreditAdjustment');
+    component['adjustmentForm'].patchValue({ amount: 25, reason: 'Goodwill credit for late maintenance' });
+
+    component['saveAdjustment']();
+
+    const req = httpMock.expectOne('/api/properties/prop-1/charges/charge-1/adjustments');
+    expect(req.request.method).toBe('POST');
+    expect(req.request.body).toEqual({ adjustmentType: 'CreditAdjustment', amount: 25, reason: 'Goodwill credit for late maintenance' });
+    req.flush({
+      success: true,
+      data: { id: 'adj-1', adjustmentType: 'CreditAdjustment', amount: 25, reason: 'Goodwill credit for late maintenance', createdAt: '2026-09-05T00:00:00Z' },
+      message: null,
+      statusCode: 201,
+      traceId: 't1',
+    });
+
+    const reload = httpMock.expectOne('/api/properties/prop-1/charges');
+    reload.flush({ success: true, data: [charge], message: null, statusCode: 200, traceId: 't1' } satisfies ApiResponse<ChargeResponse[]>);
+
+    expect(toastService.show).toHaveBeenCalledWith('charges.modal.adjustedToast');
+    expect(component['adjustingCharge']()).toBeNull();
+  });
+
+  it('does not submit an invalid adjustment form', () => {
+    const component = createComponent();
+    open(component);
+    component['startAdjust'](charge); // amount/reason required, left at defaults
+
+    component['saveAdjustment']();
+
+    httpMock.expectNone('/api/properties/prop-1/charges/charge-1/adjustments');
+  });
+
+  it('cancelAdjust() clears the adjusting charge', () => {
+    const component = createComponent();
+    open(component);
+    component['startAdjust'](charge);
+
+    component['cancelAdjust']();
+
+    expect(component['adjustingCharge']()).toBeNull();
+  });
 });

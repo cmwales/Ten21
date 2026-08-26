@@ -37,6 +37,16 @@ public record ChargeAdjustmentResponse(
     string Reason,
     DateTimeOffset CreatedAt);
 
+/// <summary>US-35: the ONLY way to change what's owed on a locked charge (one with a payment
+/// already allocated) -- Reason is mandatory because this is a financial correction, not a
+/// convenience edit; unlike UpdateCharge/DeleteCharge/VoidCharge, this works on locked charges
+/// on purpose (that's the whole point of ChargeAdjustment existing) and also works on unlocked
+/// ones (e.g. a goodwill credit that shouldn't touch the charge's own stored Amount).</summary>
+public record CreateChargeAdjustmentRequest(
+    AdjustmentType AdjustmentType,
+    decimal Amount,
+    string Reason);
+
 /// <summary>US-33: one charge row on the unit statement, with its adjustments nested
 /// directly beneath it (per the acceptance criteria's "adjustments render indented beneath
 /// their target charge row").</summary>
