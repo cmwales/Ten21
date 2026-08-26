@@ -8,9 +8,11 @@ import { UnitStatementResponse } from '../../../core/models/ledger.models';
 import { PropertyService } from '../../../core/services/property.service';
 import { ToastService } from '../../../core/services/toast.service';
 import { AppHeader } from '../../../shared/app-header/app-header';
+import { CollectDepositModal } from '../collect-deposit-modal/collect-deposit-modal';
 import { LogPaymentModal } from '../log-payment-modal/log-payment-modal';
 import { PaymentActionModal } from '../payment-action-modal/payment-action-modal';
 import { RefundCreditModal } from '../refund-credit-modal/refund-credit-modal';
+import { SettleDepositModal } from '../settle-deposit-modal/settle-deposit-modal';
 
 /**
  * US-33/US-34/US-37: the "lifetime financial statement screen" for one unit -- every charge
@@ -30,7 +32,16 @@ import { RefundCreditModal } from '../refund-credit-modal/refund-credit-modal';
  */
 @Component({
   selector: 'app-unit-statement',
-  imports: [TranslatePipe, RouterLink, AppHeader, LogPaymentModal, RefundCreditModal, PaymentActionModal],
+  imports: [
+    TranslatePipe,
+    RouterLink,
+    AppHeader,
+    LogPaymentModal,
+    RefundCreditModal,
+    PaymentActionModal,
+    CollectDepositModal,
+    SettleDepositModal,
+  ],
   templateUrl: './unit-statement.html',
 })
 export class UnitStatement implements OnInit {
@@ -49,6 +60,8 @@ export class UnitStatement implements OnInit {
   protected readonly refundModalOpen = signal(false);
   protected readonly applyingCredits = signal(false);
   protected readonly paymentActionTargetId = signal<string | null>(null);
+  protected readonly collectDepositModalOpen = signal(false);
+  protected readonly settleDepositTargetId = signal<string | null>(null);
 
   ngOnInit(): void {
     const id = this.route.snapshot.paramMap.get('id');

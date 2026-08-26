@@ -1,0 +1,80 @@
+@if (open) {
+  <div class="fixed inset-0 z-40 flex items-center justify-center bg-slate-navy/40 p-4" (click)="close()">
+    <div
+      class="flex max-h-[90vh] w-full max-w-md flex-col gap-6 overflow-y-auto rounded-xl bg-surface-card p-6 shadow-xl"
+      role="dialog"
+      [attr.aria-label]="'deposits.modal.collectTitle' | translate"
+      (click)="$event.stopPropagation()"
+    >
+      <div class="flex items-center justify-between border-b border-slate-navy/10 pb-4">
+        <h2 class="text-xl font-bold text-slate-navy">{{ 'deposits.modal.collectTitle' | translate }}</h2>
+        <button
+          type="button"
+          (click)="close()"
+          [attr.aria-label]="'deposits.modal.close' | translate"
+          class="tap-target rounded-md border border-slate-navy/20 px-3 py-2 text-slate-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
+        >
+          &times;
+        </button>
+      </div>
+
+      <form [formGroup]="form" class="flex flex-col gap-4" (ngSubmit)="save()" novalidate>
+        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div class="flex flex-col gap-1.5">
+            <label for="depositAmount" class="text-sm font-medium text-slate-navy">{{ 'deposits.form.amount' | translate }}</label>
+            <input
+              id="depositAmount"
+              type="number"
+              min="0.01"
+              step="0.01"
+              formControlName="amount"
+              [attr.aria-invalid]="form.controls.amount.invalid && form.controls.amount.touched"
+              class="tap-target w-full rounded-md border border-slate-navy/20 px-3 py-2 text-slate-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
+            />
+          </div>
+          <div class="flex flex-col gap-1.5">
+            <label for="collectedDate" class="text-sm font-medium text-slate-navy">{{ 'deposits.form.collectedDate' | translate }}</label>
+            <input
+              id="collectedDate"
+              type="date"
+              formControlName="collectedDate"
+              [attr.aria-invalid]="form.controls.collectedDate.invalid && form.controls.collectedDate.touched"
+              class="tap-target w-full rounded-md border border-slate-navy/20 px-3 py-2 text-slate-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
+            />
+          </div>
+        </div>
+
+        <div class="flex flex-col gap-1.5">
+          <label for="depositResidentProfileId" class="text-sm font-medium text-slate-navy">{{ 'payments.form.paidBy' | translate }}</label>
+          <select
+            id="depositResidentProfileId"
+            formControlName="residentProfileId"
+            class="tap-target w-full rounded-md border border-slate-navy/20 px-3 py-2 text-slate-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
+          >
+            <option value="">{{ 'deposits.form.residentAutoDefault' | translate }}</option>
+            @for (resident of residents(); track resident.id) {
+              <option [value]="resident.id">{{ resident.firstName }} {{ resident.lastName }}</option>
+            }
+          </select>
+        </div>
+
+        <div class="flex justify-end gap-3 border-t border-slate-navy/10 pt-4">
+          <button
+            type="button"
+            (click)="close()"
+            class="tap-target rounded-md border border-slate-navy/20 px-4 py-2 font-semibold text-slate-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
+          >
+            {{ 'charges.form.cancel' | translate }}
+          </button>
+          <button
+            type="submit"
+            [disabled]="submitting()"
+            class="tap-target rounded-md bg-emerald px-4 py-2 font-semibold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald disabled:opacity-60"
+          >
+            {{ (submitting() ? 'charges.form.saving' : 'deposits.modal.collectSave') | translate }}
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+}

@@ -1,4 +1,5 @@
 using Ten21.Api.Contracts.Credits;
+using Ten21.Api.Contracts.Deposits;
 using Ten21.Domain.Enums;
 
 namespace Ten21.Api.Contracts.Charges;
@@ -139,12 +140,19 @@ public record CreditAllocationResponse(
 /// "Apply Credits to Charges" / "Refund Credit Balance" actually operate against. It never
 /// changes Balance itself; applying credit just moves money from here into a charge's
 /// AllocatedAmount, and refunding it moves money from here out the door (reflected in Balance
-/// instead).</summary>
+/// instead).
+///
+/// US-39: Balance also subtracts SumDepositSettlements as its own term (never folded into
+/// SumPayments -- see SecurityDeposit's own class comment). AccountStatus is computed, not
+/// stored: TerminatedWithBalance once at least one Deposits entry is Settled and Balance is
+/// still positive afterward (dues exceeded what the deposit could cover).</summary>
 public record UnitStatementResponse(
     Guid PropertyId,
     decimal Balance,
     decimal AvailableCredit,
+    AccountStatus AccountStatus,
     IReadOnlyList<ChargeStatementItemResponse> Charges,
     IReadOnlyList<PaymentTransactionResponse> Payments,
     IReadOnlyList<CreditAllocationResponse> Credits,
-    IReadOnlyList<RefundTransactionResponse> Refunds);
+    IReadOnlyList<RefundTransactionResponse> Refunds,
+    IReadOnlyList<SecurityDepositResponse> Deposits);

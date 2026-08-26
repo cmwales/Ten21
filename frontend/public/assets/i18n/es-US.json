@@ -494,6 +494,37 @@
       }
     }
   },
+  "deposits": {
+    "title": "Depósitos de Garantía",
+    "collectDeposit": "Cobrar Depósito",
+    "settleDeposit": "Liquidar Depósito",
+    "heldBy": "Retenido para",
+    "accountStatus": {
+      "terminatedWithBalance": "Terminado con Saldo Pendiente"
+    },
+    "statuses": {
+      "Held": "Retenido",
+      "Settled": "Liquidado"
+    },
+    "modal": {
+      "collectTitle": "Cobrar Depósito de Garantía",
+      "settleTitle": "Liquidar Depósito de Garantía",
+      "close": "Cerrar",
+      "collectSave": "Cobrar Depósito",
+      "settleSave": "Liquidar Depósito",
+      "settleHint": "Aplica todo el depósito retenido contra los cargos pendientes de esta unidad y reembolsa al residente lo que sobre.",
+      "collectedToast": "Depósito cobrado.",
+      "settledWithRefundToast": "Depósito liquidado y saldo restante reembolsado.",
+      "settledNoRefundToast": "Depósito liquidado -- los cargos superaron el depósito, no queda nada por reembolsar.",
+      "errorToast": "Algo salió mal. Inténtalo de nuevo."
+    },
+    "form": {
+      "amount": "Monto",
+      "collectedDate": "Fecha de Cobro",
+      "residentAutoDefault": "Usar el residente principal del contrato",
+      "refundTenderType": "Método de Reembolso (si corresponde)"
+    }
+  },
   "common": {
     "loading": "Cargando…"
   }

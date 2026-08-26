@@ -494,6 +494,37 @@
       }
     }
   },
+  "deposits": {
+    "title": "Dépôts de Garantie",
+    "collectDeposit": "Percevoir un Dépôt",
+    "settleDeposit": "Régler le Dépôt",
+    "heldBy": "Détenu pour",
+    "accountStatus": {
+      "terminatedWithBalance": "Résilié avec Solde Dû"
+    },
+    "statuses": {
+      "Held": "Détenu",
+      "Settled": "Réglé"
+    },
+    "modal": {
+      "collectTitle": "Percevoir un Dépôt de Garantie",
+      "settleTitle": "Régler le Dépôt de Garantie",
+      "close": "Fermer",
+      "collectSave": "Percevoir le Dépôt",
+      "settleSave": "Régler le Dépôt",
+      "settleHint": "Applique la totalité du dépôt détenu aux frais impayés de cette unité, puis rembourse au résident ce qu'il reste.",
+      "collectedToast": "Dépôt perçu.",
+      "settledWithRefundToast": "Dépôt réglé et solde restant remboursé.",
+      "settledNoRefundToast": "Dépôt réglé -- les frais dépassaient le dépôt, il ne reste rien à rembourser.",
+      "errorToast": "Une erreur s'est produite. Veuillez réessayer."
+    },
+    "form": {
+      "amount": "Montant",
+      "collectedDate": "Date de Perception",
+      "residentAutoDefault": "Utiliser le résident principal du bail",
+      "refundTenderType": "Mode de Remboursement (le cas échéant)"
+    }
+  },
   "common": {
     "loading": "Chargement…"
   }
