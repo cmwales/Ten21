@@ -525,6 +525,19 @@
       "refundTenderType": "Refund Tender Type (if any is due)"
     }
   },
+  "pdfViewer": {
+    "statementTitle": "Statement PDF",
+    "receiptTitle": "Payment Receipt PDF",
+    "downloadStatement": "Download PDF Statement",
+    "viewReceipt": "Receipt",
+    "rangeLabel": "Date Range",
+    "ranges": {
+      "Lifetime": "Lifetime",
+      "YearToDate": "Year-to-Date",
+      "Last12Months": "Last 12 Months"
+    },
+    "loadError": "Something went wrong loading this PDF."
+  },
   "common": {
     "loading": "Loading…"
   }

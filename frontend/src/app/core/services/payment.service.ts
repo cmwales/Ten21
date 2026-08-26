@@ -32,6 +32,12 @@ export class PaymentService {
       .post<ApiResponse<PaymentTransactionResponse>>(`/api/properties/${propertyId}/payments/${paymentId}/reallocate`, request)
       .pipe(map((response) => response.data!));
   }
+
+  /** US-40: raw PDF bytes, not an ApiResponse-wrapped call -- see ChargeService.getStatementPdf's
+   * own comment. */
+  getReceipt(propertyId: string, paymentId: string): Observable<Blob> {
+    return this.http.get(`/api/properties/${propertyId}/payments/${paymentId}/receipt`, { responseType: 'blob' });
+  }
 }
 
 /** Mirrors Ten21.Api.Contracts.Charges.LogPaymentRequest. residentProfileId is required --

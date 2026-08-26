@@ -61,6 +61,15 @@ export const AccountStatuses = {
 
 export type AccountStatusValue = (typeof AccountStatuses)[keyof typeof AccountStatuses];
 
+/** Mirrors Ten21.Domain.Enums.StatementDateRange. */
+export const StatementDateRanges = {
+  Lifetime: 'Lifetime',
+  YearToDate: 'YearToDate',
+  Last12Months: 'Last12Months',
+} as const;
+
+export type StatementDateRangeValue = (typeof StatementDateRanges)[keyof typeof StatementDateRanges];
+
 /** Mirrors Ten21.Api.Contracts.Charges.ChargeAdjustmentResponse. */
 export interface ChargeAdjustmentResponse {
   id: string;

@@ -27,11 +27,13 @@ public class ChargesController : ControllerBase
 {
     private readonly Ten21DbContext _dbContext;
     private readonly IInputSanitizer _sanitizer;
+    private readonly IPdfService _pdfService;
 
-    public ChargesController(Ten21DbContext dbContext, IInputSanitizer sanitizer)
+    public ChargesController(Ten21DbContext dbContext, IInputSanitizer sanitizer, IPdfService pdfService)
     {
         _dbContext = dbContext;
         _sanitizer = sanitizer;
+        _pdfService = pdfService;
     }
 
     [HttpGet]
@@ -74,7 +76,51 @@ public class ChargesController : ControllerBase
     public async Task<IActionResult> GetStatement(Guid propertyId, CancellationToken cancellationToken)
     {
         await EnsurePropertyExistsAsync(propertyId, cancellationToken);
+        return Ok(await BuildStatementAsync(propertyId, cancellationToken));
+    }
 
+    /// <summary>
+    /// US-40: renders the same statement GetStatement returns as a downloadable/embeddable
+    /// PDF (see PaymentsController.GetReceipt's own comment on why "embeddable, not
+    /// attachment"), with Charges/Payments filtered to the requested date range -- Balance
+    /// itself is always the current snapshot regardless of range, same as the JSON view.
+    /// </summary>
+    [HttpGet("statement/pdf")]
+    [Authorize(Policy = Permissions.Ledger.Read)]
+    public async Task<IActionResult> GetStatementPdf(
+        Guid propertyId, [FromQuery] StatementDateRange range, CancellationToken cancellationToken)
+    {
+        await EnsurePropertyExistsAsync(propertyId, cancellationToken);
+        var property = await _dbContext.Properties.FirstAsync(p => p.Id == propertyId, cancellationToken);
+        var statement = await BuildStatementAsync(propertyId, cancellationToken);
+
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+        var (rangeStart, rangeLabel) = range switch
+        {
+            StatementDateRange.YearToDate => (new DateOnly(today.Year, 1, 1), "Year-to-Date"),
+            StatementDateRange.Last12Months => (today.AddMonths(-12), "Last 12 Months"),
+            _ => ((DateOnly?)null, "Lifetime"),
+        };
+
+        var chargeLines = statement.Charges
+            .Where(c => rangeStart is null || c.Charge.DueDate >= rangeStart)
+            .Select(c => new UnitStatementPdfChargeLine(
+                c.Charge.Description, c.Charge.Category.ToString(), c.Charge.DueDate, c.Charge.Amount, c.Charge.PaymentStatus.ToString()))
+            .ToList();
+        var paymentLines = statement.Payments
+            .Where(p => rangeStart is null || p.PaymentDate >= rangeStart)
+            .Select(p => new UnitStatementPdfPaymentLine(p.PaymentDate, p.TenderType.ToString(), p.ResidentName, p.AmountPaid))
+            .ToList();
+
+        var pdfData = new UnitStatementPdfData(
+            property.Name, property.UnitIdentifier, rangeLabel, statement.Balance, chargeLines, paymentLines);
+
+        var pdfBytes = _pdfService.GenerateUnitStatement(pdfData);
+        return File(pdfBytes, "application/pdf");
+    }
+
+    private async Task<UnitStatementResponse> BuildStatementAsync(Guid propertyId, CancellationToken cancellationToken)
+    {
         var charges = await _dbContext.Charges
             .Where(c => c.PropertyId == propertyId)
             .OrderByDescending(c => c.DueDate)
@@ -203,9 +249,9 @@ public class ChargesController : ControllerBase
             ? AccountStatus.TerminatedWithBalance
             : AccountStatus.Active;
 
-        return Ok(new UnitStatementResponse(
+        return new UnitStatementResponse(
             propertyId, balance, availableCredit, accountStatus, chargeStatementItems, paymentResponses, creditResponses,
-            refundResponses, depositResponses));
+            refundResponses, depositResponses);
     }
 
     [HttpPost]

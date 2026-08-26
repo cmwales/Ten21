@@ -45,6 +45,13 @@
             {{ 'deposits.collectDeposit' | translate }}
           </button>
           <a
+            [routerLink]="['/properties', propertyId(), 'ledger', 'pdf']"
+            [queryParams]="{ type: 'statement', range: 'Lifetime' }"
+            class="tap-target flex items-center rounded-md border border-white/40 px-4 py-2 font-semibold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
+          >
+            {{ 'pdfViewer.downloadStatement' | translate }}
+          </a>
+          <a
             [routerLink]="['/properties', propertyId()]"
             class="tap-target flex items-center rounded-md border border-white/40 px-4 py-2 font-semibold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
           >
@@ -213,6 +220,13 @@
                   </div>
                   <div class="flex items-center gap-2">
                     <span class="font-semibold text-emerald">${{ payment.amountPaid }}</span>
+                    <a
+                      [routerLink]="['/properties', propertyId(), 'ledger', 'pdf']"
+                      [queryParams]="{ type: 'receipt', paymentId: payment.id }"
+                      class="tap-target rounded-md border border-white/40 px-2 py-1 text-xs font-semibold text-slate-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
+                    >
+                      {{ 'pdfViewer.viewReceipt' | translate }}
+                    </a>
                     @if (payment.status !== 'Reversed') {
                       <button
                         type="button"

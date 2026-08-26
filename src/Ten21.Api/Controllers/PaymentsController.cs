@@ -25,11 +25,49 @@ public class PaymentsController : ControllerBase
 {
     private readonly Ten21DbContext _dbContext;
     private readonly IInputSanitizer _sanitizer;
+    private readonly IPdfService _pdfService;
 
-    public PaymentsController(Ten21DbContext dbContext, IInputSanitizer sanitizer)
+    public PaymentsController(Ten21DbContext dbContext, IInputSanitizer sanitizer, IPdfService pdfService)
     {
         _dbContext = dbContext;
         _sanitizer = sanitizer;
+        _pdfService = pdfService;
+    }
+
+    /// <summary>
+    /// US-40: a downloadable/embeddable PDF receipt for this one payment -- transaction date,
+    /// tender type, reference number, and its allocated charges (see acceptance criteria).
+    /// Returned inline (no Content-Disposition: attachment), on purpose, so the frontend can
+    /// embed it directly in an &lt;iframe&gt; and let the browser's own PDF viewer supply
+    /// download/print controls, rather than this codebase building a second HTML rendering of
+    /// the same data.
+    /// </summary>
+    [HttpGet("{id:guid}/receipt")]
+    [Authorize(Policy = Permissions.Ledger.Read)]
+    public async Task<IActionResult> GetReceipt(Guid propertyId, Guid id, CancellationToken cancellationToken)
+    {
+        var payment = await _dbContext.PaymentTransactions
+            .Include(p => p.Allocations)
+            .FirstOrDefaultAsync(p => p.PropertyId == propertyId && p.Id == id, cancellationToken)
+            ?? throw new NotFoundException($"Payment '{id}' was not found on this property.");
+
+        var property = await _dbContext.Properties.FirstAsync(p => p.Id == propertyId, cancellationToken);
+        var residentName = await GetResidentNameAsync(payment.ResidentProfileId, cancellationToken);
+        var chargeDescriptionsById = await GetChargeDescriptionsAsync(payment.Allocations.Select(a => a.ChargeId), cancellationToken);
+
+        var pdfData = new PaymentReceiptPdfData(
+            property.Name,
+            property.UnitIdentifier,
+            residentName,
+            payment.PaymentDate,
+            payment.AmountPaid,
+            payment.TenderType.ToString(),
+            payment.ReferenceNumber,
+            payment.Allocations.Select(a => new PaymentReceiptChargeLine(
+                chargeDescriptionsById.GetValueOrDefault(a.ChargeId, "(unknown charge)"), a.AllocatedAmount)).ToList());
+
+        var pdfBytes = _pdfService.GeneratePaymentReceipt(pdfData);
+        return File(pdfBytes, "application/pdf");
     }
 
     [HttpGet("{id:guid}")]

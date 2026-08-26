@@ -525,6 +525,19 @@
       "refundTenderType": "Mode de Remboursement (le cas échéant)"
     }
   },
+  "pdfViewer": {
+    "statementTitle": "PDF du Relevé",
+    "receiptTitle": "PDF du Reçu de Paiement",
+    "downloadStatement": "Télécharger le Relevé PDF",
+    "viewReceipt": "Reçu",
+    "rangeLabel": "Plage de Dates",
+    "ranges": {
+      "Lifetime": "Historique Complet",
+      "YearToDate": "Depuis le Début de l'Année",
+      "Last12Months": "12 Derniers Mois"
+    },
+    "loadError": "Une erreur s'est produite lors du chargement de ce PDF."
+  },
   "common": {
     "loading": "Chargement…"
   }
