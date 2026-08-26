@@ -33,6 +33,7 @@ describe('UnitStatement', () => {
     propertyId: 'prop-1',
     balance: 500,
     availableCredit: 0,
+    accountStatus: 'Active',
     charges: [
       {
         charge: {
@@ -74,6 +75,7 @@ describe('UnitStatement', () => {
     ],
     credits: [],
     refunds: [],
+    deposits: [],
   };
 
   function createComponent(id: string | null = 'prop-1'): UnitStatement {

@@ -1,0 +1,69 @@
+@if (open) {
+  <div class="fixed inset-0 z-40 flex items-center justify-center bg-slate-navy/40 p-4" (click)="close()">
+    <div
+      class="flex max-h-[90vh] w-full max-w-md flex-col gap-6 overflow-y-auto rounded-xl bg-surface-card p-6 shadow-xl"
+      role="dialog"
+      [attr.aria-label]="'deposits.modal.settleTitle' | translate"
+      (click)="$event.stopPropagation()"
+    >
+      <div class="flex items-center justify-between border-b border-slate-navy/10 pb-4">
+        <h2 class="text-xl font-bold text-slate-navy">{{ 'deposits.modal.settleTitle' | translate }}</h2>
+        <button
+          type="button"
+          (click)="close()"
+          [attr.aria-label]="'deposits.modal.close' | translate"
+          class="tap-target rounded-md border border-slate-navy/20 px-3 py-2 text-slate-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
+        >
+          &times;
+        </button>
+      </div>
+
+      <p class="text-sm text-slate-navy-light">{{ 'deposits.modal.settleHint' | translate }}</p>
+
+      <form [formGroup]="form" class="flex flex-col gap-4" (ngSubmit)="save()" novalidate>
+        <div class="flex flex-col gap-1.5">
+          <label for="settleTenderType" class="text-sm font-medium text-slate-navy">{{ 'deposits.form.refundTenderType' | translate }}</label>
+          <select
+            id="settleTenderType"
+            formControlName="tenderType"
+            class="tap-target w-full rounded-md border border-slate-navy/20 px-3 py-2 text-slate-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
+          >
+            @for (tenderType of refundTenderTypes; track tenderType) {
+              <option [value]="tenderType">{{ 'tenderTypes.' + tenderType | translate }}</option>
+            }
+          </select>
+        </div>
+
+        <div class="flex flex-col gap-1.5">
+          <label for="settleReferenceNumber" class="text-sm font-medium text-slate-navy">
+            {{ 'payments.form.referenceNumber' | translate }}
+          </label>
+          <input
+            id="settleReferenceNumber"
+            type="text"
+            formControlName="referenceNumber"
+            [placeholder]="'payments.form.referenceNumberPlaceholder' | translate"
+            class="tap-target w-full rounded-md border border-slate-navy/20 px-3 py-2 text-slate-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
+          />
+        </div>
+
+        <div class="flex justify-end gap-3 border-t border-slate-navy/10 pt-4">
+          <button
+            type="button"
+            (click)="close()"
+            class="tap-target rounded-md border border-slate-navy/20 px-4 py-2 font-semibold text-slate-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
+          >
+            {{ 'charges.form.cancel' | translate }}
+          </button>
+          <button
+            type="submit"
+            [disabled]="submitting()"
+            class="tap-target rounded-md bg-rose px-4 py-2 font-semibold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose disabled:opacity-60"
+          >
+            {{ (submitting() ? 'charges.form.saving' : 'deposits.modal.settleSave') | translate }}
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+}

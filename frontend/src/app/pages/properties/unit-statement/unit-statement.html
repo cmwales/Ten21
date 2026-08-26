@@ -37,6 +37,13 @@
               {{ 'ledger.statement.refundCredit' | translate }}
             </button>
           }
+          <button
+            type="button"
+            (click)="collectDepositModalOpen.set(true)"
+            class="tap-target flex items-center rounded-md border border-white/40 px-4 py-2 font-semibold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
+          >
+            {{ 'deposits.collectDeposit' | translate }}
+          </button>
           <a
             [routerLink]="['/properties', propertyId()]"
             class="tap-target flex items-center rounded-md border border-white/40 px-4 py-2 font-semibold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
@@ -60,6 +67,23 @@
         (saved)="loadStatement(propertyId())"
       />
 
+      <app-collect-deposit-modal
+        [propertyId]="propertyId()"
+        [open]="collectDepositModalOpen()"
+        (closed)="collectDepositModalOpen.set(false)"
+        (saved)="loadStatement(propertyId())"
+      />
+
+      @if (settleDepositTargetId()) {
+        <app-settle-deposit-modal
+          [propertyId]="propertyId()"
+          [depositId]="settleDepositTargetId()!"
+          [open]="true"
+          (closed)="settleDepositTargetId.set(null)"
+          (saved)="loadStatement(propertyId())"
+        />
+      }
+
       @if (errorKey()) {
         <div role="alert" class="mt-6 rounded-md border border-rose bg-rose/10 px-4 py-3 text-sm font-medium text-rose">
           {{ errorKey()! | translate }}
@@ -81,11 +105,18 @@
                 ${{ statement()!.balance }}
               </p>
             </div>
-            @if (statement()!.availableCredit > 0) {
-              <span class="rounded-full bg-emerald px-3 py-1.5 text-sm font-semibold text-white">
-                {{ 'ledger.statement.availableCredit' | translate }}: ${{ statement()!.availableCredit }}
-              </span>
-            }
+            <div class="flex flex-col items-end gap-2">
+              @if (statement()!.availableCredit > 0) {
+                <span class="rounded-full bg-emerald px-3 py-1.5 text-sm font-semibold text-white">
+                  {{ 'ledger.statement.availableCredit' | translate }}: ${{ statement()!.availableCredit }}
+                </span>
+              }
+              @if (statement()!.accountStatus === 'TerminatedWithBalance') {
+                <span class="rounded-full bg-rose px-3 py-1.5 text-sm font-semibold text-white">
+                  {{ 'deposits.accountStatus.terminatedWithBalance' | translate }}
+                </span>
+              }
+            </div>
           </div>
         </div>
 
@@ -255,6 +286,47 @@
                       }
                     </div>
                     <span class="font-semibold text-rose">${{ refund.amount }}</span>
+                  </div>
+                </div>
+              }
+            </div>
+          </section>
+        }
+
+        @if (statement()!.deposits.length > 0) {
+          <section class="mt-6">
+            <h2 class="text-lg font-semibold text-white">{{ 'deposits.title' | translate }}</h2>
+            <div class="mt-3 flex flex-col gap-3">
+              @for (deposit of statement()!.deposits; track deposit.id) {
+                <div class="rounded-xl bg-surface-card p-4 shadow-xl">
+                  <div class="flex flex-wrap items-start justify-between gap-2">
+                    <div>
+                      <p class="font-semibold text-slate-navy">{{ 'deposits.heldBy' | translate }}: {{ deposit.residentName }}</p>
+                      <p class="text-xs text-slate-navy-light">
+                        {{ 'deposits.form.collectedDate' | translate }} {{ deposit.collectedDate }}
+                      </p>
+                    </div>
+                    <div class="flex items-center gap-2">
+                      <span
+                        class="rounded-full px-2 py-0.5 text-xs font-semibold"
+                        [class.bg-amber]="deposit.status === 'Held'"
+                        [class.bg-slate-navy]="deposit.status === 'Settled'"
+                        [class.text-white]="deposit.status === 'Settled'"
+                        [class.text-slate-navy]="deposit.status === 'Held'"
+                      >
+                        {{ 'deposits.statuses.' + deposit.status | translate }}
+                      </span>
+                      <span class="font-semibold text-slate-navy">${{ deposit.amountHeld }} / ${{ deposit.originalAmount }}</span>
+                      @if (deposit.status === 'Held') {
+                        <button
+                          type="button"
+                          (click)="settleDepositTargetId.set(deposit.id)"
+                          class="tap-target rounded-md border border-rose/40 px-2 py-1 text-xs font-semibold text-rose focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose"
+                        >
+                          {{ 'deposits.settleDeposit' | translate }}
+                        </button>
+                      }
+                    </div>
                   </div>
                 </div>
               }

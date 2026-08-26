@@ -45,6 +45,22 @@ export const PaymentTransactionStatuses = {
 
 export type PaymentTransactionStatusValue = (typeof PaymentTransactionStatuses)[keyof typeof PaymentTransactionStatuses];
 
+/** Mirrors Ten21.Domain.Enums.SecurityDepositStatus. */
+export const SecurityDepositStatuses = {
+  Held: 'Held',
+  Settled: 'Settled',
+} as const;
+
+export type SecurityDepositStatusValue = (typeof SecurityDepositStatuses)[keyof typeof SecurityDepositStatuses];
+
+/** Mirrors Ten21.Domain.Enums.AccountStatus. */
+export const AccountStatuses = {
+  Active: 'Active',
+  TerminatedWithBalance: 'TerminatedWithBalance',
+} as const;
+
+export type AccountStatusValue = (typeof AccountStatuses)[keyof typeof AccountStatuses];
+
 /** Mirrors Ten21.Api.Contracts.Charges.ChargeAdjustmentResponse. */
 export interface ChargeAdjustmentResponse {
   id: string;
@@ -115,16 +131,32 @@ export interface RefundTransactionResponse {
   createdAt: string;
 }
 
+/** Mirrors Ten21.Api.Contracts.Deposits.SecurityDepositResponse (US-39). */
+export interface SecurityDepositResponse {
+  id: string;
+  propertyId: string;
+  residentProfileId: string;
+  residentName: string;
+  originalAmount: number;
+  amountHeld: number;
+  collectedDate: string;
+  status: SecurityDepositStatusValue;
+}
+
 /** Mirrors Ten21.Api.Contracts.Charges.UnitStatementResponse -- the whole "lifetime
  * financial statement" for one unit: charges (with nested adjustments), payments, refunds,
- * and the dynamic running Balance. availableCredit (US-37) is the more specific "how much
- * retained credit is currently un-drawn-down" figure -- see that field's own backend comment. */
+ * and deposits, plus the dynamic running Balance. availableCredit (US-37) is the more
+ * specific "how much retained credit is currently un-drawn-down" figure -- see that field's
+ * own backend comment. accountStatus (US-39) is TerminatedWithBalance once a Settled deposit
+ * couldn't fully cover what was owed. */
 export interface UnitStatementResponse {
   propertyId: string;
   balance: number;
   availableCredit: number;
+  accountStatus: AccountStatusValue;
   charges: ChargeStatementItemResponse[];
   payments: PaymentTransactionResponse[];
   credits: CreditAllocationResponse[];
   refunds: RefundTransactionResponse[];
+  deposits: SecurityDepositResponse[];
 }

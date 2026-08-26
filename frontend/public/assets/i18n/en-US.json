@@ -494,6 +494,37 @@
       }
     }
   },
+  "deposits": {
+    "title": "Security Deposits",
+    "collectDeposit": "Collect Deposit",
+    "settleDeposit": "Settle Deposit",
+    "heldBy": "Held for",
+    "accountStatus": {
+      "terminatedWithBalance": "Terminated with Balance Due"
+    },
+    "statuses": {
+      "Held": "Held",
+      "Settled": "Settled"
+    },
+    "modal": {
+      "collectTitle": "Collect Security Deposit",
+      "settleTitle": "Settle Security Deposit",
+      "close": "Close",
+      "collectSave": "Collect Deposit",
+      "settleSave": "Settle Deposit",
+      "settleHint": "Applies the full held deposit against this unit's outstanding charges, then refunds whatever's left to the resident.",
+      "collectedToast": "Deposit collected.",
+      "settledWithRefundToast": "Deposit settled and remaining balance refunded.",
+      "settledNoRefundToast": "Deposit settled -- dues exceeded the deposit, nothing left to refund.",
+      "errorToast": "Something went wrong. Please try again."
+    },
+    "form": {
+      "amount": "Amount",
+      "collectedDate": "Collected Date",
+      "residentAutoDefault": "Default to lease's primary resident",
+      "refundTenderType": "Refund Tender Type (if any is due)"
+    }
+  },
   "common": {
     "loading": "Loading…"
   }
