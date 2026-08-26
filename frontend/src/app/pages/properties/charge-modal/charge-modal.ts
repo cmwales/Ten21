@@ -2,6 +2,7 @@ import { Component, EventEmitter, Input, OnChanges, Output, SimpleChanges, injec
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { TranslatePipe } from '@ngx-translate/core';
 import { ChargeCategories, ChargeCategoryValue, ChargeResponse } from '../../../core/models/charge.models';
+import { AdjustmentTypes, AdjustmentTypeValue } from '../../../core/models/ledger.models';
 import { ChargeService } from '../../../core/services/charge.service';
 import { ToastService } from '../../../core/services/toast.service';
 
@@ -14,6 +15,11 @@ import { ToastService } from '../../../core/services/toast.service';
  * from actual logged payments -- there is no more inline PaidDate control here; recording a
  * real payment happens via the "Log Payment" action on the unit statement page (US-34), which
  * properly allocates across charges instead of just flipping one charge to "paid."
+ *
+ * US-35: an unlocked (unpaid) charge can be Removed (hard-gone) or Voided (stays visible,
+ * badged, excluded from balance -- see VoidCharge's own comment for the distinction); once
+ * locked, neither works and the only remaining action is Adjust, which posts a signed
+ * ChargeAdjustment with a mandatory reason instead of touching the charge's own Amount.
  */
 @Component({
   selector: 'app-charge-modal',
@@ -30,10 +36,12 @@ export class ChargeModal implements OnChanges {
   private readonly toastService = inject(ToastService);
 
   protected readonly chargeCategories = Object.values(ChargeCategories);
+  protected readonly adjustmentTypes = Object.values(AdjustmentTypes);
   protected readonly charges = signal<ChargeResponse[]>([]);
   protected readonly loading = signal(false);
   protected readonly submitting = signal(false);
   protected readonly showForm = signal(false);
+  protected readonly adjustingCharge = signal<ChargeResponse | null>(null);
 
   protected readonly form = this.fb.nonNullable.group({
     description: ['', [Validators.required, Validators.maxLength(200)]],
@@ -41,6 +49,12 @@ export class ChargeModal implements OnChanges {
     dueDate: ['', Validators.required],
     accountingCode: this.fb.control<string | null>(null),
     category: ['AddOn' as ChargeCategoryValue, Validators.required],
+  });
+
+  protected readonly adjustmentForm = this.fb.nonNullable.group({
+    adjustmentType: ['CreditAdjustment' as AdjustmentTypeValue, Validators.required],
+    amount: [0, [Validators.required, Validators.min(0.01)]],
+    reason: ['', [Validators.required, Validators.maxLength(500)]],
   });
 
   ngOnChanges(changes: SimpleChanges): void {
@@ -51,6 +65,7 @@ export class ChargeModal implements OnChanges {
 
   protected close(): void {
     this.showForm.set(false);
+    this.adjustingCharge.set(null);
     this.closed.emit();
   }
 
@@ -61,6 +76,47 @@ export class ChargeModal implements OnChanges {
 
   protected cancelForm(): void {
     this.showForm.set(false);
+  }
+
+  protected startAdjust(charge: ChargeResponse): void {
+    this.adjustmentForm.reset({ adjustmentType: 'CreditAdjustment' as AdjustmentTypeValue, amount: 0, reason: '' });
+    this.adjustingCharge.set(charge);
+  }
+
+  protected cancelAdjust(): void {
+    this.adjustingCharge.set(null);
+  }
+
+  protected saveAdjustment(): void {
+    if (this.submitting() || this.adjustmentForm.invalid) {
+      this.adjustmentForm.markAllAsTouched();
+      return;
+    }
+
+    this.submitting.set(true);
+    const raw = this.adjustmentForm.getRawValue();
+    this.chargeService.createAdjustment(this.propertyId, this.adjustingCharge()!.id, raw).subscribe({
+      next: () => {
+        this.submitting.set(false);
+        this.adjustingCharge.set(null);
+        this.toastService.show('charges.modal.adjustedToast');
+        this.loadCharges();
+      },
+      error: () => {
+        this.submitting.set(false);
+        this.toastService.show('charges.modal.errorToast');
+      },
+    });
+  }
+
+  protected voidCharge(charge: ChargeResponse): void {
+    this.chargeService.voidCharge(this.propertyId, charge.id).subscribe({
+      next: () => {
+        this.toastService.show('charges.modal.voidedToast');
+        this.loadCharges();
+      },
+      error: () => this.toastService.show('charges.modal.lockedErrorToast'),
+    });
   }
 
   protected save(): void {

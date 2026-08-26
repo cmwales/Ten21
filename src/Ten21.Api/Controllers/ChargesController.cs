@@ -214,6 +214,90 @@ public class ChargesController : ControllerBase
         return NoContent();
     }
 
+    /// <summary>US-35: marks a charge Voided instead of deleting it -- it stays visible on the
+    /// unit statement (badged "Voided" rather than disappearing) but stops counting toward the
+    /// balance, for the case where a charge was correctly posted but should be forgiven/
+    /// cancelled with a transparent record of that, as opposed to DeleteCharge's "this should
+    /// never have existed" hard removal. Same lock rule as Update/Delete: once a payment has
+    /// been allocated, voiding is blocked too -- forgiving a charge someone already paid
+    /// against needs a ChargeAdjustment (a real credit), not a silent status flip that would
+    /// leave their payment looking unaccounted for.</summary>
+    [HttpPost("{id:guid}/void")]
+    [Authorize(Policy = Permissions.Ledger.Write)]
+    public async Task<IActionResult> VoidCharge(Guid propertyId, Guid id, CancellationToken cancellationToken)
+    {
+        var charge = await FindChargeAsync(propertyId, id, cancellationToken)
+            ?? throw new NotFoundException($"Charge '{id}' was not found on this property.");
+
+        if (charge.Status == ChargeLifecycleStatus.Voided)
+        {
+            throw new ConflictException("This charge has already been voided.");
+        }
+
+        var allocatedAmount = await GetAllocatedAmountAsync(charge.Id, cancellationToken);
+        if (allocatedAmount > 0)
+        {
+            throw new ConflictException(
+                "This charge already has payments applied and cannot be voided. Post a credit adjustment instead.");
+        }
+
+        charge.Status = ChargeLifecycleStatus.Voided;
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        return Ok(BuildChargeResponse(charge, 0m, []));
+    }
+
+    /// <summary>US-35: the audit-compliant correction path -- a signed line-item adjustment
+    /// (credit lowers what's owed, debit raises it) with a mandatory Reason, appended to the
+    /// charge's history rather than editing its Amount. Deliberately NOT gated by the lock
+    /// check that guards Update/Delete/Void: this endpoint is what those three redirect to
+    /// once a charge is locked, and it's equally valid on an unlocked charge (e.g. a goodwill
+    /// credit that should leave the original posted Amount visible on the record).</summary>
+    [HttpPost("{id:guid}/adjustments")]
+    [Authorize(Policy = Permissions.Ledger.Write)]
+    public async Task<IActionResult> CreateChargeAdjustment(
+        Guid propertyId, Guid id, [FromBody] CreateChargeAdjustmentRequest request, CancellationToken cancellationToken)
+    {
+        var charge = await FindChargeAsync(propertyId, id, cancellationToken)
+            ?? throw new NotFoundException($"Charge '{id}' was not found on this property.");
+
+        var reason = _sanitizer.Sanitize(request.Reason)!;
+        var errors = new Dictionary<string, string[]>();
+
+        if (string.IsNullOrWhiteSpace(reason))
+        {
+            errors[nameof(request.Reason)] = ["Reason is required."];
+        }
+        else if (reason.Length > 500)
+        {
+            errors[nameof(request.Reason)] = ["Reason must be 500 characters or fewer."];
+        }
+
+        if (request.Amount <= 0)
+        {
+            errors[nameof(request.Amount)] = ["Amount must be greater than zero."];
+        }
+
+        if (errors.Count > 0)
+        {
+            throw new ValidationException(errors);
+        }
+
+        var adjustment = new ChargeAdjustment
+        {
+            Id = Guid.NewGuid(),
+            TargetChargeId = charge.Id,
+            AdjustmentType = request.AdjustmentType,
+            Amount = request.Amount,
+            Reason = reason,
+            CreatedAt = DateTimeOffset.UtcNow,
+        };
+        _dbContext.ChargeAdjustments.Add(adjustment);
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        return StatusCode(StatusCodes.Status201Created, ToAdjustmentResponse(adjustment));
+    }
+
     private async Task EnsurePropertyExistsAsync(Guid propertyId, CancellationToken cancellationToken)
     {
         var exists = await _dbContext.Properties.AnyAsync(p => p.Id == propertyId, cancellationToken);

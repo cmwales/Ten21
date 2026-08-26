@@ -3,7 +3,7 @@ import { Injectable, inject } from '@angular/core';
 import { Observable, map } from 'rxjs';
 import { ApiResponse } from '../models/auth.models';
 import { ChargeResponse, UpsertChargeRequest } from '../models/charge.models';
-import { UnitStatementResponse } from '../models/ledger.models';
+import { AdjustmentTypeValue, ChargeAdjustmentResponse, UnitStatementResponse } from '../models/ledger.models';
 
 /** Renamed from ManualChargeService (Sprint 7): charge CRUD calls, nested under a property,
  * plus the unit's full financial statement. Same interceptor-attaches-the-token convention
@@ -34,6 +34,22 @@ export class ChargeService {
     return this.http.delete<void>(`/api/properties/${propertyId}/charges/${chargeId}`);
   }
 
+  /** US-35: marks the charge Voided (stays on the statement, stops counting toward balance)
+   * instead of removing it -- only allowed while unlocked, same as deleteCharge. */
+  voidCharge(propertyId: string, chargeId: string): Observable<ChargeResponse> {
+    return this.http
+      .post<ApiResponse<ChargeResponse>>(`/api/properties/${propertyId}/charges/${chargeId}/void`, {})
+      .pipe(map((response) => response.data!));
+  }
+
+  /** US-35: the audit-compliant correction path for a locked charge (also valid on an
+   * unlocked one) -- a signed adjustment with a mandatory reason, never an Amount edit. */
+  createAdjustment(propertyId: string, chargeId: string, request: CreateChargeAdjustmentRequest): Observable<ChargeAdjustmentResponse> {
+    return this.http
+      .post<ApiResponse<ChargeAdjustmentResponse>>(`/api/properties/${propertyId}/charges/${chargeId}/adjustments`, request)
+      .pipe(map((response) => response.data!));
+  }
+
   /** US-33: the unit's full financial statement -- charges (with nested adjustments),
    * payments, and the dynamic running balance. */
   getStatement(propertyId: string): Observable<UnitStatementResponse> {
@@ -41,4 +57,11 @@ export class ChargeService {
       .get<ApiResponse<UnitStatementResponse>>(`/api/properties/${propertyId}/charges/statement`)
       .pipe(map((response) => response.data!));
   }
+}
+
+/** Mirrors Ten21.Api.Contracts.Charges.CreateChargeAdjustmentRequest. */
+export interface CreateChargeAdjustmentRequest {
+  adjustmentType: AdjustmentTypeValue;
+  amount: number;
+  reason: string;
 }
