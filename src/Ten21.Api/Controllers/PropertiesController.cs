@@ -165,6 +165,26 @@ public class PropertiesController : ControllerBase
     }
 
     /// <summary>
+    /// Post-Sprint-6 fix: the PM sets/clears this from the Lease drawer when they learn a
+    /// unit is (or isn't) about to be vacated -- see Property.MoveOutNoticeDate's own doc
+    /// comment for why this is a property-level fact, not a per-lease/resident one.
+    /// </summary>
+    [HttpPatch("{id:guid}/move-out-notice")]
+    [Authorize(Policy = Permissions.Property.Manage)]
+    public async Task<IActionResult> UpdateMoveOutNotice(
+        Guid id, [FromBody] UpdateMoveOutNoticeRequest request, CancellationToken cancellationToken)
+    {
+        var property = await _dbContext.Properties
+            .FirstOrDefaultAsync(p => p.Id == id, cancellationToken)
+            ?? throw new NotFoundException($"Property '{id}' was not found.");
+
+        property.MoveOutNoticeDate = request.MoveOutNoticeDate;
+        await _dbContext.SaveChangesAsync(cancellationToken);
+
+        return Ok(ToResponse(property));
+    }
+
+    /// <summary>
     /// US-29: single-row matrix auto-save (blur/change). Full replace of the three matrix
     /// columns, same "send the current full row state" convention as UpdateProperty --
     /// there is no true JSON Patch here, the frontend keeps each row's live state and PATCHes
@@ -719,5 +739,6 @@ public class PropertiesController : ControllerBase
         property.OccupancyStatus,
         property.AllowTenantDirectory,
         property.UnitGroupId,
-        property.UnitTierId);
+        property.UnitTierId,
+        property.MoveOutNoticeDate);
 }

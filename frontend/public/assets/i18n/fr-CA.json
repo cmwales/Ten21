@@ -325,7 +325,10 @@
       "createMoveInCharge": "Créer des Frais d'Emménagement",
       "moveInDate": "Date d'emménagement",
       "generateCharge": "Générer les Frais",
-      "moveInChargeCreatedToast": "Frais d'emménagement créés."
+      "moveInChargeCreatedToast": "Frais d'emménagement créés.",
+      "moveOutNoticeLabel": "Préavis de Départ de la Propriété",
+      "moveOutNoticeHint": "Définissez ceci lorsque vous savez que l'unité aura besoin d'un nouveau locataire, peu importe le bail concerné.",
+      "moveOutNoticeSavedToast": "Préavis de départ mis à jour."
     },
     "form": {
       "resident": "Résident",
@@ -335,7 +338,6 @@
       "monthlyBaseRent": "Loyer de Base Mensuel",
       "dueDayOfMonth": "Jour d'Échéance du Mois",
       "status": "Statut",
-      "moveOutNoticeDate": "Date de Préavis de Départ",
       "recurringCharges": "Frais Récurrents Additionnels",
       "addRecurringCharge": "Ajouter des Frais",
       "recurringCharge": "Frais {{number}}",
@@ -356,15 +358,16 @@
       "empty": "Aucun frais ou amende publié pour le moment.",
       "addCharge": "Ajouter des Frais / une Amende",
       "remove": "Retirer",
-      "unitGenerally": "Facturé à l'unité",
       "dueOn": "échéance le",
+      "paidDate": "Date de Paiement",
+      "markPaidToday": "Marquer comme Payé Aujourd'hui",
+      "paid": "Payé",
+      "saving": "Enregistrement…",
       "addedToast": "Frais publiés.",
       "removedToast": "Frais retirés.",
       "errorToast": "Une erreur s'est produite. Veuillez réessayer."
     },
     "form": {
-      "resident": "Facturer à",
-      "unitGenerally": "Unité en général (aucun résident spécifique)",
       "description": "Description",
       "amount": "Montant",
       "dueDate": "Date d'Échéance",

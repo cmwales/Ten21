@@ -14,7 +14,9 @@ using Xunit;
 namespace Ten21.UnitTests;
 
 /// <summary>US-31: one-time manual charges/fines, nested under a Property the same way
-/// LeasesController is. Same in-memory SQLite pattern as LeasesControllerTests.</summary>
+/// LeasesController is. Same in-memory SQLite pattern as LeasesControllerTests.
+/// Post-Sprint-6 fix: no more per-resident "bill to" (charges are billed to the unit), and
+/// PaidDate is now trackable.</summary>
 public class ManualChargesControllerTests : IDisposable
 {
     private readonly SqliteConnection _connection;
@@ -64,31 +66,15 @@ public class ManualChargesControllerTests : IDisposable
         return property;
     }
 
-    private static async Task<ResidentProfile> SeedResidentAsync(Ten21DbContext db, Guid propertyId)
-    {
-        var resident = new ResidentProfile
-        {
-            Id = Guid.NewGuid(),
-            PropertyId = propertyId,
-            OccupantType = OccupantType.Primary,
-            FirstName = "Dana",
-            LastName = "Demo",
-            CreatedAt = DateTimeOffset.UtcNow,
-        };
-        db.ResidentProfiles.Add(resident);
-        await db.SaveChangesAsync();
-        return resident;
-    }
-
-    private static UpsertManualChargeRequest NewRequest(Guid? residentId = null) => new(
-        ResidentId: residentId,
+    private static UpsertManualChargeRequest NewRequest(DateOnly? paidDate = null) => new(
         Description: "Trash Violation Fine",
         Amount: 75m,
         DueDate: new DateOnly(2026, 9, 15),
-        AccountingCode: "GL-4100");
+        AccountingCode: "GL-4100",
+        PaidDate: paidDate);
 
     [Fact]
-    public async Task CreateManualCharge_Persists_WithNoResident()
+    public async Task CreateManualCharge_Persists_BilledToTheUnit()
     {
         var (db, controller) = CreateController(Guid.NewGuid());
         var property = await SeedPropertyAsync(db);
@@ -97,34 +83,10 @@ public class ManualChargesControllerTests : IDisposable
 
         var created = Assert.IsType<CreatedAtActionResult>(result);
         var response = Assert.IsType<ManualChargeResponse>(created.Value);
-        Assert.Null(response.ResidentId);
+        Assert.Equal(property.Id, response.PropertyId);
         Assert.Equal(75m, response.Amount);
+        Assert.Null(response.PaidDate);
         Assert.Equal(1, await db.ManualCharges.CountAsync());
-    }
-
-    [Fact]
-    public async Task CreateManualCharge_Persists_WithASpecificResident()
-    {
-        var (db, controller) = CreateController(Guid.NewGuid());
-        var property = await SeedPropertyAsync(db);
-        var resident = await SeedResidentAsync(db, property.Id);
-
-        var result = await controller.CreateManualCharge(property.Id, NewRequest(resident.Id), CancellationToken.None);
-
-        var response = Assert.IsType<ManualChargeResponse>(Assert.IsType<CreatedAtActionResult>(result).Value);
-        Assert.Equal(resident.Id, response.ResidentId);
-    }
-
-    [Fact]
-    public async Task CreateManualCharge_ThrowsNotFound_WhenResidentBelongsToADifferentProperty()
-    {
-        var (db, controller) = CreateController(Guid.NewGuid());
-        var propertyA = await SeedPropertyAsync(db);
-        var propertyB = await SeedPropertyAsync(db);
-        var residentOfB = await SeedResidentAsync(db, propertyB.Id);
-
-        await Assert.ThrowsAsync<NotFoundException>(() => controller.CreateManualCharge(
-            propertyA.Id, NewRequest(residentOfB.Id), CancellationToken.None));
     }
 
     [Fact]
@@ -164,6 +126,24 @@ public class ManualChargesControllerTests : IDisposable
 
         var response = Assert.IsType<ManualChargeResponse>(Assert.IsType<OkObjectResult>(result).Value);
         Assert.Equal(100m, response.Amount);
+    }
+
+    [Fact]
+    public async Task UpdateManualCharge_CanRecordAPaidDateDifferentFromToday()
+    {
+        // Tester scenario: paid by check/cash on Monday, entered into the system on Friday --
+        // PaidDate must be settable to the actual payment date, not implicitly "now".
+        var (db, controller) = CreateController(Guid.NewGuid());
+        var property = await SeedPropertyAsync(db);
+        var created = await controller.CreateManualCharge(property.Id, NewRequest(), CancellationToken.None);
+        var id = Assert.IsType<ManualChargeResponse>(Assert.IsType<CreatedAtActionResult>(created).Value).Id;
+        var monday = new DateOnly(2026, 9, 14);
+
+        var result = await controller.UpdateManualCharge(
+            property.Id, id, NewRequest() with { PaidDate = monday }, CancellationToken.None);
+
+        var response = Assert.IsType<ManualChargeResponse>(Assert.IsType<OkObjectResult>(result).Value);
+        Assert.Equal(monday, response.PaidDate);
     }
 
     [Fact]

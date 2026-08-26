@@ -547,6 +547,38 @@ public class PropertiesControllerTests : IDisposable
     }
 
     [Fact]
+    public async Task UpdateMoveOutNotice_SetsAndClearsTheDate()
+    {
+        var (_, controller) = CreateController(Guid.NewGuid());
+        var created = await controller.CreateProperty(NewRequest("Suite A"), CancellationToken.None);
+        var propertyId = Assert.IsType<PropertyResponse>(Assert.IsType<CreatedAtActionResult>(created).Value).Id;
+        var noticeDate = new DateOnly(2026, 11, 1);
+
+        var setResult = await controller.UpdateMoveOutNotice(
+            propertyId, new UpdateMoveOutNoticeRequest(noticeDate), CancellationToken.None);
+        var setResponse = Assert.IsType<PropertyResponse>(Assert.IsType<OkObjectResult>(setResult).Value);
+        Assert.Equal(noticeDate, setResponse.MoveOutNoticeDate);
+
+        var clearResult = await controller.UpdateMoveOutNotice(
+            propertyId, new UpdateMoveOutNoticeRequest(null), CancellationToken.None);
+        var clearResponse = Assert.IsType<PropertyResponse>(Assert.IsType<OkObjectResult>(clearResult).Value);
+        Assert.Null(clearResponse.MoveOutNoticeDate);
+    }
+
+    [Fact]
+    public async Task UpdateMoveOutNotice_ThrowsNotFound_ForAnotherTenantsProperty()
+    {
+        var (_, controllerA) = CreateController(Guid.NewGuid());
+        var created = await controllerA.CreateProperty(NewRequest(), CancellationToken.None);
+        var propertyId = Assert.IsType<PropertyResponse>(Assert.IsType<CreatedAtActionResult>(created).Value).Id;
+
+        var (_, controllerB) = CreateController(Guid.NewGuid());
+
+        await Assert.ThrowsAsync<NotFoundException>(() => controllerB.UpdateMoveOutNotice(
+            propertyId, new UpdateMoveOutNoticeRequest(new DateOnly(2026, 11, 1)), CancellationToken.None));
+    }
+
+    [Fact]
     public async Task GetProperties_IncludesMatrixAssignments()
     {
         var (db, controller) = CreateController(Guid.NewGuid());

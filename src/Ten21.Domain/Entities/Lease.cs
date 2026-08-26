@@ -32,10 +32,6 @@ public class Lease : ITenantScopedEntity, IAuditableEntity, ISoftDelete
 
     public LeaseStatus Status { get; set; }
 
-    /// <summary>Set once a resident gives notice -- see LeaseStatus's own doc comment for
-    /// how a future story uses this to stop the FixedTerm -> MonthToMonth auto-rollover.</summary>
-    public DateOnly? MoveOutNoticeDate { get; set; }
-
     public ICollection<LeaseRecurringCharge> RecurringCharges { get; set; } = new List<LeaseRecurringCharge>();
 
     public DateTimeOffset CreatedAt { get; set; }

@@ -11,10 +11,12 @@ using Ten21.Infrastructure.Persistence;
 namespace Ten21.Api.Controllers;
 
 /// <summary>
-/// US-31: one-time, non-recurring charges/fines posted directly to a unit's (or a specific
-/// resident's) ledger -- e.g. "Trash Violation Fine". Nested under a Property, same
-/// BOLA/IDOR-safe convention as LeasesController/ResidentsController: every action re-checks
-/// PropertyId == the route's propertyId rather than trusting a bare {id} lookup.
+/// US-31: one-time, non-recurring charges/fines posted directly to a unit's ledger -- e.g.
+/// "Trash Violation Fine". Nested under a Property, same BOLA/IDOR-safe convention as
+/// LeasesController/ResidentsController: every action re-checks PropertyId == the route's
+/// propertyId rather than trusting a bare {id} lookup. Post-Sprint-6 fix, tester feedback:
+/// dropped the optional per-resident "bill to" -- charges are billed to the unit, not an
+/// individual occupant.
 /// </summary>
 [ApiController]
 [Route("api/properties/{propertyId:guid}/manual-charges")]
@@ -59,21 +61,17 @@ public class ManualChargesController : ControllerBase
         Guid propertyId, [FromBody] UpsertManualChargeRequest request, CancellationToken cancellationToken)
     {
         await EnsurePropertyExistsAsync(propertyId, cancellationToken);
-        if (request.ResidentId is { } residentId)
-        {
-            await EnsureResidentBelongsToPropertyAsync(propertyId, residentId, cancellationToken);
-        }
         var fields = ValidateAndSanitize(request);
 
         var charge = new ManualCharge
         {
             Id = Guid.NewGuid(),
             PropertyId = propertyId,
-            ResidentId = request.ResidentId,
             Description = fields.Description,
             Amount = request.Amount,
             DueDate = request.DueDate,
             AccountingCode = fields.AccountingCode,
+            PaidDate = request.PaidDate,
             CreatedAt = DateTimeOffset.UtcNow,
         };
 
@@ -88,20 +86,16 @@ public class ManualChargesController : ControllerBase
     public async Task<IActionResult> UpdateManualCharge(
         Guid propertyId, Guid id, [FromBody] UpsertManualChargeRequest request, CancellationToken cancellationToken)
     {
-        if (request.ResidentId is { } residentId)
-        {
-            await EnsureResidentBelongsToPropertyAsync(propertyId, residentId, cancellationToken);
-        }
         var fields = ValidateAndSanitize(request);
 
         var charge = await FindManualChargeAsync(propertyId, id, cancellationToken)
             ?? throw new NotFoundException($"Charge '{id}' was not found on this property.");
 
-        charge.ResidentId = request.ResidentId;
         charge.Description = fields.Description;
         charge.Amount = request.Amount;
         charge.DueDate = request.DueDate;
         charge.AccountingCode = fields.AccountingCode;
+        charge.PaidDate = request.PaidDate;
 
         await _dbContext.SaveChangesAsync(cancellationToken);
 
@@ -130,17 +124,6 @@ public class ManualChargesController : ControllerBase
         if (!exists)
         {
             throw new NotFoundException($"Property '{propertyId}' was not found.");
-        }
-    }
-
-    private async Task EnsureResidentBelongsToPropertyAsync(
-        Guid propertyId, Guid residentId, CancellationToken cancellationToken)
-    {
-        var belongs = await _dbContext.ResidentProfiles
-            .AnyAsync(r => r.Id == residentId && r.PropertyId == propertyId, cancellationToken);
-        if (!belongs)
-        {
-            throw new NotFoundException($"Resident '{residentId}' was not found on this property.");
         }
     }
 
@@ -188,5 +171,5 @@ public class ManualChargesController : ControllerBase
         string.IsNullOrWhiteSpace(value) ? null : value;
 
     private static ManualChargeResponse ToResponse(ManualCharge charge) => new(
-        charge.Id, charge.PropertyId, charge.ResidentId, charge.Description, charge.Amount, charge.DueDate, charge.AccountingCode);
+        charge.Id, charge.PropertyId, charge.Description, charge.Amount, charge.DueDate, charge.AccountingCode, charge.PaidDate);
 }

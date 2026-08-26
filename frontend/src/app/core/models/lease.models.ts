@@ -30,7 +30,6 @@ export interface UpsertLeaseRequest {
   endDate: string;
   monthlyBaseRent: number;
   dueDayOfMonth: number;
-  moveOutNoticeDate: string | null;
   recurringCharges: LeaseRecurringChargeRequest[];
   status: LeaseStatusValue;
 }
@@ -38,7 +37,9 @@ export interface UpsertLeaseRequest {
 /** Mirrors Ten21.Api.Contracts.Leases.LeaseResponse. TotalMonthlyDues is computed
  * server-side (MonthlyBaseRent + Sum(RecurringCharges)), never stored. US-32:
  * effectiveStatus/isExpiringSoon are also computed server-side at read time -- status stays
- * the raw stored value, effectiveStatus is what the UI should actually display/badge. */
+ * the raw stored value, effectiveStatus is what the UI should actually display/badge. The
+ * move-out notice that feeds effectiveStatus/isExpiringSoon lives on the Property now, not
+ * here -- see PropertyResponse.moveOutNoticeDate -- so it isn't duplicated onto every lease. */
 export interface LeaseResponse {
   id: string;
   propertyId: string;
@@ -48,7 +49,6 @@ export interface LeaseResponse {
   monthlyBaseRent: number;
   dueDayOfMonth: number;
   status: LeaseStatusValue;
-  moveOutNoticeDate: string | null;
   totalMonthlyDues: number;
   recurringCharges: LeaseRecurringChargeResponse[];
   effectiveStatus: LeaseStatusValue;
