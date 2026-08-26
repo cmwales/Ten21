@@ -3,9 +3,11 @@ using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Ten21.Api.Contracts.Charges;
 using Ten21.Api.Controllers;
+using Ten21.Application.Abstractions;
 using Ten21.Domain.Entities;
 using Ten21.Domain.Enums;
 using Ten21.Domain.Exceptions;
+using Ten21.Infrastructure.Pdf;
 using Ten21.Infrastructure.Persistence;
 using Ten21.Infrastructure.Persistence.Interceptors;
 using Ten21.Infrastructure.Security;
@@ -20,6 +22,9 @@ public class ChargesControllerTests : IDisposable
 {
     private readonly SqliteConnection _connection;
     private readonly HtmlInputSanitizer _sanitizer = new();
+    private readonly IPdfService _pdfService = new QuestPdfService();
+
+    static ChargesControllerTests() => QuestPDF.Settings.License = QuestPDF.Infrastructure.LicenseType.Community;
 
     public ChargesControllerTests()
     {
@@ -42,7 +47,7 @@ public class ChargesControllerTests : IDisposable
         var db = new Ten21DbContext(options, tenantContext);
         db.Database.EnsureCreated();
 
-        return (db, new ChargesController(db, _sanitizer));
+        return (db, new ChargesController(db, _sanitizer, _pdfService));
     }
 
     private static async Task<Property> SeedPropertyAsync(Ten21DbContext db)
@@ -411,5 +416,32 @@ public class ChargesControllerTests : IDisposable
         var chargeAfter = Assert.IsType<ChargeResponse>(Assert.IsType<OkObjectResult>(
             await controller.GetCharge(property.Id, id, CancellationToken.None)).Value);
         Assert.Equal(90m, chargeAfter.OutstandingAmount); // 75 + 15 debit, still unpaid
+    }
+
+    [Theory]
+    [InlineData(StatementDateRange.Lifetime)]
+    [InlineData(StatementDateRange.YearToDate)]
+    [InlineData(StatementDateRange.Last12Months)]
+    public async Task GetStatementPdf_ReturnsANonEmptyPdf_ForEveryDateRange(StatementDateRange range)
+    {
+        var (db, controller) = CreateController(Guid.NewGuid());
+        var property = await SeedPropertyAsync(db);
+        await controller.CreateCharge(property.Id, NewRequest(), CancellationToken.None);
+
+        var result = await controller.GetStatementPdf(property.Id, range, CancellationToken.None);
+
+        var file = Assert.IsType<FileContentResult>(result);
+        Assert.Equal("application/pdf", file.ContentType);
+        Assert.True(file.FileContents.Length > 0);
+        Assert.Equal("%PDF", System.Text.Encoding.ASCII.GetString(file.FileContents, 0, 4));
+    }
+
+    [Fact]
+    public async Task GetStatementPdf_ThrowsNotFound_WhenPropertyDoesNotExist()
+    {
+        var (db, controller) = CreateController(Guid.NewGuid());
+
+        await Assert.ThrowsAsync<NotFoundException>(() => controller.GetStatementPdf(
+            Guid.NewGuid(), StatementDateRange.Lifetime, CancellationToken.None));
     }
 }

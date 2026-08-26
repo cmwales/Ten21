@@ -113,6 +113,13 @@ export const routes: Routes = [
     loadComponent: () =>
       import('./pages/properties/unit-statement/unit-statement').then((m) => m.UnitStatement),
   },
+  {
+    // US-40: embeds a statement or payment-receipt PDF (distinguished by the `type` query
+    // param) -- same role gating as the statement page it's launched from.
+    path: 'properties/:id/ledger/pdf',
+    canActivate: [authGuard, denyRolesGuard([RoleNames.Tenant, RoleNames.Vendor])],
+    loadComponent: () => import('./pages/properties/pdf-viewer/pdf-viewer').then((m) => m.PdfViewer),
+  },
   { path: '', pathMatch: 'full', redirectTo: 'dashboard' },
   { path: '**', redirectTo: 'dashboard' },
 ];

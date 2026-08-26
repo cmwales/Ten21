@@ -14,6 +14,7 @@ using Ten21.Infrastructure.Email;
 using Ten21.Infrastructure.Identity;
 using Ten21.Infrastructure.Import;
 using Ten21.Infrastructure.Middleware;
+using Ten21.Infrastructure.Pdf;
 using Ten21.Infrastructure.Persistence;
 using Ten21.Infrastructure.RateLimiting;
 using Ten21.Infrastructure.Security;
@@ -45,6 +46,9 @@ builder.Services.AddBotDefense(); // US-18
 builder.Services.AddEmail(builder.Configuration); // US-16
 builder.Services.AddInputSanitization(); // US-19
 builder.Services.AddPropertyImport(); // US-21
+// US-40: QuestPDF's Community license is free only under $1M annual gross revenue --
+// revisit this if Ten21 grows past that threshold.
+builder.Services.AddPdfGeneration();
 builder.Services.AddEndpointsApiExplorer();
 
 // US-00: Swagger UI at /swagger with a JWT Bearer authorization header so

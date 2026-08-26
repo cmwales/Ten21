@@ -525,6 +525,19 @@
       "refundTenderType": "Método de Reembolso (si corresponde)"
     }
   },
+  "pdfViewer": {
+    "statementTitle": "PDF del Estado de Cuenta",
+    "receiptTitle": "PDF del Recibo de Pago",
+    "downloadStatement": "Descargar Estado de Cuenta PDF",
+    "viewReceipt": "Recibo",
+    "rangeLabel": "Rango de Fechas",
+    "ranges": {
+      "Lifetime": "Historial Completo",
+      "YearToDate": "Año Hasta la Fecha",
+      "Last12Months": "Últimos 12 Meses"
+    },
+    "loadError": "Algo salió mal al cargar este PDF."
+  },
   "common": {
     "loading": "Cargando…"
   }

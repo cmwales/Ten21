@@ -4,9 +4,11 @@ using Microsoft.EntityFrameworkCore;
 using Ten21.Api.Contracts.Charges;
 using Ten21.Api.Contracts.Credits;
 using Ten21.Api.Controllers;
+using Ten21.Application.Abstractions;
 using Ten21.Domain.Entities;
 using Ten21.Domain.Enums;
 using Ten21.Domain.Exceptions;
+using Ten21.Infrastructure.Pdf;
 using Ten21.Infrastructure.Persistence;
 using Ten21.Infrastructure.Persistence.Interceptors;
 using Ten21.Infrastructure.Security;
@@ -23,6 +25,9 @@ public class CreditsControllerTests : IDisposable
 {
     private readonly SqliteConnection _connection;
     private readonly HtmlInputSanitizer _sanitizer = new();
+    private readonly IPdfService _pdfService = new QuestPdfService();
+
+    static CreditsControllerTests() => QuestPDF.Settings.License = QuestPDF.Infrastructure.LicenseType.Community;
 
     public CreditsControllerTests()
     {
@@ -45,7 +50,7 @@ public class CreditsControllerTests : IDisposable
         var db = new Ten21DbContext(options, tenantContext);
         db.Database.EnsureCreated();
 
-        return (db, new ChargesController(db, _sanitizer), new PaymentsController(db, _sanitizer), new CreditsController(db));
+        return (db, new ChargesController(db, _sanitizer, _pdfService), new PaymentsController(db, _sanitizer, _pdfService), new CreditsController(db));
     }
 
     private static async Task<Property> SeedPropertyAsync(Ten21DbContext db)

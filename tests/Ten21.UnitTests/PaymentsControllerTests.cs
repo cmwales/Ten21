@@ -3,9 +3,11 @@ using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Ten21.Api.Contracts.Charges;
 using Ten21.Api.Controllers;
+using Ten21.Application.Abstractions;
 using Ten21.Domain.Entities;
 using Ten21.Domain.Enums;
 using Ten21.Domain.Exceptions;
+using Ten21.Infrastructure.Pdf;
 using Ten21.Infrastructure.Persistence;
 using Ten21.Infrastructure.Persistence.Interceptors;
 using Ten21.Infrastructure.Security;
@@ -21,6 +23,9 @@ public class PaymentsControllerTests : IDisposable
 {
     private readonly SqliteConnection _connection;
     private readonly HtmlInputSanitizer _sanitizer = new();
+    private readonly IPdfService _pdfService = new QuestPdfService();
+
+    static PaymentsControllerTests() => QuestPDF.Settings.License = QuestPDF.Infrastructure.LicenseType.Community;
 
     public PaymentsControllerTests()
     {
@@ -43,7 +48,7 @@ public class PaymentsControllerTests : IDisposable
         var db = new Ten21DbContext(options, tenantContext);
         db.Database.EnsureCreated();
 
-        return (db, new ChargesController(db, _sanitizer), new PaymentsController(db, _sanitizer));
+        return (db, new ChargesController(db, _sanitizer, _pdfService), new PaymentsController(db, _sanitizer, _pdfService));
     }
 
     private static async Task<Property> SeedPropertyAsync(Ten21DbContext db)
@@ -417,5 +422,37 @@ public class PaymentsControllerTests : IDisposable
 
         await Assert.ThrowsAsync<NotFoundException>(() => payments.ReallocatePayment(
             wrongProperty.Id, id, new ReallocatePaymentRequest(correctProperty.Id, residentOnOtherProperty.Id, "wrong resident"), CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task GetReceipt_ReturnsANonEmptyPdf()
+    {
+        var (db, charges, payments) = CreateControllers(Guid.NewGuid());
+        var property = await SeedPropertyAsync(db);
+        var resident = await SeedResidentAsync(db, property.Id);
+        await CreateChargeAsync(charges, property.Id, ChargeCategory.BaseRent, 500m, new DateOnly(2026, 9, 1));
+        var created = await payments.LogPayment(property.Id, NewPaymentRequest(resident.Id, 500m), CancellationToken.None);
+        var id = Assert.IsType<PaymentTransactionResponse>(Assert.IsType<CreatedAtActionResult>(created).Value).Id;
+
+        var result = await payments.GetReceipt(property.Id, id, CancellationToken.None);
+
+        var file = Assert.IsType<FileContentResult>(result);
+        Assert.Equal("application/pdf", file.ContentType);
+        Assert.True(file.FileContents.Length > 0);
+        // A real PDF file always starts with this magic header.
+        Assert.Equal("%PDF", System.Text.Encoding.ASCII.GetString(file.FileContents, 0, 4));
+    }
+
+    [Fact]
+    public async Task GetReceipt_ThrowsNotFound_WhenPaymentBelongsToADifferentProperty()
+    {
+        var (db, charges, payments) = CreateControllers(Guid.NewGuid());
+        var propertyA = await SeedPropertyAsync(db);
+        var propertyB = await SeedPropertyAsync(db);
+        var resident = await SeedResidentAsync(db, propertyA.Id);
+        var created = await payments.LogPayment(propertyA.Id, NewPaymentRequest(resident.Id, 100m), CancellationToken.None);
+        var id = Assert.IsType<PaymentTransactionResponse>(Assert.IsType<CreatedAtActionResult>(created).Value).Id;
+
+        await Assert.ThrowsAsync<NotFoundException>(() => payments.GetReceipt(propertyB.Id, id, CancellationToken.None));
     }
 }

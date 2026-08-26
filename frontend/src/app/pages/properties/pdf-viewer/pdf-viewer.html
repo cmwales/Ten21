@@ -1,0 +1,38 @@
+<div class="flex h-screen flex-col bg-slate-navy">
+  <app-header />
+
+  <div class="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 px-4 py-3">
+    <h1 class="text-lg font-bold text-white">
+      {{ (isStatement() ? 'pdfViewer.statementTitle' : 'pdfViewer.receiptTitle') | translate }}
+    </h1>
+    <div class="flex flex-wrap items-center gap-3">
+      @if (isStatement()) {
+        <select
+          [attr.aria-label]="'pdfViewer.rangeLabel' | translate"
+          class="tap-target rounded-md border border-white/40 bg-slate-navy px-3 py-2 text-sm text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
+          (change)="onRangeChange($any($event.target).value)"
+        >
+          @for (r of ranges; track r) {
+            <option [value]="r" [selected]="r === range()">{{ 'pdfViewer.ranges.' + r | translate }}</option>
+          }
+        </select>
+      }
+      <a
+        [routerLink]="['/properties', propertyId(), 'ledger']"
+        class="tap-target flex items-center rounded-md border border-white/40 px-4 py-2 font-semibold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
+      >
+        {{ 'ledger.statement.backToProperty' | translate }}
+      </a>
+    </div>
+  </div>
+
+  @if (errorKey()) {
+    <div role="alert" class="m-4 rounded-md border border-rose bg-rose/10 px-4 py-3 text-sm font-medium text-rose">
+      {{ errorKey()! | translate }}
+    </div>
+  } @else if (loading()) {
+    <p class="p-4 text-sm text-white">{{ 'common.loading' | translate }}</p>
+  } @else if (pdfUrl()) {
+    <iframe [src]="pdfUrl()" [title]="(isStatement() ? 'pdfViewer.statementTitle' : 'pdfViewer.receiptTitle') | translate" class="w-full flex-1 border-0 bg-white"></iframe>
+  }
+</div>

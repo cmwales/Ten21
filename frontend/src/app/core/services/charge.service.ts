@@ -3,7 +3,7 @@ import { Injectable, inject } from '@angular/core';
 import { Observable, map } from 'rxjs';
 import { ApiResponse } from '../models/auth.models';
 import { ChargeResponse, UpsertChargeRequest } from '../models/charge.models';
-import { AdjustmentTypeValue, ChargeAdjustmentResponse, UnitStatementResponse } from '../models/ledger.models';
+import { AdjustmentTypeValue, ChargeAdjustmentResponse, StatementDateRangeValue, UnitStatementResponse } from '../models/ledger.models';
 
 /** Renamed from ManualChargeService (Sprint 7): charge CRUD calls, nested under a property,
  * plus the unit's full financial statement. Same interceptor-attaches-the-token convention
@@ -56,6 +56,12 @@ export class ChargeService {
     return this.http
       .get<ApiResponse<UnitStatementResponse>>(`/api/properties/${propertyId}/charges/statement`)
       .pipe(map((response) => response.data!));
+  }
+
+  /** US-40: raw PDF bytes, not an ApiResponse-wrapped call -- the backend's
+   * ApiResponseWrappingFilter deliberately skips FileResult responses. */
+  getStatementPdf(propertyId: string, range: StatementDateRangeValue): Observable<Blob> {
+    return this.http.get(`/api/properties/${propertyId}/charges/statement/pdf?range=${range}`, { responseType: 'blob' });
   }
 }
 
