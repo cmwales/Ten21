@@ -62,3 +62,49 @@ No automated recurring-billing engine exists yet (Phase 2) — a PM manually pos
 - `TargetChargeId` (Guid, FK, Indexed).
 - `AdjustmentType` (nvarchar(20), NotNull: `CreditAdjustment` | `DebitAdjustment`), `Amount` (decimal(18,2), NotNull), `Reason` (nvarchar(500), NotNull) — mandatory audit explanation.
 - Append-only: no soft-delete, no update/delete endpoint. The only way to change what's owed on a charge that already has a payment allocated to it; also valid on an unlocked charge (e.g. a goodwill credit that shouldn't touch the charge's own posted `Amount`).
+
+## 4. Credit Store, Deposit Escrow & Reversal Schema (Sprint 8)
+
+Extends the Sprint 7 ledger with retained-overpayment credit, security deposit escrow, and audit-compliant payment reversal. Balance formula updated to: `Balance = ΣActiveCharges.Amount + ΣDebitAdjustments − ΣPaymentTransaction.AmountPaid − ΣCreditAdjustments − ΣCreditAllocations + ΣOverpaymentRefunds − ΣDepositSettlementAllocations` (only `RefundTransaction` rows with `Reason = OverpaymentRefund` are added back — a `DepositReturn` refund was never counted in `SumPayments` to begin with, so adding it back too would double-count it; a unit test caught this).
+
+### 4.1 PaymentTransactions Table Updates
+
+- `UnallocatedAmount` (decimal(18,2), NotNull, default `0`): The retained-credit remainder set once at `LogPayment` time (`AmountPaid − ΣwaterfallAllocations`), then drawn down over time by `CreditAllocation` rows or paid out via a `RefundTransaction`.
+- `Status` (nvarchar(20), NotNull, default `Cleared`): `Cleared` | `Reversed`. A reversed payment is excluded from `SumPayments`/`AvailableCredit`.
+- `ReversalReason` (nvarchar(250), Nullable): Mandatory audit explanation, populated only when `Status = Reversed`.
+- `ReallocatedToId` (Guid, FK, Nullable, self-referencing, Restrict on delete): Cross-references the replacement `PaymentTransaction` created when this payment was reallocated to a different property/resident.
+
+### 4.2 CreditAllocations Table
+
+- `Id` (Guid, PK), `TenantId` (Guid, FK, Indexed).
+- `SourcePaymentTransactionId` (Guid, FK, Indexed): The overpaid `PaymentTransaction` supplying the credit.
+- `TargetChargeId` (Guid, FK, Indexed): The charge the credit was applied to. Counts toward `Charge.AllocatedAmount`/`PaymentStatus` identically to a `PaymentAllocation`.
+- `AppliedAmount` (decimal(18,2), NotNull), `AppliedDate` (date, NotNull).
+- Created only via the manual "Apply Credits to Charges" action (unit-scoped, oldest-payment-first, statutory priority order) — never by a background process. Deleted (not soft-deleted) if its source payment is later reversed.
+
+### 4.3 RefundTransactions Table
+
+- `Id` (Guid, PK), `TenantId` (Guid, FK, Indexed).
+- `ResidentProfileId` (Guid, FK, Indexed), `PropertyId` (Guid, FK, Indexed).
+- `Amount` (decimal(18,2), NotNull), `RefundDate` (date, NotNull).
+- `TenderType` (nvarchar(20), NotNull: `Check` | `DirectDeposit` | `Zelle` — a narrower set than `PaymentTransaction.TenderType`, since cash/Venmo aren't realistic disbursement methods).
+- `ReferenceNumber` (nvarchar(100), Nullable).
+- `Reason` (nvarchar(20), NotNull: `DepositReturn` | `OverpaymentRefund`).
+- Append-only, no link back to the source payment(s) it drew down — funds are drawn FIFO oldest-payment-first at refund time.
+
+### 4.4 SecurityDeposits Table
+
+- `Id` (Guid, PK), `TenantId` (Guid, FK, Indexed).
+- `PropertyId` (Guid, FK, Indexed): The unit the deposit was collected for.
+- `ResidentProfileId` (Guid, FK, Indexed): Defaults to the Primary Resident on the unit's active `Lease` when not explicitly specified (Dual-Anchor Attribution).
+- `OriginalAmount` (decimal(18,2), NotNull), `AmountHeld` (decimal(18,2), NotNull): Mutable, starts equal to `OriginalAmount`, reaches `0` once settled.
+- `CollectedDate` (date, NotNull).
+- `Status` (nvarchar(20), NotNull): `Held` | `Settled`.
+- Deliberately not a `Charge` and never touches `PaymentTransaction` — escrow liability, not rental income.
+
+### 4.5 DepositSettlementAllocations Table
+
+- `Id` (Guid, PK), `TenantId` (Guid, FK, Indexed).
+- `SecurityDepositId` (Guid, FK, Indexed), `TargetChargeId` (Guid, FK, Indexed): The deposit-money-equivalent of `CreditAllocation` — counts toward `Charge.AllocatedAmount` identically but is excluded from `SumPayments`.
+- `AppliedAmount` (decimal(18,2), NotNull), `AppliedDate` (date, NotNull).
+- Created only by `SettleDeposit`, which applies the entire `AmountHeld` against outstanding charges in statutory priority order in one atomic action; any remainder becomes a `RefundTransaction` (`Reason = DepositReturn`).
