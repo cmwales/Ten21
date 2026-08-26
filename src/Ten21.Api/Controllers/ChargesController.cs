@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using Ten21.Api.Contracts.Charges;
+using Ten21.Api.Contracts.Credits;
 using Ten21.Application.Abstractions;
 using Ten21.Domain.Common;
 using Ten21.Domain.Entities;
@@ -91,6 +92,11 @@ public class ChargesController : ControllerBase
             .ToListAsync(cancellationToken))
             .OrderBy(a => a.CreatedAt)
             .ToList();
+        var allCreditAllocations = (await _dbContext.CreditAllocations
+            .Where(a => chargeIds.Contains(a.TargetChargeId))
+            .ToListAsync(cancellationToken))
+            .OrderByDescending(a => a.AppliedDate)
+            .ToList();
 
         var payments = await _dbContext.PaymentTransactions
             .Include(p => p.Allocations)
@@ -98,9 +104,16 @@ public class ChargesController : ControllerBase
             .OrderByDescending(p => p.PaymentDate)
             .ToListAsync(cancellationToken);
 
+        var chargeDescriptionsByIdForCredits = charges.ToDictionary(c => c.Id, c => c.Description);
+        var creditResponses = allCreditAllocations.Select(a => new CreditAllocationResponse(
+            a.Id, a.SourcePaymentTransactionId, a.TargetChargeId,
+            chargeDescriptionsByIdForCredits.GetValueOrDefault(a.TargetChargeId, "(unknown charge)"),
+            a.AppliedAmount, a.AppliedDate)).ToList();
+
         var chargeStatementItems = charges.Select(charge =>
         {
-            var allocatedAmount = allAllocations.Where(a => a.ChargeId == charge.Id).Sum(a => a.AllocatedAmount);
+            var allocatedAmount = allAllocations.Where(a => a.ChargeId == charge.Id).Sum(a => a.AllocatedAmount)
+                + allCreditAllocations.Where(a => a.TargetChargeId == charge.Id).Sum(a => a.AppliedAmount);
             var adjustmentsForCharge = allAdjustments.Where(a => a.TargetChargeId == charge.Id).ToList();
             var chargeResponse = BuildChargeResponse(charge, allocatedAmount, adjustmentsForCharge);
             return new ChargeStatementItemResponse(chargeResponse, adjustmentsForCharge.Select(ToAdjustmentResponse).ToList());
@@ -113,22 +126,46 @@ public class ChargesController : ControllerBase
             .ToDictionaryAsync(r => r.Id, r => $"{r.FirstName} {r.LastName}", cancellationToken);
         var paymentResponses = payments.Select(p => new PaymentTransactionResponse(
             p.Id, p.PropertyId, p.ResidentProfileId, residentNamesById.GetValueOrDefault(p.ResidentProfileId, "(unknown resident)"),
-            p.PaymentDate, p.AmountPaid, p.TenderType, p.ReferenceNumber, p.Notes,
+            p.PaymentDate, p.AmountPaid, p.TenderType, p.ReferenceNumber, p.Notes, p.UnallocatedAmount,
             p.Allocations.Select(a => new PaymentAllocationSummaryResponse(
                 a.ChargeId,
                 chargeDescriptionsById.GetValueOrDefault(a.ChargeId, "(unknown charge)"),
                 a.AllocatedAmount)).ToList())).ToList();
 
+        var refunds = await _dbContext.RefundTransactions
+            .Where(r => r.PropertyId == propertyId)
+            .OrderByDescending(r => r.RefundDate)
+            .ToListAsync(cancellationToken);
+        var refundResidentIds = refunds.Select(r => r.ResidentProfileId).Distinct().ToList();
+        var refundResidentNamesById = await _dbContext.ResidentProfiles
+            .Where(r => refundResidentIds.Contains(r.Id))
+            .ToDictionaryAsync(r => r.Id, r => $"{r.FirstName} {r.LastName}", cancellationToken);
+        var refundResponses = refunds.Select(r => new RefundTransactionResponse(
+            r.Id, r.ResidentProfileId, refundResidentNamesById.GetValueOrDefault(r.ResidentProfileId, "(unknown resident)"),
+            r.PropertyId, r.Amount, r.RefundDate, r.TenderType, r.ReferenceNumber, r.Reason, r.CreatedAt)).ToList();
+
         // See UnitStatementResponse's own comment for why Payments uses total AmountPaid
         // (not just allocated amounts) -- an overpayment should show as a credit (negative
-        // balance), not just floor debt at zero.
+        // balance), not just floor debt at zero. Refunds are added BACK (US-37): once a
+        // resident's held credit is actually paid out, the unit no longer owes it.
         var sumActiveCharges = charges.Where(c => c.Status == ChargeLifecycleStatus.Active).Sum(c => c.Amount);
         var sumDebits = allAdjustments.Where(a => a.AdjustmentType == AdjustmentType.DebitAdjustment).Sum(a => a.Amount);
         var sumCredits = allAdjustments.Where(a => a.AdjustmentType == AdjustmentType.CreditAdjustment).Sum(a => a.Amount);
         var sumPayments = payments.Sum(p => p.AmountPaid);
-        var balance = sumActiveCharges + sumDebits - sumPayments - sumCredits;
+        var sumRefunds = refunds.Sum(r => r.Amount);
+        var balance = sumActiveCharges + sumDebits - sumPayments - sumCredits + sumRefunds;
 
-        return Ok(new UnitStatementResponse(propertyId, balance, chargeStatementItems, paymentResponses));
+        // US-37: AvailableCredit is distinct from Balance -- Balance already reflects an
+        // overpayment as a credit implicitly (via subtracting the full AmountPaid above), but
+        // AvailableCredit is the more specific "how much of that is still sitting un-drawn-down
+        // right now" figure that the "Apply Credits to Charges" / "Refund Credit Balance"
+        // actions actually operate against. Applying credit to a charge moves money from here
+        // into a charge's AllocatedAmount; refunding it moves money out the door (reflected in
+        // Balance above instead) -- neither changes Balance directly.
+        var availableCredit = payments.Sum(p => p.UnallocatedAmount);
+
+        return Ok(new UnitStatementResponse(
+            propertyId, balance, availableCredit, chargeStatementItems, paymentResponses, creditResponses, refundResponses));
     }
 
     [HttpPost]
@@ -310,10 +347,20 @@ public class ChargesController : ControllerBase
     private async Task<Charge?> FindChargeAsync(Guid propertyId, Guid id, CancellationToken cancellationToken) =>
         await _dbContext.Charges.FirstOrDefaultAsync(c => c.PropertyId == propertyId && c.Id == id, cancellationToken);
 
-    private async Task<decimal> GetAllocatedAmountAsync(Guid chargeId, CancellationToken cancellationToken) =>
-        await _dbContext.PaymentAllocations
+    /// <summary>Sums BOTH PaymentAllocation (applied at waterfall time, when a payment was
+    /// logged) and CreditAllocation (US-37: applied later, when a PM ran "Apply Credits to
+    /// Charges" against previously-unallocated overpayment credit) -- either one locks a
+    /// charge and counts toward its PaymentStatus/OutstandingAmount identically.</summary>
+    private async Task<decimal> GetAllocatedAmountAsync(Guid chargeId, CancellationToken cancellationToken)
+    {
+        var fromPayments = await _dbContext.PaymentAllocations
             .Where(a => a.ChargeId == chargeId)
             .SumAsync(a => (decimal?)a.AllocatedAmount, cancellationToken) ?? 0m;
+        var fromCredits = await _dbContext.CreditAllocations
+            .Where(a => a.TargetChargeId == chargeId)
+            .SumAsync(a => (decimal?)a.AppliedAmount, cancellationToken) ?? 0m;
+        return fromPayments + fromCredits;
+    }
 
     private async Task<ChargeResponse> BuildChargeResponseAsync(Charge charge, CancellationToken cancellationToken)
     {

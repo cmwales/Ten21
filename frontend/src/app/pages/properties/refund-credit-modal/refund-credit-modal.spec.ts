@@ -5,12 +5,12 @@ import { TestBed } from '@angular/core/testing';
 import { ActivatedRoute } from '@angular/router';
 import { provideTranslateService } from '@ngx-translate/core';
 import { ApiResponse } from '../../../core/models/auth.models';
-import { PaymentTransactionResponse } from '../../../core/models/ledger.models';
+import { RefundTransactionResponse } from '../../../core/models/ledger.models';
 import { ResidentResponse } from '../../../core/models/resident.models';
 import { ToastService } from '../../../core/services/toast.service';
-import { LogPaymentModal } from './log-payment-modal';
+import { RefundCreditModal } from './refund-credit-modal';
 
-describe('LogPaymentModal', () => {
+describe('RefundCreditModal', () => {
   let httpMock: HttpTestingController;
   let toastService: { show: ReturnType<typeof vi.fn> };
 
@@ -29,21 +29,20 @@ describe('LogPaymentModal', () => {
     emergencyContacts: [],
   };
 
-  const payment: PaymentTransactionResponse = {
-    id: 'payment-1',
-    propertyId: 'prop-1',
+  const refund: RefundTransactionResponse = {
+    id: 'refund-1',
     residentProfileId: 'resident-1',
     residentName: 'Jamie Rivera',
-    paymentDate: '2026-09-01',
-    amountPaid: 500,
+    propertyId: 'prop-1',
+    amount: 75,
+    refundDate: '2026-09-10',
     tenderType: 'Check',
-    referenceNumber: 'CHK-1001',
-    notes: null,
-    unallocatedAmount: 0,
-    allocations: [],
+    referenceNumber: 'CHK-2001',
+    reason: 'OverpaymentRefund',
+    createdAt: '2026-09-10T00:00:00Z',
   };
 
-  function createComponent(): LogPaymentModal {
+  function createComponent(): RefundCreditModal {
     toastService = { show: vi.fn() };
 
     TestBed.configureTestingModule({
@@ -57,13 +56,13 @@ describe('LogPaymentModal', () => {
     });
 
     httpMock = TestBed.inject(HttpTestingController);
-    const fixture = TestBed.createComponent(LogPaymentModal);
+    const fixture = TestBed.createComponent(RefundCreditModal);
     const component = fixture.componentInstance;
     component.propertyId = 'prop-1';
     return component;
   }
 
-  function open(component: LogPaymentModal): void {
+  function open(component: RefundCreditModal): void {
     component.open = true;
     component.ngOnChanges({ open: new SimpleChange(false, true, false) });
     httpMock.expectOne('/api/properties/prop-1/residents').flush({
@@ -73,23 +72,14 @@ describe('LogPaymentModal', () => {
 
   afterEach(() => httpMock.verify());
 
-  it('loads residents for the property when opened, and defaults tenderType to Cash', () => {
+  it('loads residents for the property when opened', () => {
     const component = createComponent();
     open(component);
 
     expect(component['residents']()).toEqual([resident]);
-    expect(component['form'].controls.tenderType.value).toBe('Cash');
   });
 
-  it('does not reload residents when open changes to false', () => {
-    const component = createComponent();
-    component.open = false;
-    component.ngOnChanges({ open: new SimpleChange(true, false, false) });
-
-    httpMock.expectNone('/api/properties/prop-1/residents');
-  });
-
-  it('save() posts a payment request, toasts, resets, and emits saved + closed', () => {
+  it('save() posts a refund request, toasts, resets, and emits saved + closed', () => {
     const component = createComponent();
     open(component);
     const savedEmitted = vi.fn();
@@ -99,53 +89,64 @@ describe('LogPaymentModal', () => {
 
     component['form'].patchValue({
       residentProfileId: 'resident-1',
-      paymentDate: '2026-09-01',
-      amountPaid: 500,
+      amount: 75,
+      refundDate: '2026-09-10',
       tenderType: 'Check',
-      referenceNumber: 'CHK-1001',
+      referenceNumber: 'CHK-2001',
     });
 
     component['save']();
 
-    const req = httpMock.expectOne('/api/properties/prop-1/payments');
+    const req = httpMock.expectOne('/api/properties/prop-1/refunds');
     expect(req.request.method).toBe('POST');
     expect(req.request.body).toEqual({
       residentProfileId: 'resident-1',
-      paymentDate: '2026-09-01',
-      amountPaid: 500,
+      amount: 75,
+      refundDate: '2026-09-10',
       tenderType: 'Check',
-      referenceNumber: 'CHK-1001',
-      notes: null,
+      referenceNumber: 'CHK-2001',
     });
-    req.flush({ success: true, data: payment, message: null, statusCode: 201, traceId: 't1' } satisfies ApiResponse<PaymentTransactionResponse>);
+    req.flush({ success: true, data: refund, message: null, statusCode: 201, traceId: 't1' } satisfies ApiResponse<RefundTransactionResponse>);
 
-    expect(toastService.show).toHaveBeenCalledWith('payments.modal.addedToast');
+    expect(toastService.show).toHaveBeenCalledWith('refunds.modal.addedToast');
     expect(savedEmitted).toHaveBeenCalled();
     expect(closedEmitted).toHaveBeenCalled();
-    expect(component['form'].controls.amountPaid.value).toBe(0);
-    expect(component['form'].controls.residentProfileId.value).toBe('');
+    expect(component['form'].controls.amount.value).toBe(0);
   });
 
   it('does not submit an invalid form', () => {
     const component = createComponent();
-    open(component); // residentProfileId/paymentDate/amountPaid required, left at defaults
+    open(component);
 
     component['save']();
 
-    httpMock.expectNone('/api/properties/prop-1/payments');
+    httpMock.expectNone('/api/properties/prop-1/refunds');
   });
 
-  it('shows an error toast when the server rejects the payment', () => {
+  it('shows an insufficient-credit toast when the server returns 409', () => {
     const component = createComponent();
     open(component);
-    component['form'].patchValue({ residentProfileId: 'resident-1', paymentDate: '2026-09-01', amountPaid: 500 });
+    component['form'].patchValue({ residentProfileId: 'resident-1', amount: 500, refundDate: '2026-09-10' });
 
     component['save']();
 
-    const req = httpMock.expectOne('/api/properties/prop-1/payments');
+    const req = httpMock.expectOne('/api/properties/prop-1/refunds');
+    req.flush({ type: 'about:blank', title: 'Conflict', status: 409 }, { status: 409, statusText: 'Conflict' });
+
+    expect(toastService.show).toHaveBeenCalledWith('refunds.modal.insufficientCreditToast');
+  });
+
+  it('shows a generic error toast on other failures', () => {
+    const component = createComponent();
+    open(component);
+    component['form'].patchValue({ residentProfileId: 'resident-1', amount: 75, refundDate: '2026-09-10' });
+
+    component['save']();
+
+    const req = httpMock.expectOne('/api/properties/prop-1/refunds');
     req.flush({ type: 'about:blank', title: 'Bad Request', status: 400 }, { status: 400, statusText: 'Bad Request' });
 
-    expect(toastService.show).toHaveBeenCalledWith('payments.modal.errorToast');
+    expect(toastService.show).toHaveBeenCalledWith('refunds.modal.errorToast');
   });
 
   it('close() emits the closed output', () => {

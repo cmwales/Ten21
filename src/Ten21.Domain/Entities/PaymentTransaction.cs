@@ -23,6 +23,13 @@ namespace Ten21.Domain.Entities;
 /// audit record; correcting a mistake happens via a ChargeAdjustment on the affected charge(s),
 /// not by editing or erasing payment history. Add real voiding later if a concrete need
 /// shows up, rather than building it speculatively now.
+///
+/// US-37: UnallocatedAmount is the retained overpayment credit this payment produced -- set
+/// once at LogPayment time to whatever the statutory waterfall couldn't apply to any charge,
+/// then drawn down over time by CreditAllocation rows as a PM runs "Apply Credits to Charges"
+/// (a manual action, not a background job -- see CreditAllocation's own comment) or issues a
+/// RefundTransaction against it. Genuinely mutable, unlike everything else on this entity --
+/// it's a running balance, not a historical fact.
 /// </summary>
 public class PaymentTransaction : ITenantScopedEntity, IAuditableEntity
 {
@@ -36,6 +43,7 @@ public class PaymentTransaction : ITenantScopedEntity, IAuditableEntity
     public TenderType TenderType { get; set; }
     public string? ReferenceNumber { get; set; }
     public string? Notes { get; set; }
+    public decimal UnallocatedAmount { get; set; }
 
     public ICollection<PaymentAllocation> Allocations { get; set; } = new List<PaymentAllocation>();
 

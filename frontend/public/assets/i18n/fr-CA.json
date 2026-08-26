@@ -414,6 +414,20 @@
       "notes": "Notes"
     }
   },
+  "refunds": {
+    "modal": {
+      "title": "Rembourser le Solde de Crédit",
+      "close": "Fermer",
+      "save": "Envoyer le Remboursement",
+      "addedToast": "Remboursement envoyé.",
+      "insufficientCreditToast": "Ce résident n'a pas assez de crédit disponible pour ce montant.",
+      "errorToast": "Une erreur s'est produite. Veuillez réessayer."
+    },
+    "form": {
+      "amount": "Montant",
+      "refundDate": "Date de Remboursement"
+    }
+  },
   "tenderTypes": {
     "Cash": "Comptant",
     "Check": "Chèque",
@@ -438,15 +452,24 @@
       "title": "Relevé de l'Unité",
       "backToProperty": "Retour à la Propriété",
       "logPayment": "Enregistrer un Paiement",
+      "applyCredits": "Appliquer les Crédits aux Frais",
+      "applyingCredits": "Application en cours…",
+      "refundCredit": "Rembourser le Solde de Crédit",
+      "availableCredit": "Crédit Disponible",
+      "creditRemaining": "Crédit restant",
       "balance": "Solde Actuel",
       "charges": "Frais",
       "payments": "Paiements",
+      "credits": "Crédits Appliqués",
+      "refunds": "Remboursements",
       "noCharges": "Aucun frais publié pour le moment.",
       "noPayments": "Aucun paiement enregistré pour le moment.",
       "voided": "Annulé",
       "paidBy": "Payé par",
       "reference": "Réf",
       "loadError": "Une erreur s'est produite lors du chargement de ce relevé.",
+      "creditsAppliedToast": "Crédits appliqués aux frais impayés.",
+      "noCreditsAppliedToast": "Aucun frais impayé auquel appliquer un crédit.",
       "adjustmentTypes": {
         "CreditAdjustment": "Crédit",
         "DebitAdjustment": "Débit"

@@ -414,6 +414,20 @@
       "notes": "Notas"
     }
   },
+  "refunds": {
+    "modal": {
+      "title": "Reembolsar Saldo de Crédito",
+      "close": "Cerrar",
+      "save": "Enviar Reembolso",
+      "addedToast": "Reembolso enviado.",
+      "insufficientCreditToast": "Este residente no tiene suficiente crédito disponible para ese monto.",
+      "errorToast": "Algo salió mal. Inténtalo de nuevo."
+    },
+    "form": {
+      "amount": "Monto",
+      "refundDate": "Fecha de Reembolso"
+    }
+  },
   "tenderTypes": {
     "Cash": "Efectivo",
     "Check": "Cheque",
@@ -438,15 +452,24 @@
       "title": "Estado de Cuenta de la Unidad",
       "backToProperty": "Volver a la Propiedad",
       "logPayment": "Registrar Pago",
+      "applyCredits": "Aplicar Créditos a Cargos",
+      "applyingCredits": "Aplicando…",
+      "refundCredit": "Reembolsar Saldo de Crédito",
+      "availableCredit": "Crédito Disponible",
+      "creditRemaining": "Crédito restante",
       "balance": "Saldo Actual",
       "charges": "Cargos",
       "payments": "Pagos",
+      "credits": "Créditos Aplicados",
+      "refunds": "Reembolsos",
       "noCharges": "Aún no se han registrado cargos.",
       "noPayments": "Aún no se han registrado pagos.",
       "voided": "Anulado",
       "paidBy": "Pagado por",
       "reference": "Ref",
       "loadError": "Algo salió mal al cargar este estado de cuenta.",
+      "creditsAppliedToast": "Créditos aplicados a los cargos pendientes.",
+      "noCreditsAppliedToast": "No hay cargos pendientes a los que aplicar crédito.",
       "adjustmentTypes": {
         "CreditAdjustment": "Crédito",
         "DebitAdjustment": "Débito"

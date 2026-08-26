@@ -1,3 +1,4 @@
+using Ten21.Api.Contracts.Credits;
 using Ten21.Domain.Enums;
 
 namespace Ten21.Api.Contracts.Charges;
@@ -74,6 +75,10 @@ public record LogPaymentRequest(
     string? ReferenceNumber,
     string? Notes);
 
+/// <summary>UnallocatedAmount (US-37) is this payment's own remaining retained credit -- see
+/// PaymentTransaction's own class comment. Decreases as CreditAllocations draw it down or a
+/// RefundTransaction pays it out; the sum of this across a unit's payments is
+/// UnitStatementResponse.AvailableCredit.</summary>
 public record PaymentTransactionResponse(
     Guid Id,
     Guid PropertyId,
@@ -84,15 +89,40 @@ public record PaymentTransactionResponse(
     TenderType TenderType,
     string? ReferenceNumber,
     string? Notes,
+    decimal UnallocatedAmount,
     IReadOnlyList<PaymentAllocationSummaryResponse> Allocations);
 
+/// <summary>US-37: one later draw-down of a payment's retained credit against a charge --
+/// distinct from PaymentAllocationSummaryResponse, which is what the waterfall applied at the
+/// moment the payment was originally logged. See CreditAllocation's own class comment.</summary>
+public record CreditAllocationResponse(
+    Guid Id,
+    Guid SourcePaymentTransactionId,
+    Guid TargetChargeId,
+    string ChargeDescription,
+    decimal AppliedAmount,
+    DateOnly AppliedDate);
+
 /// <summary>US-33: the whole "lifetime financial statement" for one unit -- charges (with
-/// nested adjustments) and payments, plus the dynamic running Balance
-/// (= SumCharges + SumDebits - SumPayments - SumCredits). Uses total AmountPaid (not just
-/// allocated amounts) for the Payments term, so an overpayment can drive Balance negative
-/// (a real credit) rather than flooring at the sum of what happened to get allocated.</summary>
+/// nested adjustments), payments, and refunds, plus the dynamic running Balance
+/// (= SumCharges + SumDebits - SumPayments - SumCredits + SumRefunds). Uses total AmountPaid
+/// (not just allocated amounts) for the Payments term, so an overpayment can drive Balance
+/// negative (a real credit) rather than flooring at the sum of what happened to get allocated.
+/// SumRefunds (US-37) is added BACK -- once a resident's held credit has actually been paid
+/// out via RefundTransaction, the unit no longer owes it, so Balance has to move back toward
+/// zero rather than staying negative forever.
+///
+/// AvailableCredit (US-37) is a different, more specific number: how much of that overall
+/// credit is currently un-drawn-down (sum of PaymentTransaction.UnallocatedAmount) -- what
+/// "Apply Credits to Charges" / "Refund Credit Balance" actually operate against. It never
+/// changes Balance itself; applying credit just moves money from here into a charge's
+/// AllocatedAmount, and refunding it moves money from here out the door (reflected in Balance
+/// instead).</summary>
 public record UnitStatementResponse(
     Guid PropertyId,
     decimal Balance,
+    decimal AvailableCredit,
     IReadOnlyList<ChargeStatementItemResponse> Charges,
-    IReadOnlyList<PaymentTransactionResponse> Payments);
+    IReadOnlyList<PaymentTransactionResponse> Payments,
+    IReadOnlyList<CreditAllocationResponse> Credits,
+    IReadOnlyList<RefundTransactionResponse> Refunds);

@@ -84,6 +84,10 @@ public class PaymentsController : ControllerBase
         var allocations = await BuildWaterfallAllocationsAsync(propertyId, payment.Id, request.AmountPaid, cancellationToken);
         _dbContext.PaymentAllocations.AddRange(allocations);
         payment.Allocations = allocations;
+        // US-37: whatever the waterfall couldn't apply to any charge becomes this payment's
+        // own retained credit balance, drawn down later via CreditAllocation or paid out via
+        // RefundTransaction -- see PaymentTransaction.UnallocatedAmount's own comment.
+        payment.UnallocatedAmount = request.AmountPaid - allocations.Sum(a => a.AllocatedAmount);
 
         await _dbContext.SaveChangesAsync(cancellationToken);
 
@@ -193,6 +197,7 @@ public class PaymentsController : ControllerBase
         payment.TenderType,
         payment.ReferenceNumber,
         payment.Notes,
+        payment.UnallocatedAmount,
         payment.Allocations.Select(a => new PaymentAllocationSummaryResponse(
             a.ChargeId,
             chargeDescriptionsById.GetValueOrDefault(a.ChargeId, "(unknown charge)"),
