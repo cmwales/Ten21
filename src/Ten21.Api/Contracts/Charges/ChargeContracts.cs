@@ -49,6 +49,16 @@ public record PaymentAllocationSummaryResponse(
     string ChargeDescription,
     decimal AllocatedAmount);
 
+/// <summary>US-34: captures a manually-received payment; the amount is applied automatically
+/// via the statutory waterfall (LateFee/Legal, then BaseRent, then AddOn/SpecialAssessment --
+/// see Charge.DefaultAllocationPriorityFor), never chosen per-charge by the PM.</summary>
+public record LogPaymentRequest(
+    DateOnly PaymentDate,
+    decimal AmountPaid,
+    TenderType TenderType,
+    string? ReferenceNumber,
+    string? Notes);
+
 public record PaymentTransactionResponse(
     Guid Id,
     Guid PropertyId,

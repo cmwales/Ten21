@@ -121,4 +121,21 @@ describe('UnitStatement', () => {
     expect(component['errorKey']()).toBe('ledger.statement.loadError');
     expect(component['loading']()).toBe(false);
   });
+
+  it('loadStatement() re-fetches the statement, e.g. after LogPaymentModal emits saved', () => {
+    const component = createComponent();
+    httpMock.expectOne('/api/properties/prop-1').flush({
+      success: true, data: property, message: null, statusCode: 200, traceId: 't1',
+    } satisfies ApiResponse<PropertyResponse>);
+    httpMock.expectOne('/api/properties/prop-1/charges/statement').flush({
+      success: true, data: statement, message: null, statusCode: 200, traceId: 't1',
+    } satisfies ApiResponse<UnitStatementResponse>);
+
+    component['loadStatement']('prop-1');
+
+    const reload = httpMock.expectOne('/api/properties/prop-1/charges/statement');
+    reload.flush({ success: true, data: { ...statement, balance: 0 }, message: null, statusCode: 200, traceId: 't1' } satisfies ApiResponse<UnitStatementResponse>);
+
+    expect(component['statement']()!.balance).toBe(0);
+  });
 });

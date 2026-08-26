@@ -388,6 +388,23 @@
       "Paid": "Pagado"
     }
   },
+  "payments": {
+    "modal": {
+      "title": "Registrar Pago",
+      "close": "Cerrar",
+      "save": "Registrar Pago",
+      "addedToast": "Pago registrado.",
+      "errorToast": "Algo salió mal. Inténtalo de nuevo."
+    },
+    "form": {
+      "amountPaid": "Monto Pagado",
+      "paymentDate": "Fecha de Pago",
+      "tenderType": "Método de Pago",
+      "referenceNumber": "Número de Referencia",
+      "referenceNumberPlaceholder": "p. ej. número de cheque (opcional)",
+      "notes": "Notas"
+    }
+  },
   "tenderTypes": {
     "Cash": "Efectivo",
     "Check": "Cheque",
@@ -408,6 +425,7 @@
     "statement": {
       "title": "Estado de Cuenta de la Unidad",
       "backToProperty": "Volver a la Propiedad",
+      "logPayment": "Registrar Pago",
       "balance": "Saldo Actual",
       "charges": "Cargos",
       "payments": "Pagos",

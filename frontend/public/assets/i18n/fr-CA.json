@@ -388,6 +388,23 @@
       "Paid": "Payé"
     }
   },
+  "payments": {
+    "modal": {
+      "title": "Enregistrer un Paiement",
+      "close": "Fermer",
+      "save": "Enregistrer le Paiement",
+      "addedToast": "Paiement enregistré.",
+      "errorToast": "Une erreur s'est produite. Veuillez réessayer."
+    },
+    "form": {
+      "amountPaid": "Montant Payé",
+      "paymentDate": "Date de Paiement",
+      "tenderType": "Mode de Paiement",
+      "referenceNumber": "Numéro de Référence",
+      "referenceNumberPlaceholder": "p. ex. numéro de chèque (facultatif)",
+      "notes": "Notes"
+    }
+  },
   "tenderTypes": {
     "Cash": "Comptant",
     "Check": "Chèque",
@@ -408,6 +425,7 @@
     "statement": {
       "title": "Relevé de l'Unité",
       "backToProperty": "Retour à la Propriété",
+      "logPayment": "Enregistrer un Paiement",
       "balance": "Solde Actuel",
       "charges": "Frais",
       "payments": "Paiements",

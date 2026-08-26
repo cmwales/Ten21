@@ -388,6 +388,23 @@
       "Paid": "Paid"
     }
   },
+  "payments": {
+    "modal": {
+      "title": "Log Payment",
+      "close": "Close",
+      "save": "Log Payment",
+      "addedToast": "Payment logged.",
+      "errorToast": "Something went wrong. Please try again."
+    },
+    "form": {
+      "amountPaid": "Amount Paid",
+      "paymentDate": "Payment Date",
+      "tenderType": "Tender Type",
+      "referenceNumber": "Reference Number",
+      "referenceNumberPlaceholder": "e.g. check number (optional)",
+      "notes": "Notes"
+    }
+  },
   "tenderTypes": {
     "Cash": "Cash",
     "Check": "Check",
@@ -408,6 +425,7 @@
     "statement": {
       "title": "Unit Statement",
       "backToProperty": "Back to Property",
+      "logPayment": "Log Payment",
       "balance": "Current Balance",
       "charges": "Charges",
       "payments": "Payments",
