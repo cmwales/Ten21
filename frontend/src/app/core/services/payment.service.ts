@@ -16,6 +16,22 @@ export class PaymentService {
       .post<ApiResponse<PaymentTransactionResponse>>(`/api/properties/${propertyId}/payments`, request)
       .pipe(map((response) => response.data!));
   }
+
+  /** US-38: NSF/bounced -- un-links this payment's allocations and restores the charges it
+   * touched, but never deletes the row itself. */
+  reversePayment(propertyId: string, paymentId: string, request: ReversePaymentRequest): Observable<PaymentTransactionResponse> {
+    return this.http
+      .post<ApiResponse<PaymentTransactionResponse>>(`/api/properties/${propertyId}/payments/${paymentId}/reverse`, request)
+      .pipe(map((response) => response.data!));
+  }
+
+  /** US-38: cross-property posting error -- reverses this payment and atomically creates a
+   * linked replacement under the correct property/resident. Returns the NEW payment. */
+  reallocatePayment(propertyId: string, paymentId: string, request: ReallocatePaymentRequest): Observable<PaymentTransactionResponse> {
+    return this.http
+      .post<ApiResponse<PaymentTransactionResponse>>(`/api/properties/${propertyId}/payments/${paymentId}/reallocate`, request)
+      .pipe(map((response) => response.data!));
+  }
 }
 
 /** Mirrors Ten21.Api.Contracts.Charges.LogPaymentRequest. residentProfileId is required --
@@ -27,4 +43,16 @@ export interface LogPaymentRequest {
   tenderType: TenderTypeValue;
   referenceNumber: string | null;
   notes: string | null;
+}
+
+/** Mirrors Ten21.Api.Contracts.Charges.ReversePaymentRequest. */
+export interface ReversePaymentRequest {
+  reversalReason: string;
+}
+
+/** Mirrors Ten21.Api.Contracts.Charges.ReallocatePaymentRequest. */
+export interface ReallocatePaymentRequest {
+  targetPropertyId: string;
+  targetResidentProfileId: string;
+  reversalReason: string;
 }

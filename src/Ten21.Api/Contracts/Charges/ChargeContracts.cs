@@ -78,7 +78,9 @@ public record LogPaymentRequest(
 /// <summary>UnallocatedAmount (US-37) is this payment's own remaining retained credit -- see
 /// PaymentTransaction's own class comment. Decreases as CreditAllocations draw it down or a
 /// RefundTransaction pays it out; the sum of this across a unit's payments is
-/// UnitStatementResponse.AvailableCredit.</summary>
+/// UnitStatementResponse.AvailableCredit. Status/ReversalReason/ReallocatedToId (US-38) --
+/// see PaymentTransaction's own class comment for the reversal/reallocation mechanics; a
+/// Reversed payment's Allocations always comes back empty (un-linked, not deleted).</summary>
 public record PaymentTransactionResponse(
     Guid Id,
     Guid PropertyId,
@@ -90,7 +92,27 @@ public record PaymentTransactionResponse(
     string? ReferenceNumber,
     string? Notes,
     decimal UnallocatedAmount,
+    PaymentTransactionStatus Status,
+    string? ReversalReason,
+    Guid? ReallocatedToId,
     IReadOnlyList<PaymentAllocationSummaryResponse> Allocations);
+
+/// <summary>US-38: "Reverse Payment" -- an NSF/bounced payment. ReversalReason is mandatory,
+/// same audit-explanation convention as ChargeAdjustment.Reason. The optional NSF fee the
+/// acceptance criteria calls for is deliberately NOT bundled into this request -- it's just a
+/// normal Charge (Category=LateFee) posted afterward via the existing CreateCharge endpoint,
+/// so this endpoint doesn't have to duplicate charge-creation logic for a one-off case.</summary>
+public record ReversePaymentRequest(string ReversalReason);
+
+/// <summary>US-38: "Reallocate Payment" -- a cross-property posting error. Reverses this
+/// payment (same mechanics as ReversePaymentRequest) and, atomically, creates a brand-new
+/// PaymentTransaction under the correct property/resident, running the statutory waterfall
+/// against it exactly like a fresh LogPayment. ReversalReason doubles as the cross-reference
+/// note stamped on both the reversed original and the new payment's Notes.</summary>
+public record ReallocatePaymentRequest(
+    Guid TargetPropertyId,
+    Guid TargetResidentProfileId,
+    string ReversalReason);
 
 /// <summary>US-37: one later draw-down of a payment's retained credit against a charge --
 /// distinct from PaymentAllocationSummaryResponse, which is what the waterfall applied at the

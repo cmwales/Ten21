@@ -30,6 +30,15 @@ namespace Ten21.Domain.Entities;
 /// (a manual action, not a background job -- see CreditAllocation's own comment) or issues a
 /// RefundTransaction against it. Genuinely mutable, unlike everything else on this entity --
 /// it's a running balance, not a historical fact.
+///
+/// US-38: Status/ReversalReason/ReallocatedToId support reversing a payment that turns out to
+/// have never actually cleared (NSF/bounced) or was posted to the wrong property. Reversal
+/// un-links this payment's PaymentAllocation/CreditAllocation rows (see PaymentsController's
+/// own comment) and zeroes UnallocatedAmount, but the row itself is never deleted -- "restores
+/// charge balances without raw database row deletions" is the whole point. ReallocatedToId is
+/// only set when the reversal was a Reallocate (not a plain NSF reversal): it points at the
+/// brand-new PaymentTransaction created under the correct property/resident, cross-referenced
+/// via both rows' Notes/ReversalReason.
 /// </summary>
 public class PaymentTransaction : ITenantScopedEntity, IAuditableEntity
 {
@@ -44,6 +53,9 @@ public class PaymentTransaction : ITenantScopedEntity, IAuditableEntity
     public string? ReferenceNumber { get; set; }
     public string? Notes { get; set; }
     public decimal UnallocatedAmount { get; set; }
+    public PaymentTransactionStatus Status { get; set; } = PaymentTransactionStatus.Cleared;
+    public string? ReversalReason { get; set; }
+    public Guid? ReallocatedToId { get; set; }
 
     public ICollection<PaymentAllocation> Allocations { get; set; } = new List<PaymentAllocation>();
 

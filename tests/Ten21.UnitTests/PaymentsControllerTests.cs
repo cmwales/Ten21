@@ -294,4 +294,128 @@ public class PaymentsControllerTests : IDisposable
 
         await Assert.ThrowsAsync<NotFoundException>(() => payments.GetPayment(propertyB.Id, id, CancellationToken.None));
     }
+
+    [Fact]
+    public async Task ReversePayment_RestoresTargetChargeToUnpaid_AndZeroesUnallocatedAmount()
+    {
+        var (db, charges, payments) = CreateControllers(Guid.NewGuid());
+        var property = await SeedPropertyAsync(db);
+        var resident = await SeedResidentAsync(db, property.Id);
+        var chargeId = await CreateChargeAsync(charges, property.Id, ChargeCategory.BaseRent, 500m, new DateOnly(2026, 9, 1));
+        // Overpay so there's retained credit too -- reversal should zero that out as well.
+        var created = await payments.LogPayment(property.Id, NewPaymentRequest(resident.Id, 600m), CancellationToken.None);
+        var id = Assert.IsType<PaymentTransactionResponse>(Assert.IsType<CreatedAtActionResult>(created).Value).Id;
+
+        var result = await payments.ReversePayment(property.Id, id, new ReversePaymentRequest("Bounced check, bank fee assessed"), CancellationToken.None);
+
+        var response = Assert.IsType<PaymentTransactionResponse>(Assert.IsType<OkObjectResult>(result).Value);
+        Assert.Equal(PaymentTransactionStatus.Reversed, response.Status);
+        Assert.Equal(0m, response.UnallocatedAmount);
+        Assert.Empty(response.Allocations);
+
+        var chargeAfter = Assert.IsType<ChargeResponse>(Assert.IsType<OkObjectResult>(
+            await charges.GetCharge(property.Id, chargeId, CancellationToken.None)).Value);
+        Assert.Equal(ChargePaymentStatus.Unpaid, chargeAfter.PaymentStatus);
+        Assert.False(chargeAfter.IsLocked);
+
+        var statement = Assert.IsType<UnitStatementResponse>(Assert.IsType<OkObjectResult>(
+            await charges.GetStatement(property.Id, CancellationToken.None)).Value);
+        Assert.Equal(500m, statement.Balance); // the reversed payment no longer counts as received
+        Assert.Equal(0m, statement.AvailableCredit);
+    }
+
+    [Fact]
+    public async Task ReversePayment_ThrowsConflict_WhenAlreadyReversed()
+    {
+        var (db, charges, payments) = CreateControllers(Guid.NewGuid());
+        var property = await SeedPropertyAsync(db);
+        var resident = await SeedResidentAsync(db, property.Id);
+        var created = await payments.LogPayment(property.Id, NewPaymentRequest(resident.Id, 100m), CancellationToken.None);
+        var id = Assert.IsType<PaymentTransactionResponse>(Assert.IsType<CreatedAtActionResult>(created).Value).Id;
+        await payments.ReversePayment(property.Id, id, new ReversePaymentRequest("NSF"), CancellationToken.None);
+
+        await Assert.ThrowsAsync<ConflictException>(() => payments.ReversePayment(
+            property.Id, id, new ReversePaymentRequest("NSF again"), CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task ReversePayment_ThrowsValidationException_WhenReasonIsMissing()
+    {
+        var (db, charges, payments) = CreateControllers(Guid.NewGuid());
+        var property = await SeedPropertyAsync(db);
+        var resident = await SeedResidentAsync(db, property.Id);
+        var created = await payments.LogPayment(property.Id, NewPaymentRequest(resident.Id, 100m), CancellationToken.None);
+        var id = Assert.IsType<PaymentTransactionResponse>(Assert.IsType<CreatedAtActionResult>(created).Value).Id;
+
+        await Assert.ThrowsAsync<ValidationException>(() => payments.ReversePayment(
+            property.Id, id, new ReversePaymentRequest(""), CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task ReallocatePayment_ReversesOriginal_AndCreatesLinkedPaymentOnTheCorrectProperty()
+    {
+        var (db, charges, payments) = CreateControllers(Guid.NewGuid());
+        var wrongProperty = await SeedPropertyAsync(db);
+        var correctProperty = await SeedPropertyAsync(db);
+        var residentOnWrongProperty = await SeedResidentAsync(db, wrongProperty.Id);
+        var residentOnCorrectProperty = await SeedResidentAsync(db, correctProperty.Id);
+        var correctChargeId = await CreateChargeAsync(charges, correctProperty.Id, ChargeCategory.BaseRent, 500m, new DateOnly(2026, 9, 1));
+        var created = await payments.LogPayment(wrongProperty.Id, NewPaymentRequest(residentOnWrongProperty.Id, 500m), CancellationToken.None);
+        var originalId = Assert.IsType<PaymentTransactionResponse>(Assert.IsType<CreatedAtActionResult>(created).Value).Id;
+
+        var result = await payments.ReallocatePayment(
+            wrongProperty.Id, originalId,
+            new ReallocatePaymentRequest(correctProperty.Id, residentOnCorrectProperty.Id, "Posted to the wrong door by mistake"),
+            CancellationToken.None);
+
+        var response = Assert.IsType<PaymentTransactionResponse>(Assert.IsType<CreatedAtActionResult>(result).Value);
+        Assert.Equal(correctProperty.Id, response.PropertyId);
+        Assert.Equal(residentOnCorrectProperty.Id, response.ResidentProfileId);
+        var allocation = Assert.Single(response.Allocations);
+        Assert.Equal(correctChargeId, allocation.ChargeId);
+        Assert.Equal(500m, allocation.AllocatedAmount);
+
+        var original = Assert.IsType<PaymentTransactionResponse>(Assert.IsType<OkObjectResult>(
+            await payments.GetPayment(wrongProperty.Id, originalId, CancellationToken.None)).Value);
+        Assert.Equal(PaymentTransactionStatus.Reversed, original.Status);
+        Assert.Equal(response.Id, original.ReallocatedToId);
+        Assert.Empty(original.Allocations);
+
+        var wrongPropertyStatement = Assert.IsType<UnitStatementResponse>(Assert.IsType<OkObjectResult>(
+            await charges.GetStatement(wrongProperty.Id, CancellationToken.None)).Value);
+        Assert.Equal(0m, wrongPropertyStatement.Balance);
+
+        var correctPropertyStatement = Assert.IsType<UnitStatementResponse>(Assert.IsType<OkObjectResult>(
+            await charges.GetStatement(correctProperty.Id, CancellationToken.None)).Value);
+        Assert.Equal(0m, correctPropertyStatement.Balance);
+    }
+
+    [Fact]
+    public async Task ReallocatePayment_ThrowsValidationException_WhenTargetIsTheSameProperty()
+    {
+        var (db, charges, payments) = CreateControllers(Guid.NewGuid());
+        var property = await SeedPropertyAsync(db);
+        var resident = await SeedResidentAsync(db, property.Id);
+        var created = await payments.LogPayment(property.Id, NewPaymentRequest(resident.Id, 100m), CancellationToken.None);
+        var id = Assert.IsType<PaymentTransactionResponse>(Assert.IsType<CreatedAtActionResult>(created).Value).Id;
+
+        await Assert.ThrowsAsync<ValidationException>(() => payments.ReallocatePayment(
+            property.Id, id, new ReallocatePaymentRequest(property.Id, resident.Id, "typo"), CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task ReallocatePayment_ThrowsNotFound_WhenTargetResidentDoesNotBelongToTargetProperty()
+    {
+        var (db, charges, payments) = CreateControllers(Guid.NewGuid());
+        var wrongProperty = await SeedPropertyAsync(db);
+        var correctProperty = await SeedPropertyAsync(db);
+        var otherProperty = await SeedPropertyAsync(db);
+        var residentOnWrongProperty = await SeedResidentAsync(db, wrongProperty.Id);
+        var residentOnOtherProperty = await SeedResidentAsync(db, otherProperty.Id);
+        var created = await payments.LogPayment(wrongProperty.Id, NewPaymentRequest(residentOnWrongProperty.Id, 100m), CancellationToken.None);
+        var id = Assert.IsType<PaymentTransactionResponse>(Assert.IsType<CreatedAtActionResult>(created).Value).Id;
+
+        await Assert.ThrowsAsync<NotFoundException>(() => payments.ReallocatePayment(
+            wrongProperty.Id, id, new ReallocatePaymentRequest(correctProperty.Id, residentOnOtherProperty.Id, "wrong resident"), CancellationToken.None));
+    }
 }
