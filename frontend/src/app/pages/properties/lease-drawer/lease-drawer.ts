@@ -4,6 +4,7 @@ import { TranslatePipe } from '@ngx-translate/core';
 import { LeaseResponse, LeaseStatusValue, LeaseStatuses } from '../../../core/models/lease.models';
 import { ResidentResponse } from '../../../core/models/resident.models';
 import { LeaseService } from '../../../core/services/lease.service';
+import { PropertyService } from '../../../core/services/property.service';
 import { ResidentService } from '../../../core/services/resident.service';
 import { ToastService } from '../../../core/services/toast.service';
 
@@ -20,7 +21,6 @@ interface LeaseFormControls {
   monthlyBaseRent: import('@angular/forms').FormControl<number>;
   dueDayOfMonth: import('@angular/forms').FormControl<number>;
   status: import('@angular/forms').FormControl<LeaseStatusValue>;
-  moveOutNoticeDate: import('@angular/forms').FormControl<string | null>;
   recurringCharges: FormArray<FormGroup<RecurringChargeControls>>;
 }
 
@@ -44,6 +44,7 @@ export class LeaseDrawer implements OnChanges {
   private readonly fb = inject(FormBuilder);
   private readonly leaseService = inject(LeaseService);
   private readonly residentService = inject(ResidentService);
+  private readonly propertyService = inject(PropertyService);
   private readonly toastService = inject(ToastService);
 
   protected readonly leaseStatuses = Object.values(LeaseStatuses);
@@ -57,6 +58,12 @@ export class LeaseDrawer implements OnChanges {
   protected readonly moveInDate = signal('');
   protected readonly creatingMoveInCharge = signal(false);
 
+  /** Post-Sprint-6 fix: property-level move-out notice -- see PropertyResponse's own doc
+   * comment for why this moved off Lease. Loaded/saved alongside the lease list, not
+   * per-lease. */
+  protected readonly propertyMoveOutNoticeDate = signal<string | null>(null);
+  protected readonly savingMoveOutNotice = signal(false);
+
   protected form: FormGroup<LeaseFormControls> = this.buildForm();
 
   /** US-30 AC: "Calculates total recurring dues... dynamically on the form UI" -- recomputed
@@ -68,7 +75,29 @@ export class LeaseDrawer implements OnChanges {
     if (changes['open'] && this.open) {
       this.loadLeases();
       this.loadResidents();
+      this.loadPropertyMoveOutNotice();
     }
+  }
+
+  protected onMoveOutNoticeChange(value: string): void {
+    this.savingMoveOutNotice.set(true);
+    this.propertyService.updateMoveOutNotice(this.propertyId, { moveOutNoticeDate: value || null }).subscribe({
+      next: (property) => {
+        this.savingMoveOutNotice.set(false);
+        this.propertyMoveOutNoticeDate.set(property.moveOutNoticeDate ?? null);
+        this.toastService.show('leases.drawer.moveOutNoticeSavedToast');
+      },
+      error: () => {
+        this.savingMoveOutNotice.set(false);
+        this.toastService.show('leases.drawer.errorToast');
+      },
+    });
+  }
+
+  private loadPropertyMoveOutNotice(): void {
+    this.propertyService.getProperty(this.propertyId).subscribe({
+      next: (property) => this.propertyMoveOutNoticeDate.set(property.moveOutNoticeDate ?? null),
+    });
   }
 
   protected close(): void {
@@ -93,7 +122,6 @@ export class LeaseDrawer implements OnChanges {
       monthlyBaseRent: lease.monthlyBaseRent,
       dueDayOfMonth: lease.dueDayOfMonth,
       status: lease.status,
-      moveOutNoticeDate: lease.moveOutNoticeDate ? lease.moveOutNoticeDate.substring(0, 10) : null,
     });
     lease.recurringCharges.forEach((charge, i) => {
       this.form.controls.recurringCharges.at(i).patchValue({
@@ -153,7 +181,6 @@ export class LeaseDrawer implements OnChanges {
       monthlyBaseRent: raw.monthlyBaseRent,
       dueDayOfMonth: raw.dueDayOfMonth,
       status: raw.status,
-      moveOutNoticeDate: raw.moveOutNoticeDate,
       recurringCharges: raw.recurringCharges.map((c) => ({
         chargeName: c.chargeName,
         amount: c.amount,
@@ -251,7 +278,6 @@ export class LeaseDrawer implements OnChanges {
       monthlyBaseRent: [0, [Validators.required, Validators.min(0)]],
       dueDayOfMonth: [1, [Validators.required, Validators.min(1), Validators.max(28)]],
       status: ['FixedTerm' as LeaseStatusValue, Validators.required],
-      moveOutNoticeDate: this.fb.control<string | null>(null),
       recurringCharges: this.fb.array<FormGroup<RecurringChargeControls>>([]),
     });
   }

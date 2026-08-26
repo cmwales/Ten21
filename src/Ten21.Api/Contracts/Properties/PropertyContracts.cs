@@ -30,6 +30,17 @@ public record PropertyMatrixRowResponse(
     decimal? TargetRent);
 
 /// <summary>
+/// Moved here from Lease in a post-Sprint-6 fix: tester feedback was that a move-out notice
+/// is a per-unit fact ("when do I need to find a new tenant"), not a per-resident one -- a
+/// two-occupant unit where one person gives notice doesn't mean the unit is vacating.
+/// Applies uniformly to every Lease on this property (LeasesController.ComputeEffectiveStatus/
+/// ComputeIsExpiringSoon read it from here now). A dedicated PATCH rather than folding into
+/// UpsertPropertyRequest -- this is an operational lease-lifecycle update the PM makes from
+/// the Lease drawer, not part of the property's own identity form.
+/// </summary>
+public record UpdateMoveOutNoticeRequest(DateOnly? MoveOutNoticeDate);
+
+/// <summary>
 /// A single flat, standalone leasable space -- a whole single-family house, or one suite
 /// within a larger building. UnitIdentifier is null/omitted for a standalone property, set
 /// (e.g. "Suite A") for one of several properties sharing the same street address. There is
@@ -68,7 +79,8 @@ public record PropertyResponse(
     OccupancyStatus OccupancyStatus,
     bool AllowTenantDirectory,
     Guid? UnitGroupId = null,
-    Guid? UnitTierId = null);
+    Guid? UnitTierId = null,
+    DateOnly? MoveOutNoticeDate = null);
 
 /// <summary>US-20: the "lightweight PropertyListDto" the acceptance criteria calls for --
 /// drops StreetAddress2/Country (not shown in the flat list view) relative to the full

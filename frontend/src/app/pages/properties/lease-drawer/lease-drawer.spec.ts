@@ -5,6 +5,7 @@ import { TestBed } from '@angular/core/testing';
 import { provideTranslateService } from '@ngx-translate/core';
 import { ApiResponse } from '../../../core/models/auth.models';
 import { LeaseResponse } from '../../../core/models/lease.models';
+import { PropertyResponse, PropertyTypes, OccupancyStatuses } from '../../../core/models/property.models';
 import { ResidentResponse } from '../../../core/models/resident.models';
 import { ToastService } from '../../../core/services/toast.service';
 import { LeaseDrawer } from './lease-drawer';
@@ -37,11 +38,27 @@ describe('LeaseDrawer', () => {
     monthlyBaseRent: 1450,
     dueDayOfMonth: 1,
     status: 'FixedTerm',
-    moveOutNoticeDate: null,
     totalMonthlyDues: 1500,
     recurringCharges: [{ id: 'charge-1', chargeName: 'Pet Rent', amount: 50, accountingCode: 'GL-4030' }],
     effectiveStatus: 'FixedTerm',
     isExpiringSoon: false,
+  };
+
+  const property: PropertyResponse = {
+    id: 'prop-1',
+    name: 'Riverside Apartments',
+    propertyType: PropertyTypes.MultiFamily,
+    streetAddress1: '100 Main St',
+    streetAddress2: null,
+    city: 'Provo',
+    state: 'UT',
+    postalCode: '84601',
+    country: 'USA',
+    unitIdentifier: 'Suite A',
+    targetRent: 1450,
+    occupancyStatus: OccupancyStatuses.Occupied,
+    allowTenantDirectory: false,
+    moveOutNoticeDate: null,
   };
 
   function createComponent(): LeaseDrawer {
@@ -72,6 +89,9 @@ describe('LeaseDrawer', () => {
     httpMock.expectOne('/api/properties/prop-1/residents').flush({
       success: true, data: [resident], message: null, statusCode: 200, traceId: 't1',
     } satisfies ApiResponse<ResidentResponse[]>);
+    httpMock.expectOne('/api/properties/prop-1').flush({
+      success: true, data: property, message: null, statusCode: 200, traceId: 't1',
+    } satisfies ApiResponse<PropertyResponse>);
   }
 
   afterEach(() => httpMock.verify());
@@ -91,6 +111,7 @@ describe('LeaseDrawer', () => {
 
     httpMock.expectNone('/api/properties/prop-1/leases');
     httpMock.expectNone('/api/properties/prop-1/residents');
+    httpMock.expectNone('/api/properties/prop-1');
   });
 
   it('residentName() resolves a loaded resident to a display name', () => {
@@ -220,7 +241,7 @@ describe('LeaseDrawer', () => {
     expect(req.request.body).toEqual({ moveInDate: '2026-09-05' });
     req.flush({
       success: true,
-      data: { id: 'charge-1', propertyId: 'prop-1', residentId: 'resident-1', description: 'Pro-Rated Rent', amount: 200, dueDate: '2026-09-05', accountingCode: null },
+      data: { id: 'charge-1', propertyId: 'prop-1', description: 'Pro-Rated Rent', amount: 200, dueDate: '2026-09-05', accountingCode: null, paidDate: null },
       message: null,
       statusCode: 200,
       traceId: 't1',
@@ -228,6 +249,42 @@ describe('LeaseDrawer', () => {
 
     expect(toastService.show).toHaveBeenCalledWith('leases.drawer.moveInChargeCreatedToast');
     expect(component['moveInChargeLeaseId']()).toBeNull();
+  });
+
+  it('loads the property-level move-out notice, not a per-lease one', () => {
+    const component = createComponent();
+    open(component);
+
+    expect(component['propertyMoveOutNoticeDate']()).toBeNull();
+  });
+
+  it('onMoveOutNoticeChange() PATCHes the property and shows a confirmation toast', () => {
+    const component = createComponent();
+    open(component);
+
+    component['onMoveOutNoticeChange']('2026-11-01');
+
+    const req = httpMock.expectOne('/api/properties/prop-1/move-out-notice');
+    expect(req.request.method).toBe('PATCH');
+    expect(req.request.body).toEqual({ moveOutNoticeDate: '2026-11-01' });
+    req.flush({
+      success: true, data: { ...property, moveOutNoticeDate: '2026-11-01' }, message: null, statusCode: 200, traceId: 't1',
+    } satisfies ApiResponse<PropertyResponse>);
+
+    expect(component['propertyMoveOutNoticeDate']()).toBe('2026-11-01');
+    expect(toastService.show).toHaveBeenCalledWith('leases.drawer.moveOutNoticeSavedToast');
+    expect(component['savingMoveOutNotice']()).toBe(false);
+  });
+
+  it('onMoveOutNoticeChange() with an empty value clears the notice', () => {
+    const component = createComponent();
+    open(component);
+
+    component['onMoveOutNoticeChange']('');
+
+    const req = httpMock.expectOne('/api/properties/prop-1/move-out-notice');
+    expect(req.request.body).toEqual({ moveOutNoticeDate: null });
+    req.flush({ success: true, data: property, message: null, statusCode: 200, traceId: 't1' } satisfies ApiResponse<PropertyResponse>);
   });
 
   it('close() emits the closed output', () => {

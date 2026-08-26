@@ -18,6 +18,25 @@
       </button>
     </div>
 
+    <div class="flex flex-col gap-1.5 rounded-md border border-slate-navy/10 p-3">
+      <label for="propertyMoveOutNotice" class="text-sm font-medium text-slate-navy">
+        {{ 'leases.drawer.moveOutNoticeLabel' | translate }}
+      </label>
+      <div class="flex flex-wrap items-center gap-2">
+        <input
+          id="propertyMoveOutNotice"
+          type="date"
+          [value]="propertyMoveOutNoticeDate() ?? ''"
+          (change)="onMoveOutNoticeChange($any($event.target).value)"
+          class="tap-target rounded-md border border-slate-navy/20 px-3 py-2 text-slate-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
+        />
+        @if (savingMoveOutNotice()) {
+          <span class="text-xs text-slate-navy-light">{{ 'leases.form.saving' | translate }}</span>
+        }
+      </div>
+      <p class="text-xs text-slate-navy-light">{{ 'leases.drawer.moveOutNoticeHint' | translate }}</p>
+    </div>
+
     @if (loading()) {
       <p class="text-sm text-slate-navy-light">{{ 'common.loading' | translate }}</p>
     } @else if (!showForm()) {
@@ -202,18 +221,6 @@
               <option [value]="status">{{ 'leases.statuses.' + status | translate }}</option>
             }
           </select>
-        </div>
-
-        <div class="flex flex-col gap-1.5">
-          <label for="moveOutNoticeDate" class="text-sm font-medium text-slate-navy">
-            {{ 'leases.form.moveOutNoticeDate' | translate }}
-          </label>
-          <input
-            id="moveOutNoticeDate"
-            type="date"
-            formControlName="moveOutNoticeDate"
-            class="tap-target w-full rounded-md border border-slate-navy/20 px-3 py-2 text-slate-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
-          />
         </div>
 
         <div class="flex flex-col gap-3 border-t border-slate-navy/10 pt-4" formArrayName="recurringCharges">

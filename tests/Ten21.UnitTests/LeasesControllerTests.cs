@@ -87,7 +87,6 @@ public class LeasesControllerTests : IDisposable
         EndDate: new DateOnly(2027, 8, 31),
         MonthlyBaseRent: 1450m,
         DueDayOfMonth: 1,
-        MoveOutNoticeDate: null,
         RecurringCharges: charges ?? []);
 
     [Fact]
@@ -233,7 +232,7 @@ public class LeasesControllerTests : IDisposable
             property.Id, leaseId, new CreateMoveInChargeRequest(new DateOnly(2026, 8, 25)), CancellationToken.None);
 
         var response = Assert.IsType<ManualChargeResponse>(Assert.IsType<OkObjectResult>(result).Value);
-        Assert.Equal(resident.Id, response.ResidentId);
+        Assert.Equal(property.Id, response.PropertyId);
         // 1450m / 31 days * 7 days = 327.42 (rounded).
         Assert.Equal(Math.Round(1450m / 31 * 7, 2), response.Amount);
         Assert.Contains("Aug 25", response.Description);
@@ -306,7 +305,7 @@ public class LeasesControllerTests : IDisposable
     }
 
     [Fact]
-    public async Task GetLease_DoesNotRollOverToMonthToMonth_WhenAMoveOutNoticeIsOnFile()
+    public async Task GetLease_DoesNotRollOverToMonthToMonth_WhenThePropertyHasAMoveOutNoticeOnFile()
     {
         var (db, controller) = CreateController(Guid.NewGuid());
         var property = await SeedPropertyAsync(db);
@@ -315,15 +314,40 @@ public class LeasesControllerTests : IDisposable
         {
             StartDate = new DateOnly(2020, 1, 1),
             EndDate = new DateOnly(2020, 12, 31),
-            MoveOutNoticeDate = new DateOnly(2020, 11, 1),
         };
         var created = await controller.CreateLease(property.Id, request, CancellationToken.None);
         var leaseId = Assert.IsType<LeaseResponse>(Assert.IsType<CreatedAtActionResult>(created).Value).Id;
+
+        // Post-Sprint-6 fix: the notice lives on Property, not Lease -- set it directly here.
+        property.MoveOutNoticeDate = new DateOnly(2020, 11, 1);
+        await db.SaveChangesAsync();
 
         var result = await controller.GetLease(property.Id, leaseId, CancellationToken.None);
 
         var response = Assert.IsType<LeaseResponse>(Assert.IsType<OkObjectResult>(result).Value);
         Assert.Equal(LeaseStatus.FixedTerm, response.EffectiveStatus);
+    }
+
+    [Fact]
+    public async Task GetLeases_RolloverAppliesUniformlyToEveryLeaseOnTheProperty_RegardlessOfWhichResidentsLeaseItIs()
+    {
+        // Tester feedback that drove the move: "No one cares if one tenant out of 2 moves
+        // out -- they need to know when to find more tenants." A property with two
+        // co-occupants, each on their own lease, and no notice on file: BOTH leases should
+        // roll over once EndDate passes, since the signal is per-unit, not per-resident.
+        var (db, controller) = CreateController(Guid.NewGuid());
+        var property = await SeedPropertyAsync(db);
+        var residentA = await SeedResidentAsync(db, property.Id);
+        var residentB = await SeedResidentAsync(db, property.Id);
+        var pastDatesRequest = NewRequest(residentA.Id) with { StartDate = new DateOnly(2020, 1, 1), EndDate = new DateOnly(2020, 12, 31) };
+        await controller.CreateLease(property.Id, pastDatesRequest, CancellationToken.None);
+        await controller.CreateLease(property.Id, pastDatesRequest with { ResidentId = residentB.Id }, CancellationToken.None);
+
+        var result = await controller.GetLeases(property.Id, CancellationToken.None);
+
+        var leases = Assert.IsAssignableFrom<IReadOnlyList<LeaseResponse>>(Assert.IsType<OkObjectResult>(result).Value);
+        Assert.Equal(2, leases.Count);
+        Assert.All(leases, l => Assert.Equal(LeaseStatus.MonthToMonth, l.EffectiveStatus));
     }
 
     [Fact]

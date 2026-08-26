@@ -6,6 +6,7 @@ import {
   ImportPropertiesResponse,
   PropertyListResponse,
   PropertyResponse,
+  UpdateMoveOutNoticeRequest,
   UpsertPropertyRequest,
 } from '../models/property.models';
 
@@ -40,6 +41,14 @@ export class PropertyService {
   updateProperty(id: string, request: UpsertPropertyRequest): Observable<PropertyResponse> {
     return this.http
       .put<ApiResponse<PropertyResponse>>(`/api/properties/${id}`, request)
+      .pipe(map((response) => response.data!));
+  }
+
+  /** Post-Sprint-6 fix: sets/clears the property-level move-out notice -- see
+   * PropertyResponse.moveOutNoticeDate's own comment for why this lives here, not on Lease. */
+  updateMoveOutNotice(id: string, request: UpdateMoveOutNoticeRequest): Observable<PropertyResponse> {
+    return this.http
+      .patch<ApiResponse<PropertyResponse>>(`/api/properties/${id}/move-out-notice`, request)
       .pipe(map((response) => response.data!));
   }
 

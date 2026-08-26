@@ -43,7 +43,7 @@ public class LeasesController : ControllerBase
     [Authorize(Policy = Permissions.Lease.Read)]
     public async Task<IActionResult> GetLeases(Guid propertyId, CancellationToken cancellationToken)
     {
-        await EnsurePropertyExistsAsync(propertyId, cancellationToken);
+        var property = await GetPropertyAsync(propertyId, cancellationToken);
 
         var leases = await _dbContext.Leases
             .Include(l => l.RecurringCharges)
@@ -51,17 +51,18 @@ public class LeasesController : ControllerBase
             .OrderByDescending(l => l.StartDate)
             .ToListAsync(cancellationToken);
 
-        return Ok(leases.Select(l => ToResponse(l, l.RecurringCharges.ToList())).ToList());
+        return Ok(leases.Select(l => ToResponse(l, l.RecurringCharges.ToList(), property.MoveOutNoticeDate)).ToList());
     }
 
     [HttpGet("{id:guid}")]
     [Authorize(Policy = Permissions.Lease.Read)]
     public async Task<IActionResult> GetLease(Guid propertyId, Guid id, CancellationToken cancellationToken)
     {
+        var property = await GetPropertyAsync(propertyId, cancellationToken);
         var lease = await FindLeaseAsync(propertyId, id, cancellationToken)
             ?? throw new NotFoundException($"Lease '{id}' was not found on this property.");
 
-        return Ok(ToResponse(lease, lease.RecurringCharges.ToList()));
+        return Ok(ToResponse(lease, lease.RecurringCharges.ToList(), property.MoveOutNoticeDate));
     }
 
     [HttpPost]
@@ -69,7 +70,7 @@ public class LeasesController : ControllerBase
     public async Task<IActionResult> CreateLease(
         Guid propertyId, [FromBody] UpsertLeaseRequest request, CancellationToken cancellationToken)
     {
-        await EnsurePropertyExistsAsync(propertyId, cancellationToken);
+        var property = await GetPropertyAsync(propertyId, cancellationToken);
         await EnsureResidentBelongsToPropertyAsync(propertyId, request.ResidentId, cancellationToken);
         ValidateRequest(request);
 
@@ -83,7 +84,6 @@ public class LeasesController : ControllerBase
             MonthlyBaseRent = request.MonthlyBaseRent,
             DueDayOfMonth = request.DueDayOfMonth,
             Status = request.Status,
-            MoveOutNoticeDate = request.MoveOutNoticeDate,
             CreatedAt = DateTimeOffset.UtcNow,
         };
 
@@ -93,7 +93,8 @@ public class LeasesController : ControllerBase
 
         await _dbContext.SaveChangesAsync(cancellationToken);
 
-        return CreatedAtAction(nameof(GetLease), new { propertyId, id = lease.Id }, ToResponse(lease, charges));
+        return CreatedAtAction(
+            nameof(GetLease), new { propertyId, id = lease.Id }, ToResponse(lease, charges, property.MoveOutNoticeDate));
     }
 
     [HttpPut("{id:guid}")]
@@ -101,6 +102,7 @@ public class LeasesController : ControllerBase
     public async Task<IActionResult> UpdateLease(
         Guid propertyId, Guid id, [FromBody] UpsertLeaseRequest request, CancellationToken cancellationToken)
     {
+        var property = await GetPropertyAsync(propertyId, cancellationToken);
         await EnsureResidentBelongsToPropertyAsync(propertyId, request.ResidentId, cancellationToken);
         ValidateRequest(request);
 
@@ -113,7 +115,6 @@ public class LeasesController : ControllerBase
         lease.MonthlyBaseRent = request.MonthlyBaseRent;
         lease.DueDayOfMonth = request.DueDayOfMonth;
         lease.Status = request.Status;
-        lease.MoveOutNoticeDate = request.MoveOutNoticeDate;
 
         // Managed directly via the DbSet, not resident.RecurringCharges navigation mutation --
         // ResidentsController.UpdateResident hit a real bug doing that (a re-added child on an
@@ -130,7 +131,7 @@ public class LeasesController : ControllerBase
 
         await _dbContext.SaveChangesAsync(cancellationToken);
 
-        return Ok(ToResponse(lease, newCharges));
+        return Ok(ToResponse(lease, newCharges, property.MoveOutNoticeDate));
     }
 
     /// <summary>
@@ -138,8 +139,8 @@ public class LeasesController : ControllerBase
     /// partial period from MoveInDate through the day before the lease's next regular
     /// DueDayOfMonth billing cycle. Deliberately reuses ManualCharge (US-31) rather than a
     /// separate ProRatedCharge table -- the two are functionally identical open ledger line
-    /// items (unit + optional resident + description + amount + due date + GL code); the
-    /// only thing distinguishing a "pro-rated" charge is that ITS amount is computed instead
+    /// items (unit + description + amount + due date + GL code); the only thing
+    /// distinguishing a "pro-rated" charge is that ITS amount is computed instead
     /// of typed in, which doesn't need its own storage shape.
     /// </summary>
     [HttpPost("{id:guid}/move-in-charge")]
@@ -164,7 +165,6 @@ public class LeasesController : ControllerBase
         {
             Id = Guid.NewGuid(),
             PropertyId = propertyId,
-            ResidentId = lease.ResidentId,
             Description = description,
             Amount = amount,
             DueDate = request.MoveInDate,
@@ -175,7 +175,7 @@ public class LeasesController : ControllerBase
         await _dbContext.SaveChangesAsync(cancellationToken);
 
         return Ok(new ManualChargeResponse(
-            charge.Id, charge.PropertyId, charge.ResidentId, charge.Description, charge.Amount, charge.DueDate, charge.AccountingCode));
+            charge.Id, charge.PropertyId, charge.Description, charge.Amount, charge.DueDate, charge.AccountingCode, charge.PaidDate));
     }
 
     /// <summary>
@@ -218,14 +218,11 @@ public class LeasesController : ControllerBase
         return NoContent();
     }
 
-    private async Task EnsurePropertyExistsAsync(Guid propertyId, CancellationToken cancellationToken)
-    {
-        var exists = await _dbContext.Properties.AnyAsync(p => p.Id == propertyId, cancellationToken);
-        if (!exists)
-        {
-            throw new NotFoundException($"Property '{propertyId}' was not found.");
-        }
-    }
+    /// <summary>Also the source of MoveOutNoticeDate for ToResponse -- fetching the full row
+    /// (not just an existence check) costs nothing extra here and every caller needs it.</summary>
+    private async Task<Property> GetPropertyAsync(Guid propertyId, CancellationToken cancellationToken) =>
+        await _dbContext.Properties.FirstOrDefaultAsync(p => p.Id == propertyId, cancellationToken)
+            ?? throw new NotFoundException($"Property '{propertyId}' was not found.");
 
     /// <summary>A resident is only ever attached to a lease on the SAME property their
     /// ResidentProfile already belongs to -- that's how they came to exist under this
@@ -317,12 +314,15 @@ public class LeasesController : ControllerBase
     /// rather than a stored transition a background job would need to run (this codebase has
     /// no scheduler yet; Phase 1 is still pending). The stored Status column is left
     /// untouched -- a GET having the side effect of mutating a row would be its own kind of
-    /// surprising. The only thing that stops the rollover is a move-out notice being on file,
-    /// regardless of whether that notice date has itself passed yet.
+    /// surprising. The only thing that stops the rollover is the PROPERTY having a move-out
+    /// notice on file -- moved off Lease post-Sprint-6 per tester feedback: a two-occupant
+    /// unit where one resident gives notice doesn't mean the unit itself is vacating, so this
+    /// is a per-property fact applied uniformly to every lease on it, not a per-resident one.
+    /// Regardless of whether that notice date has itself passed yet.
     /// </summary>
-    private static LeaseStatus ComputeEffectiveStatus(Lease lease, DateOnly today)
+    private static LeaseStatus ComputeEffectiveStatus(Lease lease, DateOnly today, DateOnly? propertyMoveOutNoticeDate)
     {
-        if (lease.Status == LeaseStatus.FixedTerm && today > lease.EndDate && lease.MoveOutNoticeDate is null)
+        if (lease.Status == LeaseStatus.FixedTerm && today > lease.EndDate && propertyMoveOutNoticeDate is null)
         {
             return LeaseStatus.MonthToMonth;
         }
@@ -344,10 +344,11 @@ public class LeasesController : ControllerBase
         return daysUntilExpiration is >= 0 and <= ExpiringSoonThresholdDays;
     }
 
-    private static LeaseResponse ToResponse(Lease lease, IReadOnlyList<LeaseRecurringCharge> charges)
+    private static LeaseResponse ToResponse(
+        Lease lease, IReadOnlyList<LeaseRecurringCharge> charges, DateOnly? propertyMoveOutNoticeDate)
     {
         var today = DateOnly.FromDateTime(DateTimeOffset.UtcNow.DateTime);
-        var effectiveStatus = ComputeEffectiveStatus(lease, today);
+        var effectiveStatus = ComputeEffectiveStatus(lease, today, propertyMoveOutNoticeDate);
 
         return new LeaseResponse(
             lease.Id,
@@ -358,7 +359,6 @@ public class LeasesController : ControllerBase
             lease.MonthlyBaseRent,
             lease.DueDayOfMonth,
             lease.Status,
-            lease.MoveOutNoticeDate,
             lease.MonthlyBaseRent + charges.Sum(c => c.Amount),
             charges.Select(c => new LeaseRecurringChargeResponse(c.Id, c.ChargeName, c.Amount, c.AccountingCode)).ToList(),
             effectiveStatus,

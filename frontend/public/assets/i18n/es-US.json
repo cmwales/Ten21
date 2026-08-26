@@ -325,7 +325,10 @@
       "createMoveInCharge": "Crear Cargo de Mudanza",
       "moveInDate": "Fecha de mudanza",
       "generateCharge": "Generar Cargo",
-      "moveInChargeCreatedToast": "Cargo de mudanza creado."
+      "moveInChargeCreatedToast": "Cargo de mudanza creado.",
+      "moveOutNoticeLabel": "Aviso de Mudanza de la Propiedad",
+      "moveOutNoticeHint": "Configure esto cuando sepa que la unidad necesitará un nuevo inquilino, sin importar de qué contrato de residente se trate.",
+      "moveOutNoticeSavedToast": "Aviso de mudanza actualizado."
     },
     "form": {
       "resident": "Residente",
@@ -335,7 +338,6 @@
       "monthlyBaseRent": "Renta Base Mensual",
       "dueDayOfMonth": "Día de Vencimiento del Mes",
       "status": "Estado",
-      "moveOutNoticeDate": "Fecha de Aviso de Mudanza",
       "recurringCharges": "Cuotas Recurrentes Adicionales",
       "addRecurringCharge": "Agregar Cargo",
       "recurringCharge": "Cargo {{number}}",
@@ -356,15 +358,16 @@
       "empty": "Aún no se han registrado cargos o multas.",
       "addCharge": "Agregar Cargo / Multa",
       "remove": "Eliminar",
-      "unitGenerally": "Facturado a la unidad",
       "dueOn": "vence el",
+      "paidDate": "Fecha de Pago",
+      "markPaidToday": "Marcar como Pagado Hoy",
+      "paid": "Pagado",
+      "saving": "Guardando…",
       "addedToast": "Cargo registrado.",
       "removedToast": "Cargo eliminado.",
       "errorToast": "Algo salió mal. Inténtelo de nuevo."
     },
     "form": {
-      "resident": "Facturar a",
-      "unitGenerally": "Unidad en general (sin residente específico)",
       "description": "Descripción",
       "amount": "Monto",
       "dueDate": "Fecha de Vencimiento",

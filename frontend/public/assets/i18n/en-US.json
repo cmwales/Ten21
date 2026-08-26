@@ -325,7 +325,10 @@
       "createMoveInCharge": "Create Move-In Charge",
       "moveInDate": "Move-in date",
       "generateCharge": "Generate Charge",
-      "moveInChargeCreatedToast": "Move-in charge created."
+      "moveInChargeCreatedToast": "Move-in charge created.",
+      "moveOutNoticeLabel": "Property Move-Out Notice",
+      "moveOutNoticeHint": "Set this when you know the unit will need a new tenant, regardless of which resident's lease it is.",
+      "moveOutNoticeSavedToast": "Move-out notice updated."
     },
     "form": {
       "resident": "Resident",
@@ -335,7 +338,6 @@
       "monthlyBaseRent": "Monthly Base Rent",
       "dueDayOfMonth": "Due Day of Month",
       "status": "Status",
-      "moveOutNoticeDate": "Move-Out Notice Date",
       "recurringCharges": "Recurring Add-On Dues",
       "addRecurringCharge": "Add Charge",
       "recurringCharge": "Charge {{number}}",
@@ -356,15 +358,16 @@
       "empty": "No charges or fines posted yet.",
       "addCharge": "Add Charge / Fine",
       "remove": "Remove",
-      "unitGenerally": "Billed to the unit",
       "dueOn": "due",
+      "paidDate": "Paid Date",
+      "markPaidToday": "Mark Paid Today",
+      "paid": "Paid",
+      "saving": "Saving…",
       "addedToast": "Charge posted.",
       "removedToast": "Charge removed.",
       "errorToast": "Something went wrong. Please try again."
     },
     "form": {
-      "resident": "Bill To",
-      "unitGenerally": "Unit generally (no specific resident)",
       "description": "Description",
       "amount": "Amount",
       "dueDate": "Due Date",

@@ -57,6 +57,15 @@ export interface PropertyResponse {
   targetRent: number | null;
   occupancyStatus: OccupancyStatusValue;
   allowTenantDirectory: boolean;
+  /** Post-Sprint-6 fix: moved here from Lease -- a move-out notice is a per-unit fact ("when
+   * do I need to find a new tenant"), not a per-resident one. Set/cleared via
+   * PropertyService.updateMoveOutNotice, edited from the Lease drawer. */
+  moveOutNoticeDate?: string | null;
+}
+
+/** Mirrors Ten21.Api.Contracts.Properties.UpdateMoveOutNoticeRequest. */
+export interface UpdateMoveOutNoticeRequest {
+  moveOutNoticeDate: string | null;
 }
 
 /** Mirrors Ten21.Api.Contracts.Properties.PropertyListItemDto (US-20) -- one flat row per

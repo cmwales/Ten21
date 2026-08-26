@@ -2,19 +2,21 @@ import { Component, EventEmitter, Input, OnChanges, Output, SimpleChanges, injec
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { TranslatePipe } from '@ngx-translate/core';
 import { ManualChargeResponse } from '../../../core/models/manual-charge.models';
-import { ResidentResponse } from '../../../core/models/resident.models';
 import { ManualChargeService } from '../../../core/services/manual-charge.service';
-import { ResidentService } from '../../../core/services/resident.service';
 import { ToastService } from '../../../core/services/toast.service';
 
 /**
  * US-31: the "Quick-Action Charge Modal" on /properties/:id -- lists this property's one-time
- * charges/fines and lets a PM post a new one, scoped either to the unit generally or to a
- * specific resident. Persisting is the entire "immediate balance impact" this story calls
- * for -- there is no running-balance display yet (Phase 1's payment ledger is still pending),
- * this just establishes the open line-item record a future balance calculation would sum.
- * Centered modal, not a slide-out drawer, per the acceptance criteria's own "Quick-Action
- * Charge Modal" wording.
+ * charges/fines and lets a PM post a new one. Persisting is the entire "immediate balance
+ * impact" this story calls for -- there is no running-balance display yet (Phase 1's payment
+ * ledger is still pending), this just establishes the open line-item record a future balance
+ * calculation would sum. Centered modal, not a slide-out drawer, per the acceptance
+ * criteria's own "Quick-Action Charge Modal" wording.
+ *
+ * Post-Sprint-6 fix, tester feedback: dropped the per-resident "bill to" -- charges are
+ * billed to the unit, not an individual occupant. Added an inline, auto-saving PaidDate
+ * control per row (same UX convention as the matrix editor) so a PM can record the actual
+ * payment date, which can legitimately differ from whenever they got around to entering it.
  */
 @Component({
   selector: 'app-manual-charge-modal',
@@ -28,17 +30,15 @@ export class ManualChargeModal implements OnChanges {
 
   private readonly fb = inject(FormBuilder);
   private readonly manualChargeService = inject(ManualChargeService);
-  private readonly residentService = inject(ResidentService);
   private readonly toastService = inject(ToastService);
 
   protected readonly charges = signal<ManualChargeResponse[]>([]);
-  protected readonly residents = signal<ResidentResponse[]>([]);
   protected readonly loading = signal(false);
   protected readonly submitting = signal(false);
   protected readonly showForm = signal(false);
+  protected readonly savingPaidDateForChargeId = signal<string | null>(null);
 
   protected readonly form = this.fb.nonNullable.group({
-    residentId: this.fb.control<string | null>(null),
     description: ['', [Validators.required, Validators.maxLength(200)]],
     amount: [0, [Validators.required, Validators.min(0.01)]],
     dueDate: ['', Validators.required],
@@ -48,7 +48,6 @@ export class ManualChargeModal implements OnChanges {
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['open'] && this.open) {
       this.loadCharges();
-      this.loadResidents();
     }
   }
 
@@ -58,20 +57,12 @@ export class ManualChargeModal implements OnChanges {
   }
 
   protected startAdd(): void {
-    this.form.reset({ residentId: null, description: '', amount: 0, dueDate: '', accountingCode: null });
+    this.form.reset({ description: '', amount: 0, dueDate: '', accountingCode: null });
     this.showForm.set(true);
   }
 
   protected cancelForm(): void {
     this.showForm.set(false);
-  }
-
-  protected residentName(residentId: string | null): string | null {
-    if (residentId === null) {
-      return null;
-    }
-    const resident = this.residents().find((r) => r.id === residentId);
-    return resident ? `${resident.firstName} ${resident.lastName}` : residentId;
   }
 
   protected save(): void {
@@ -84,11 +75,11 @@ export class ManualChargeModal implements OnChanges {
     const raw = this.form.getRawValue();
     this.manualChargeService
       .createManualCharge(this.propertyId, {
-        residentId: raw.residentId,
         description: raw.description,
         amount: raw.amount,
         dueDate: raw.dueDate,
         accountingCode: raw.accountingCode,
+        paidDate: null,
       })
       .subscribe({
         next: () => {
@@ -99,6 +90,36 @@ export class ManualChargeModal implements OnChanges {
         },
         error: () => {
           this.submitting.set(false);
+          this.toastService.show('manualCharges.modal.errorToast');
+        },
+      });
+  }
+
+  protected markPaidToday(charge: ManualChargeResponse): void {
+    this.setPaidDate(charge, new Date().toISOString().substring(0, 10));
+  }
+
+  protected onPaidDateChange(charge: ManualChargeResponse, value: string): void {
+    this.setPaidDate(charge, value || null);
+  }
+
+  private setPaidDate(charge: ManualChargeResponse, paidDate: string | null): void {
+    this.savingPaidDateForChargeId.set(charge.id);
+    this.manualChargeService
+      .updateManualCharge(this.propertyId, charge.id, {
+        description: charge.description,
+        amount: charge.amount,
+        dueDate: charge.dueDate,
+        accountingCode: charge.accountingCode,
+        paidDate,
+      })
+      .subscribe({
+        next: (updated) => {
+          this.savingPaidDateForChargeId.set(null);
+          this.charges.update((current) => current.map((c) => (c.id === updated.id ? updated : c)));
+        },
+        error: () => {
+          this.savingPaidDateForChargeId.set(null);
           this.toastService.show('manualCharges.modal.errorToast');
         },
       });
@@ -122,12 +143,6 @@ export class ManualChargeModal implements OnChanges {
         this.loading.set(false);
       },
       error: () => this.loading.set(false),
-    });
-  }
-
-  private loadResidents(): void {
-    this.residentService.listResidents(this.propertyId).subscribe({
-      next: (residents) => this.residents.set(residents),
     });
   }
 }

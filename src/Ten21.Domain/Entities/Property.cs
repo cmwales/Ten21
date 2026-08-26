@@ -40,6 +40,13 @@ public class Property : ITenantScopedEntity, IAuditableEntity, ISoftDelete
     public Guid? UnitGroupId { get; set; }
     public Guid? UnitTierId { get; set; }
 
+    /// <summary>Tester feedback on US-32's first cut (which put this on Lease): "No one
+    /// cares if one tenant out of 2 moves out -- they need to know when to find more
+    /// tenants." That's a per-unit question, not a per-resident one, so it lives here and
+    /// applies uniformly to every Lease on this property when LeasesController computes
+    /// EffectiveStatus/IsExpiringSoon.</summary>
+    public DateOnly? MoveOutNoticeDate { get; set; }
+
     /// <summary>US-25: one half of the community directory's dual-consent gate -- a
     /// resident of THIS property only appears in another resident's directory query when
     /// this AND that ResidentProfile's own ShowInDirectory are both true. Defaults false --

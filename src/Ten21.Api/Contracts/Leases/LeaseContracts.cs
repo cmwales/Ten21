@@ -17,7 +17,6 @@ public record UpsertLeaseRequest(
     DateOnly EndDate,
     decimal MonthlyBaseRent,
     int DueDayOfMonth,
-    DateOnly? MoveOutNoticeDate,
     IReadOnlyList<LeaseRecurringChargeRequest> RecurringCharges,
     LeaseStatus Status = LeaseStatus.FixedTerm);
 
@@ -25,7 +24,9 @@ public record UpsertLeaseRequest(
 /// never stored -- see Lease's own class comment. EffectiveStatus/IsExpiringSoon are US-32
 /// additions, also computed at read time rather than a background job (see
 /// LeasesController.ComputeEffectiveStatus's own comment) -- Status stays the raw stored
-/// value so existing US-30 callers reading it see no behavior change.</summary>
+/// value so existing US-30 callers reading it see no behavior change. The move-out notice
+/// that feeds EffectiveStatus/IsExpiringSoon lives on Property now, not here -- see
+/// PropertyResponse.MoveOutNoticeDate -- so it isn't duplicated onto every lease row.</summary>
 public record LeaseResponse(
     Guid Id,
     Guid PropertyId,
@@ -35,7 +36,6 @@ public record LeaseResponse(
     decimal MonthlyBaseRent,
     int DueDayOfMonth,
     LeaseStatus Status,
-    DateOnly? MoveOutNoticeDate,
     decimal TotalMonthlyDues,
     IReadOnlyList<LeaseRecurringChargeResponse> RecurringCharges,
     LeaseStatus EffectiveStatus,

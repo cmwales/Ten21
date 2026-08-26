@@ -18,22 +18,16 @@ public class ManualChargeConfiguration : IEntityTypeConfiguration<ManualCharge>
         builder.Property(c => c.AccountingCode).HasMaxLength(50);
         builder.Property(c => c.CreatedAt).IsRequired();
 
-        // No navigation to Property/ResidentProfile -- ManualChargesController resolves both
-        // by scalar Id lookup, same convention as Lease. Restrict, not Cascade: deleting a
-        // Property/resident while a charge still references it should fail loudly, not
-        // silently orphan/erase a billing record.
+        // No navigation to Property -- ManualChargesController resolves it by scalar Id
+        // lookup, same convention as Lease. Restrict, not Cascade: deleting a Property while
+        // a charge still references it should fail loudly, not silently orphan/erase a
+        // billing record.
         builder.HasOne<Property>()
             .WithMany()
             .HasForeignKey(c => c.PropertyId)
             .OnDelete(DeleteBehavior.Restrict);
 
-        builder.HasOne<ResidentProfile>()
-            .WithMany()
-            .HasForeignKey(c => c.ResidentId)
-            .OnDelete(DeleteBehavior.Restrict);
-
         builder.HasIndex(c => c.PropertyId);
-        builder.HasIndex(c => c.ResidentId);
 
         // TenantId index is also added generically for every ITenantScopedEntity in
         // Ten21DbContext.OnModelCreating.
