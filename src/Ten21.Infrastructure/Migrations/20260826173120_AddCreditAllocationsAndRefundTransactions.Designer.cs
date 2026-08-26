@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using Ten21.Infrastructure.Persistence;
@@ -11,9 +12,11 @@ using Ten21.Infrastructure.Persistence;
 namespace Ten21.Infrastructure.Migrations
 {
     [DbContext(typeof(Ten21DbContext))]
-    partial class Ten21DbContextModelSnapshot : ModelSnapshot
+    [Migration("20260826173120_AddCreditAllocationsAndRefundTransactions")]
+    partial class AddCreditAllocationsAndRefundTransactions
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder

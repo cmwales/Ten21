@@ -414,6 +414,20 @@
       "notes": "Notes"
     }
   },
+  "refunds": {
+    "modal": {
+      "title": "Refund Credit Balance",
+      "close": "Close",
+      "save": "Send Refund",
+      "addedToast": "Refund sent.",
+      "insufficientCreditToast": "This resident doesn't have enough available credit for that amount.",
+      "errorToast": "Something went wrong. Please try again."
+    },
+    "form": {
+      "amount": "Amount",
+      "refundDate": "Refund Date"
+    }
+  },
   "tenderTypes": {
     "Cash": "Cash",
     "Check": "Check",
@@ -438,15 +452,24 @@
       "title": "Unit Statement",
       "backToProperty": "Back to Property",
       "logPayment": "Log Payment",
+      "applyCredits": "Apply Credits to Charges",
+      "applyingCredits": "Applying…",
+      "refundCredit": "Refund Credit Balance",
+      "availableCredit": "Available Credit Held",
+      "creditRemaining": "Credit remaining",
       "balance": "Current Balance",
       "charges": "Charges",
       "payments": "Payments",
+      "credits": "Credits Applied",
+      "refunds": "Refunds",
       "noCharges": "No charges posted yet.",
       "noPayments": "No payments logged yet.",
       "voided": "Voided",
       "paidBy": "Paid by",
       "reference": "Ref",
       "loadError": "Something went wrong loading this statement.",
+      "creditsAppliedToast": "Credits applied to outstanding charges.",
+      "noCreditsAppliedToast": "No outstanding charges to apply credit to.",
       "adjustmentTypes": {
         "CreditAdjustment": "Credit",
         "DebitAdjustment": "Debit"

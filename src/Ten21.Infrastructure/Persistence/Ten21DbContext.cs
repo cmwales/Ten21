@@ -69,6 +69,8 @@ public class Ten21DbContext : IdentityDbContext<ApplicationUser, ApplicationRole
     public DbSet<PaymentTransaction> PaymentTransactions => Set<PaymentTransaction>();
     public DbSet<PaymentAllocation> PaymentAllocations => Set<PaymentAllocation>();
     public DbSet<ChargeAdjustment> ChargeAdjustments => Set<ChargeAdjustment>();
+    public DbSet<CreditAllocation> CreditAllocations => Set<CreditAllocation>();
+    public DbSet<RefundTransaction> RefundTransactions => Set<RefundTransaction>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

@@ -6,10 +6,12 @@ import { provideTranslateService } from '@ngx-translate/core';
 import { ApiResponse } from '../../../core/models/auth.models';
 import { UnitStatementResponse } from '../../../core/models/ledger.models';
 import { PropertyResponse, PropertyTypes, OccupancyStatuses } from '../../../core/models/property.models';
+import { ToastService } from '../../../core/services/toast.service';
 import { UnitStatement } from './unit-statement';
 
 describe('UnitStatement', () => {
   let httpMock: HttpTestingController;
+  let toastService: { show: ReturnType<typeof vi.fn> };
 
   const property: PropertyResponse = {
     id: 'prop-1',
@@ -30,6 +32,7 @@ describe('UnitStatement', () => {
   const statement: UnitStatementResponse = {
     propertyId: 'prop-1',
     balance: 500,
+    availableCredit: 0,
     charges: [
       {
         charge: {
@@ -62,18 +65,24 @@ describe('UnitStatement', () => {
         tenderType: 'Check',
         referenceNumber: '1042',
         notes: null,
+        unallocatedAmount: 0,
         allocations: [{ chargeId: 'charge-1', chargeDescription: 'September Rent', allocatedAmount: 950 }],
       },
     ],
+    credits: [],
+    refunds: [],
   };
 
   function createComponent(id: string | null = 'prop-1'): UnitStatement {
+    toastService = { show: vi.fn() };
+
     TestBed.configureTestingModule({
       providers: [
         provideHttpClient(),
         provideHttpClientTesting(),
         provideTranslateService({ lang: 'en-US', fallbackLang: 'en-US' }),
         { provide: ActivatedRoute, useValue: { snapshot: { paramMap: { get: () => id } } } },
+        { provide: ToastService, useValue: toastService },
       ],
     });
 
@@ -139,5 +148,47 @@ describe('UnitStatement', () => {
     reload.flush({ success: true, data: { ...statement, balance: 0 }, message: null, statusCode: 200, traceId: 't1' } satisfies ApiResponse<UnitStatementResponse>);
 
     expect(component['statement']()!.balance).toBe(0);
+  });
+
+  it('applyCredits() posts to the apply endpoint, toasts, and reloads the statement', () => {
+    const component = createComponent();
+    httpMock.expectOne('/api/properties/prop-1').flush({
+      success: true, data: property, message: null, statusCode: 200, traceId: 't1',
+    } satisfies ApiResponse<PropertyResponse>);
+    httpMock.expectOne('/api/properties/prop-1/charges/statement').flush({
+      success: true, data: statement, message: null, statusCode: 200, traceId: 't1',
+    } satisfies ApiResponse<UnitStatementResponse>);
+
+    component['applyCredits']();
+
+    const req = httpMock.expectOne('/api/properties/prop-1/credits/apply');
+    expect(req.request.method).toBe('POST');
+    req.flush({ success: true, data: { totalApplied: 150, allocations: [] }, message: null, statusCode: 200, traceId: 't1' });
+
+    expect(toastService.show).toHaveBeenCalledWith('ledger.statement.creditsAppliedToast');
+    expect(component['applyingCredits']()).toBe(false);
+
+    const reload = httpMock.expectOne('/api/properties/prop-1/charges/statement');
+    reload.flush({ success: true, data: statement, message: null, statusCode: 200, traceId: 't1' } satisfies ApiResponse<UnitStatementResponse>);
+  });
+
+  it('applyCredits() shows a no-op toast when nothing was applied', () => {
+    const component = createComponent();
+    httpMock.expectOne('/api/properties/prop-1').flush({
+      success: true, data: property, message: null, statusCode: 200, traceId: 't1',
+    } satisfies ApiResponse<PropertyResponse>);
+    httpMock.expectOne('/api/properties/prop-1/charges/statement').flush({
+      success: true, data: statement, message: null, statusCode: 200, traceId: 't1',
+    } satisfies ApiResponse<UnitStatementResponse>);
+
+    component['applyCredits']();
+
+    const req = httpMock.expectOne('/api/properties/prop-1/credits/apply');
+    req.flush({ success: true, data: { totalApplied: 0, allocations: [] }, message: null, statusCode: 200, traceId: 't1' });
+
+    expect(toastService.show).toHaveBeenCalledWith('ledger.statement.noCreditsAppliedToast');
+
+    const reload = httpMock.expectOne('/api/properties/prop-1/charges/statement');
+    reload.flush({ success: true, data: statement, message: null, statusCode: 200, traceId: 't1' } satisfies ApiResponse<UnitStatementResponse>);
   });
 });

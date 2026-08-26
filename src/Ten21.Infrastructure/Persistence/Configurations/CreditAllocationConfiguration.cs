@@ -4,26 +4,30 @@ using Ten21.Domain.Entities;
 
 namespace Ten21.Infrastructure.Persistence.Configurations;
 
-public class ChargeAdjustmentConfiguration : IEntityTypeConfiguration<ChargeAdjustment>
+public class CreditAllocationConfiguration : IEntityTypeConfiguration<CreditAllocation>
 {
-    public void Configure(EntityTypeBuilder<ChargeAdjustment> builder)
+    public void Configure(EntityTypeBuilder<CreditAllocation> builder)
     {
-        builder.ToTable("charge_adjustments");
+        builder.ToTable("credit_allocations");
         builder.HasKey(a => a.Id);
         builder.Property(a => a.TenantId).IsRequired();
+        builder.Property(a => a.SourcePaymentTransactionId).IsRequired();
         builder.Property(a => a.TargetChargeId).IsRequired();
-        builder.Property(a => a.AdjustmentType).IsRequired().HasConversion<string>().HasMaxLength(20);
-        builder.Property(a => a.Amount).IsRequired().HasColumnType("decimal(18,2)");
-        // 500, not 250 -- matches ChargesController.CreateChargeAdjustment's own validation
-        // and the frontend form's Validators.maxLength(500) (a mismatch until this fix).
-        builder.Property(a => a.Reason).IsRequired().HasMaxLength(500);
+        builder.Property(a => a.AppliedAmount).IsRequired().HasColumnType("decimal(18,2)");
+        builder.Property(a => a.AppliedDate).IsRequired();
         builder.Property(a => a.CreatedAt).IsRequired();
+
+        builder.HasOne<PaymentTransaction>()
+            .WithMany()
+            .HasForeignKey(a => a.SourcePaymentTransactionId)
+            .OnDelete(DeleteBehavior.Restrict);
 
         builder.HasOne<Charge>()
             .WithMany()
             .HasForeignKey(a => a.TargetChargeId)
             .OnDelete(DeleteBehavior.Restrict);
 
+        builder.HasIndex(a => a.SourcePaymentTransactionId);
         builder.HasIndex(a => a.TargetChargeId);
 
         // TenantId index is also added generically for every ITenantScopedEntity in

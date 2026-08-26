@@ -12,7 +12,7 @@
             </p>
           }
         </div>
-        <div class="flex items-center gap-3">
+        <div class="flex flex-wrap items-center gap-3">
           <button
             type="button"
             (click)="logPaymentModalOpen.set(true)"
@@ -20,6 +20,23 @@
           >
             {{ 'ledger.statement.logPayment' | translate }}
           </button>
+          @if (statement() && statement()!.availableCredit > 0) {
+            <button
+              type="button"
+              (click)="applyCredits()"
+              [disabled]="applyingCredits()"
+              class="tap-target flex items-center rounded-md border border-emerald px-4 py-2 font-semibold text-emerald focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald disabled:opacity-60"
+            >
+              {{ (applyingCredits() ? 'ledger.statement.applyingCredits' : 'ledger.statement.applyCredits') | translate }}
+            </button>
+            <button
+              type="button"
+              (click)="refundModalOpen.set(true)"
+              class="tap-target flex items-center rounded-md border border-white/40 px-4 py-2 font-semibold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
+            >
+              {{ 'ledger.statement.refundCredit' | translate }}
+            </button>
+          }
           <a
             [routerLink]="['/properties', propertyId()]"
             class="tap-target flex items-center rounded-md border border-white/40 px-4 py-2 font-semibold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
@@ -36,6 +53,13 @@
         (saved)="loadStatement(propertyId())"
       />
 
+      <app-refund-credit-modal
+        [propertyId]="propertyId()"
+        [open]="refundModalOpen()"
+        (closed)="refundModalOpen.set(false)"
+        (saved)="loadStatement(propertyId())"
+      />
+
       @if (errorKey()) {
         <div role="alert" class="mt-6 rounded-md border border-rose bg-rose/10 px-4 py-3 text-sm font-medium text-rose">
           {{ errorKey()! | translate }}
@@ -46,14 +70,23 @@
         <p class="mt-6 text-sm text-white">{{ 'common.loading' | translate }}</p>
       } @else if (statement()) {
         <div class="mt-6 rounded-xl bg-surface-card p-6 shadow-xl">
-          <p class="text-sm font-medium text-slate-navy-light">{{ 'ledger.statement.balance' | translate }}</p>
-          <p
-            class="text-3xl font-bold"
-            [class.text-rose]="statement()!.balance > 0"
-            [class.text-emerald]="statement()!.balance <= 0"
-          >
-            ${{ statement()!.balance }}
-          </p>
+          <div class="flex flex-wrap items-start justify-between gap-4">
+            <div>
+              <p class="text-sm font-medium text-slate-navy-light">{{ 'ledger.statement.balance' | translate }}</p>
+              <p
+                class="text-3xl font-bold"
+                [class.text-rose]="statement()!.balance > 0"
+                [class.text-emerald]="statement()!.balance <= 0"
+              >
+                ${{ statement()!.balance }}
+              </p>
+            </div>
+            @if (statement()!.availableCredit > 0) {
+              <span class="rounded-full bg-emerald px-3 py-1.5 text-sm font-semibold text-white">
+                {{ 'ledger.statement.availableCredit' | translate }}: ${{ statement()!.availableCredit }}
+              </span>
+            }
+          </div>
         </div>
 
         <section class="mt-6">
@@ -148,10 +181,56 @@
                     }
                   </div>
                 }
+                @if (payment.unallocatedAmount > 0) {
+                  <p class="mt-2 text-xs font-semibold text-emerald">
+                    {{ 'ledger.statement.creditRemaining' | translate }}: ${{ payment.unallocatedAmount }}
+                  </p>
+                }
               </div>
             }
           </div>
         </section>
+
+        @if (statement()!.credits.length > 0) {
+          <section class="mt-6">
+            <h2 class="text-lg font-semibold text-white">{{ 'ledger.statement.credits' | translate }}</h2>
+            <div class="mt-3 flex flex-col gap-3">
+              @for (credit of statement()!.credits; track credit.id) {
+                <div class="flex items-center justify-between rounded-xl bg-surface-card p-4 shadow-xl">
+                  <div>
+                    <p class="font-semibold text-slate-navy">{{ credit.chargeDescription }}</p>
+                    <p class="text-xs text-slate-navy-light">{{ credit.appliedDate }}</p>
+                  </div>
+                  <span class="font-semibold text-emerald">${{ credit.appliedAmount }}</span>
+                </div>
+              }
+            </div>
+          </section>
+        }
+
+        @if (statement()!.refunds.length > 0) {
+          <section class="mt-6">
+            <h2 class="text-lg font-semibold text-white">{{ 'ledger.statement.refunds' | translate }}</h2>
+            <div class="mt-3 flex flex-col gap-3">
+              @for (refund of statement()!.refunds; track refund.id) {
+                <div class="rounded-xl bg-surface-card p-4 shadow-xl">
+                  <div class="flex flex-wrap items-start justify-between gap-2">
+                    <div>
+                      <p class="font-semibold text-slate-navy">
+                        {{ 'tenderTypes.' + refund.tenderType | translate }} &middot; {{ refund.refundDate }}
+                      </p>
+                      <p class="text-xs text-slate-navy-light">{{ 'ledger.statement.paidBy' | translate }}: {{ refund.residentName }}</p>
+                      @if (refund.referenceNumber) {
+                        <p class="text-xs text-slate-navy-light">{{ 'ledger.statement.reference' | translate }}: {{ refund.referenceNumber }}</p>
+                      }
+                    </div>
+                    <span class="font-semibold text-rose">${{ refund.amount }}</span>
+                  </div>
+                </div>
+              }
+            </div>
+          </section>
+        }
       }
     </div>
   </main>

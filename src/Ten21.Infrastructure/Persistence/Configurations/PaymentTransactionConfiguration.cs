@@ -18,6 +18,7 @@ public class PaymentTransactionConfiguration : IEntityTypeConfiguration<PaymentT
         builder.Property(p => p.TenderType).IsRequired().HasConversion<string>().HasMaxLength(20);
         builder.Property(p => p.ReferenceNumber).HasMaxLength(100);
         builder.Property(p => p.Notes).HasMaxLength(500);
+        builder.Property(p => p.UnallocatedAmount).IsRequired().HasColumnType("decimal(18,2)").HasDefaultValue(0m);
         builder.Property(p => p.CreatedAt).IsRequired();
 
         builder.HasOne<Property>()
