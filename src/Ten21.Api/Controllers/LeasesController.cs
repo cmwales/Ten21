@@ -1,8 +1,8 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Ten21.Api.Contracts.Charges;
 using Ten21.Api.Contracts.Leases;
-using Ten21.Api.Contracts.ManualCharges;
 using Ten21.Application.Abstractions;
 using Ten21.Domain.Common;
 using Ten21.Domain.Entities;
@@ -135,13 +135,12 @@ public class LeasesController : ControllerBase
     }
 
     /// <summary>
-    /// US-32: "Create Move-In Charge" -- generates a one-time ManualCharge covering the
-    /// partial period from MoveInDate through the day before the lease's next regular
-    /// DueDayOfMonth billing cycle. Deliberately reuses ManualCharge (US-31) rather than a
-    /// separate ProRatedCharge table -- the two are functionally identical open ledger line
-    /// items (unit + description + amount + due date + GL code); the only thing
-    /// distinguishing a "pro-rated" charge is that ITS amount is computed instead
-    /// of typed in, which doesn't need its own storage shape.
+    /// US-32: "Create Move-In Charge" -- generates a one-time Charge (Category=BaseRent)
+    /// covering the partial period from MoveInDate through the day before the lease's next
+    /// regular DueDayOfMonth billing cycle. Deliberately reuses the general Charge entity
+    /// rather than a separate ProRatedCharge table -- the only thing distinguishing a
+    /// "pro-rated" charge is that ITS amount is computed instead of typed in, which doesn't
+    /// need its own storage shape.
     /// </summary>
     [HttpPost("{id:guid}/move-in-charge")]
     [Authorize(Policy = Permissions.Lease.Manage)]
@@ -161,21 +160,27 @@ public class LeasesController : ControllerBase
 
         var (description, amount) = ComputeProration(lease, request.MoveInDate);
 
-        var charge = new ManualCharge
+        var charge = new Charge
         {
             Id = Guid.NewGuid(),
             PropertyId = propertyId,
             Description = description,
             Amount = amount,
             DueDate = request.MoveInDate,
+            // A pro-rated move-in charge IS rent -- same waterfall priority as any other
+            // BaseRent charge, not a special case.
+            Category = ChargeCategory.BaseRent,
+            AllocationPriority = Charge.DefaultAllocationPriorityFor(ChargeCategory.BaseRent),
             CreatedAt = DateTimeOffset.UtcNow,
         };
 
-        _dbContext.ManualCharges.Add(charge);
+        _dbContext.Charges.Add(charge);
         await _dbContext.SaveChangesAsync(cancellationToken);
 
-        return Ok(new ManualChargeResponse(
-            charge.Id, charge.PropertyId, charge.Description, charge.Amount, charge.DueDate, charge.AccountingCode, charge.PaidDate));
+        return Ok(new ChargeResponse(
+            charge.Id, charge.PropertyId, charge.Description, charge.Amount, charge.DueDate, charge.AccountingCode,
+            charge.Category, charge.Status, AllocatedAmount: 0m, OutstandingAmount: charge.Amount,
+            PaymentStatus: ChargePaymentStatus.Unpaid, IsLocked: false));
     }
 
     /// <summary>

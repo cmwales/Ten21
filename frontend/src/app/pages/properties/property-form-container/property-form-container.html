@@ -23,11 +23,17 @@
             </button>
             <button
               type="button"
-              (click)="manualChargeModalOpen.set(true)"
+              (click)="chargeModalOpen.set(true)"
               class="tap-target rounded-md border border-emerald px-4 py-2 font-semibold text-emerald focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
             >
-              {{ 'manualCharges.modal.addChargeFine' | translate }}
+              {{ 'charges.modal.addCharge' | translate }}
             </button>
+            <a
+              [routerLink]="['/properties', propertyId(), 'ledger']"
+              class="tap-target flex items-center rounded-md border border-emerald px-4 py-2 font-semibold text-emerald focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
+            >
+              {{ 'ledger.viewStatement' | translate }}
+            </a>
           </div>
         }
       </div>
@@ -79,10 +85,10 @@
   @if (propertyId()) {
     <app-resident-drawer [propertyId]="propertyId()!" [open]="residentDrawerOpen()" (closed)="residentDrawerOpen.set(false)" />
     <app-lease-drawer [propertyId]="propertyId()!" [open]="leaseDrawerOpen()" (closed)="leaseDrawerOpen.set(false)" />
-    <app-manual-charge-modal
+    <app-charge-modal
       [propertyId]="propertyId()!"
-      [open]="manualChargeModalOpen()"
-      (closed)="manualChargeModalOpen.set(false)"
+      [open]="chargeModalOpen()"
+      (closed)="chargeModalOpen.set(false)"
     />
   }
 </div>

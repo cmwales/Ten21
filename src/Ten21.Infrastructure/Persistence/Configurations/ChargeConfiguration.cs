@@ -4,11 +4,11 @@ using Ten21.Domain.Entities;
 
 namespace Ten21.Infrastructure.Persistence.Configurations;
 
-public class ManualChargeConfiguration : IEntityTypeConfiguration<ManualCharge>
+public class ChargeConfiguration : IEntityTypeConfiguration<Charge>
 {
-    public void Configure(EntityTypeBuilder<ManualCharge> builder)
+    public void Configure(EntityTypeBuilder<Charge> builder)
     {
-        builder.ToTable("manual_charges");
+        builder.ToTable("charges");
         builder.HasKey(c => c.Id);
         builder.Property(c => c.TenantId).IsRequired();
         builder.Property(c => c.PropertyId).IsRequired();
@@ -16,11 +16,15 @@ public class ManualChargeConfiguration : IEntityTypeConfiguration<ManualCharge>
         builder.Property(c => c.Amount).IsRequired().HasColumnType("decimal(18,2)");
         builder.Property(c => c.DueDate).IsRequired();
         builder.Property(c => c.AccountingCode).HasMaxLength(50);
+        builder.Property(c => c.Category).IsRequired().HasConversion<string>().HasMaxLength(20);
+        builder.Property(c => c.AllocationPriority).IsRequired();
+        builder.Property(c => c.IsStatutoryLocked).IsRequired();
+        builder.Property(c => c.Status).IsRequired().HasConversion<string>().HasMaxLength(20);
         builder.Property(c => c.CreatedAt).IsRequired();
 
-        // No navigation to Property -- ManualChargesController resolves it by scalar Id
-        // lookup, same convention as Lease. Restrict, not Cascade: deleting a Property while
-        // a charge still references it should fail loudly, not silently orphan/erase a
+        // No navigation to Property -- ChargesController resolves it by scalar Id lookup,
+        // same convention as Lease. Restrict, not Cascade: deleting a Property while a
+        // charge still references it should fail loudly, not silently orphan/erase a
         // billing record.
         builder.HasOne<Property>()
             .WithMany()

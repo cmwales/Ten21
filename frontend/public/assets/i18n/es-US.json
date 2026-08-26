@@ -350,25 +350,23 @@
       "saving": "Guardando…"
     }
   },
-  "manualCharges": {
+  "charges": {
     "modal": {
-      "addChargeFine": "Agregar Cargo / Multa",
       "title": "Cargos y Multas",
       "close": "Cerrar",
       "empty": "Aún no se han registrado cargos o multas.",
       "addCharge": "Agregar Cargo / Multa",
       "remove": "Eliminar",
       "dueOn": "vence el",
-      "paidDate": "Fecha de Pago",
-      "markPaidToday": "Marcar como Pagado Hoy",
-      "paid": "Pagado",
-      "saving": "Guardando…",
+      "lockedHint": "Este cargo ya tiene pagos aplicados y no se puede eliminar. Registre un ajuste de crédito en su lugar.",
       "addedToast": "Cargo registrado.",
       "removedToast": "Cargo eliminado.",
-      "errorToast": "Algo salió mal. Inténtelo de nuevo."
+      "errorToast": "Algo salió mal. Inténtelo de nuevo.",
+      "lockedErrorToast": "Este cargo ya tiene pagos aplicados y no se puede eliminar."
     },
     "form": {
       "description": "Descripción",
+      "category": "Categoría",
       "amount": "Monto",
       "dueDate": "Fecha de Vencimiento",
       "accountingCode": "Categoría Contable",
@@ -376,7 +374,26 @@
       "cancel": "Cancelar",
       "save": "Guardar",
       "saving": "Guardando…"
+    },
+    "categories": {
+      "LateFee": "Cargo por Mora",
+      "Legal": "Legal",
+      "BaseRent": "Renta Base",
+      "AddOn": "Cargo Adicional",
+      "SpecialAssessment": "Cuota Especial"
+    },
+    "paymentStatuses": {
+      "Unpaid": "Sin Pagar",
+      "Partial": "Parcial",
+      "Paid": "Pagado"
     }
+  },
+  "tenderTypes": {
+    "Cash": "Efectivo",
+    "Check": "Cheque",
+    "Zelle": "Zelle",
+    "Venmo": "Venmo",
+    "DirectDeposit": "Depósito Directo"
   },
   "dashboard": {
     "welcome": "Bienvenido de nuevo",
@@ -386,7 +403,24 @@
   },
   "ledger": {
     "title": "Libro Contable Financiero",
-    "placeholder": "Las vistas detalladas del libro contable llegarán en una fase posterior."
+    "placeholder": "Las vistas detalladas del libro contable llegarán en una fase posterior.",
+    "viewStatement": "Ver Estado de Cuenta",
+    "statement": {
+      "title": "Estado de Cuenta de la Unidad",
+      "backToProperty": "Volver a la Propiedad",
+      "balance": "Saldo Actual",
+      "charges": "Cargos",
+      "payments": "Pagos",
+      "noCharges": "Aún no se han registrado cargos.",
+      "noPayments": "Aún no se han registrado pagos.",
+      "voided": "Anulado",
+      "reference": "Ref",
+      "loadError": "Algo salió mal al cargar este estado de cuenta.",
+      "adjustmentTypes": {
+        "CreditAdjustment": "Crédito",
+        "DebitAdjustment": "Débito"
+      }
+    }
   },
   "common": {
     "loading": "Cargando…"

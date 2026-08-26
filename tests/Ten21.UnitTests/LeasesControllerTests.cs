@@ -2,7 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Ten21.Api.Contracts.Leases;
-using Ten21.Api.Contracts.ManualCharges;
+using Ten21.Api.Contracts.Charges;
 using Ten21.Api.Controllers;
 using Ten21.Domain.Entities;
 using Ten21.Domain.Enums;
@@ -231,12 +231,13 @@ public class LeasesControllerTests : IDisposable
         var result = await controller.CreateMoveInCharge(
             property.Id, leaseId, new CreateMoveInChargeRequest(new DateOnly(2026, 8, 25)), CancellationToken.None);
 
-        var response = Assert.IsType<ManualChargeResponse>(Assert.IsType<OkObjectResult>(result).Value);
+        var response = Assert.IsType<ChargeResponse>(Assert.IsType<OkObjectResult>(result).Value);
         Assert.Equal(property.Id, response.PropertyId);
+        Assert.Equal(ChargeCategory.BaseRent, response.Category);
         // 1450m / 31 days * 7 days = 327.42 (rounded).
         Assert.Equal(Math.Round(1450m / 31 * 7, 2), response.Amount);
         Assert.Contains("Aug 25", response.Description);
-        Assert.Equal(1, await db.ManualCharges.CountAsync());
+        Assert.Equal(1, await db.Charges.CountAsync());
     }
 
     [Fact]
@@ -253,7 +254,7 @@ public class LeasesControllerTests : IDisposable
         var result = await controller.CreateMoveInCharge(
             property.Id, leaseId, new CreateMoveInChargeRequest(new DateOnly(2026, 8, 25)), CancellationToken.None);
 
-        var response = Assert.IsType<ManualChargeResponse>(Assert.IsType<OkObjectResult>(result).Value);
+        var response = Assert.IsType<ChargeResponse>(Assert.IsType<OkObjectResult>(result).Value);
         Assert.Equal(Math.Round(1450m / 31 * 11, 2), response.Amount);
     }
 

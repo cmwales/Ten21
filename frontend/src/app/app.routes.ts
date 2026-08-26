@@ -101,6 +101,18 @@ export const routes: Routes = [
         (m) => m.PropertyFormContainer,
       ),
   },
+  {
+    // US-33/US-36: the unit's lifetime financial statement, which in this flattened
+    // Property model (one row = one door) also serves as US-36's per-property ledger.
+    // Permissions.Ledger.Read isn't granted to Tenant today, so this is PM/Owner/Accountant
+    // only for now -- a resident-facing "view my own unit's statement" scope is a separate,
+    // not-yet-built feature, not what "gated strictly to their own unit statement view" in
+    // the acceptance criteria describes building this sprint.
+    path: 'properties/:id/ledger',
+    canActivate: [authGuard, denyRolesGuard([RoleNames.Tenant, RoleNames.Vendor])],
+    loadComponent: () =>
+      import('./pages/properties/unit-statement/unit-statement').then((m) => m.UnitStatement),
+  },
   { path: '', pathMatch: 'full', redirectTo: 'dashboard' },
   { path: '**', redirectTo: 'dashboard' },
 ];

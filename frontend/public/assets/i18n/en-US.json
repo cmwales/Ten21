@@ -350,25 +350,23 @@
       "saving": "Saving…"
     }
   },
-  "manualCharges": {
+  "charges": {
     "modal": {
-      "addChargeFine": "Add Charge / Fine",
       "title": "Charges & Fines",
       "close": "Close",
       "empty": "No charges or fines posted yet.",
       "addCharge": "Add Charge / Fine",
       "remove": "Remove",
       "dueOn": "due",
-      "paidDate": "Paid Date",
-      "markPaidToday": "Mark Paid Today",
-      "paid": "Paid",
-      "saving": "Saving…",
+      "lockedHint": "This charge has payments applied and can't be removed. Post a credit adjustment instead.",
       "addedToast": "Charge posted.",
       "removedToast": "Charge removed.",
-      "errorToast": "Something went wrong. Please try again."
+      "errorToast": "Something went wrong. Please try again.",
+      "lockedErrorToast": "This charge has payments applied and can't be removed."
     },
     "form": {
       "description": "Description",
+      "category": "Category",
       "amount": "Amount",
       "dueDate": "Due Date",
       "accountingCode": "GL Category",
@@ -376,7 +374,26 @@
       "cancel": "Cancel",
       "save": "Save",
       "saving": "Saving…"
+    },
+    "categories": {
+      "LateFee": "Late Fee",
+      "Legal": "Legal",
+      "BaseRent": "Base Rent",
+      "AddOn": "Add-On",
+      "SpecialAssessment": "Special Assessment"
+    },
+    "paymentStatuses": {
+      "Unpaid": "Unpaid",
+      "Partial": "Partial",
+      "Paid": "Paid"
     }
+  },
+  "tenderTypes": {
+    "Cash": "Cash",
+    "Check": "Check",
+    "Zelle": "Zelle",
+    "Venmo": "Venmo",
+    "DirectDeposit": "Direct Deposit"
   },
   "dashboard": {
     "welcome": "Welcome back",
@@ -386,7 +403,24 @@
   },
   "ledger": {
     "title": "Financial Ledger",
-    "placeholder": "Ledger detail views are coming in a later phase."
+    "placeholder": "Ledger detail views are coming in a later phase.",
+    "viewStatement": "View Statement",
+    "statement": {
+      "title": "Unit Statement",
+      "backToProperty": "Back to Property",
+      "balance": "Current Balance",
+      "charges": "Charges",
+      "payments": "Payments",
+      "noCharges": "No charges posted yet.",
+      "noPayments": "No payments logged yet.",
+      "voided": "Voided",
+      "reference": "Ref",
+      "loadError": "Something went wrong loading this statement.",
+      "adjustmentTypes": {
+        "CreditAdjustment": "Credit",
+        "DebitAdjustment": "Debit"
+      }
+    }
   },
   "common": {
     "loading": "Loading…"
