@@ -397,6 +397,9 @@
       "errorToast": "Something went wrong. Please try again."
     },
     "form": {
+      "paidBy": "Paid By",
+      "paidByPlaceholder": "Select a resident",
+      "noResidents": "No residents on this unit yet -- add one before logging a payment.",
       "amountPaid": "Amount Paid",
       "paymentDate": "Payment Date",
       "tenderType": "Tender Type",
@@ -432,6 +435,7 @@
       "noCharges": "No charges posted yet.",
       "noPayments": "No payments logged yet.",
       "voided": "Voided",
+      "paidBy": "Paid by",
       "reference": "Ref",
       "loadError": "Something went wrong loading this statement.",
       "adjustmentTypes": {

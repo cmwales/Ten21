@@ -42,10 +42,14 @@ export interface PaymentAllocationSummaryResponse {
   allocatedAmount: number;
 }
 
-/** Mirrors Ten21.Api.Contracts.Charges.PaymentTransactionResponse. */
+/** Mirrors Ten21.Api.Contracts.Charges.PaymentTransactionResponse. ResidentProfileId is
+ * required -- money belongs to a specific payee (for refund routing, co-tenant attribution,
+ * and per-resident history), even though Charges stay unit-scoped. */
 export interface PaymentTransactionResponse {
   id: string;
   propertyId: string;
+  residentProfileId: string;
+  residentName: string;
   paymentDate: string;
   amountPaid: number;
   tenderType: TenderTypeValue;

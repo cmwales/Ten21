@@ -55,6 +55,8 @@ describe('UnitStatement', () => {
       {
         id: 'payment-1',
         propertyId: 'prop-1',
+        residentProfileId: 'resident-1',
+        residentName: 'Jamie Rivera',
         paymentDate: '2026-09-03',
         amountPaid: 950,
         tenderType: 'Check',

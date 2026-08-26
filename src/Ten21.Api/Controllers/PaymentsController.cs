@@ -42,7 +42,8 @@ public class PaymentsController : ControllerBase
             ?? throw new NotFoundException($"Payment '{id}' was not found on this property.");
 
         var chargeDescriptionsById = await GetChargeDescriptionsAsync(payment.Allocations.Select(a => a.ChargeId), cancellationToken);
-        return Ok(ToResponse(payment, chargeDescriptionsById));
+        var residentName = await GetResidentNameAsync(payment.ResidentProfileId, cancellationToken);
+        return Ok(ToResponse(payment, residentName, chargeDescriptionsById));
     }
 
     /// <summary>
@@ -62,10 +63,15 @@ public class PaymentsController : ControllerBase
         await EnsurePropertyExistsAsync(propertyId, cancellationToken);
         var fields = ValidateAndSanitize(request);
 
+        var resident = await _dbContext.ResidentProfiles
+            .FirstOrDefaultAsync(r => r.PropertyId == propertyId && r.Id == request.ResidentProfileId, cancellationToken)
+            ?? throw new NotFoundException($"Resident '{request.ResidentProfileId}' was not found on this property.");
+
         var payment = new PaymentTransaction
         {
             Id = Guid.NewGuid(),
             PropertyId = propertyId,
+            ResidentProfileId = resident.Id,
             PaymentDate = request.PaymentDate,
             AmountPaid = request.AmountPaid,
             TenderType = request.TenderType,
@@ -82,8 +88,9 @@ public class PaymentsController : ControllerBase
         await _dbContext.SaveChangesAsync(cancellationToken);
 
         var chargeDescriptionsById = await GetChargeDescriptionsAsync(allocations.Select(a => a.ChargeId), cancellationToken);
+        var residentName = $"{resident.FirstName} {resident.LastName}";
         return CreatedAtAction(
-            nameof(GetPayment), new { propertyId, id = payment.Id }, ToResponse(payment, chargeDescriptionsById));
+            nameof(GetPayment), new { propertyId, id = payment.Id }, ToResponse(payment, residentName, chargeDescriptionsById));
     }
 
     /// <summary>
@@ -166,9 +173,21 @@ public class PaymentsController : ControllerBase
             .ToDictionaryAsync(c => c.Id, c => c.Description, cancellationToken);
     }
 
-    private static PaymentTransactionResponse ToResponse(PaymentTransaction payment, Dictionary<Guid, string> chargeDescriptionsById) => new(
+    private async Task<string> GetResidentNameAsync(Guid residentProfileId, CancellationToken cancellationToken)
+    {
+        var resident = await _dbContext.ResidentProfiles
+            .Where(r => r.Id == residentProfileId)
+            .Select(r => new { r.FirstName, r.LastName })
+            .FirstOrDefaultAsync(cancellationToken);
+        return resident is null ? "(unknown resident)" : $"{resident.FirstName} {resident.LastName}";
+    }
+
+    private static PaymentTransactionResponse ToResponse(
+        PaymentTransaction payment, string residentName, Dictionary<Guid, string> chargeDescriptionsById) => new(
         payment.Id,
         payment.PropertyId,
+        payment.ResidentProfileId,
+        residentName,
         payment.PaymentDate,
         payment.AmountPaid,
         payment.TenderType,

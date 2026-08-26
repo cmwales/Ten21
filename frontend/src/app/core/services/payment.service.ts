@@ -18,8 +18,10 @@ export class PaymentService {
   }
 }
 
-/** Mirrors Ten21.Api.Contracts.Charges.LogPaymentRequest. */
+/** Mirrors Ten21.Api.Contracts.Charges.LogPaymentRequest. residentProfileId is required --
+ * see PaymentTransactionResponse's own comment for why. */
 export interface LogPaymentRequest {
+  residentProfileId: string;
   paymentDate: string;
   amountPaid: number;
   tenderType: TenderTypeValue;
