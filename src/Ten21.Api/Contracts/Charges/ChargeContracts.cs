@@ -51,8 +51,13 @@ public record PaymentAllocationSummaryResponse(
 
 /// <summary>US-34: captures a manually-received payment; the amount is applied automatically
 /// via the statutory waterfall (LateFee/Legal, then BaseRent, then AddOn/SpecialAssessment --
-/// see Charge.DefaultAllocationPriorityFor), never chosen per-charge by the PM.</summary>
+/// see Charge.DefaultAllocationPriorityFor), never chosen per-charge by the PM.
+/// ResidentProfileId is required (fix, post-US-34) -- see PaymentTransaction's own class
+/// comment for why the unit-only "we don't care who paid" call didn't hold up: an overpayment
+/// or a pre-charge payment becomes a credit owed to a specific person, who needs to stay
+/// identifiable for a refund even after they transfer units or a co-tenant moves out.</summary>
 public record LogPaymentRequest(
+    Guid ResidentProfileId,
     DateOnly PaymentDate,
     decimal AmountPaid,
     TenderType TenderType,
@@ -62,6 +67,8 @@ public record LogPaymentRequest(
 public record PaymentTransactionResponse(
     Guid Id,
     Guid PropertyId,
+    Guid ResidentProfileId,
+    string ResidentName,
     DateOnly PaymentDate,
     decimal AmountPaid,
     TenderType TenderType,

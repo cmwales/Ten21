@@ -12,6 +12,7 @@ public class PaymentTransactionConfiguration : IEntityTypeConfiguration<PaymentT
         builder.HasKey(p => p.Id);
         builder.Property(p => p.TenantId).IsRequired();
         builder.Property(p => p.PropertyId).IsRequired();
+        builder.Property(p => p.ResidentProfileId).IsRequired();
         builder.Property(p => p.PaymentDate).IsRequired();
         builder.Property(p => p.AmountPaid).IsRequired().HasColumnType("decimal(18,2)");
         builder.Property(p => p.TenderType).IsRequired().HasConversion<string>().HasMaxLength(20);
@@ -24,12 +25,18 @@ public class PaymentTransactionConfiguration : IEntityTypeConfiguration<PaymentT
             .HasForeignKey(p => p.PropertyId)
             .OnDelete(DeleteBehavior.Restrict);
 
+        builder.HasOne<ResidentProfile>()
+            .WithMany()
+            .HasForeignKey(p => p.ResidentProfileId)
+            .OnDelete(DeleteBehavior.Restrict);
+
         builder.HasMany(p => p.Allocations)
             .WithOne()
             .HasForeignKey(a => a.PaymentTransactionId)
             .OnDelete(DeleteBehavior.Cascade);
 
         builder.HasIndex(p => p.PropertyId);
+        builder.HasIndex(p => p.ResidentProfileId);
 
         // TenantId index is also added generically for every ITenantScopedEntity in
         // Ten21DbContext.OnModelCreating.

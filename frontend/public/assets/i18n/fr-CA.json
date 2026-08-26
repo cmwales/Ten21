@@ -397,6 +397,9 @@
       "errorToast": "Une erreur s'est produite. Veuillez réessayer."
     },
     "form": {
+      "paidBy": "Payé Par",
+      "paidByPlaceholder": "Sélectionnez un résident",
+      "noResidents": "Aucun résident sur cette unité pour le moment -- ajoutez-en un avant d'enregistrer un paiement.",
       "amountPaid": "Montant Payé",
       "paymentDate": "Date de Paiement",
       "tenderType": "Mode de Paiement",
@@ -432,6 +435,7 @@
       "noCharges": "Aucun frais publié pour le moment.",
       "noPayments": "Aucun paiement enregistré pour le moment.",
       "voided": "Annulé",
+      "paidBy": "Payé par",
       "reference": "Réf",
       "loadError": "Une erreur s'est produite lors du chargement de ce relevé.",
       "adjustmentTypes": {

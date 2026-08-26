@@ -397,6 +397,9 @@
       "errorToast": "Algo salió mal. Inténtalo de nuevo."
     },
     "form": {
+      "paidBy": "Pagado Por",
+      "paidByPlaceholder": "Seleccione un residente",
+      "noResidents": "Todavía no hay residentes en esta unidad -- agregue uno antes de registrar un pago.",
       "amountPaid": "Monto Pagado",
       "paymentDate": "Fecha de Pago",
       "tenderType": "Método de Pago",
@@ -432,6 +435,7 @@
       "noCharges": "Aún no se han registrado cargos.",
       "noPayments": "Aún no se han registrado pagos.",
       "voided": "Anulado",
+      "paidBy": "Pagado por",
       "reference": "Ref",
       "loadError": "Algo salió mal al cargar este estado de cuenta.",
       "adjustmentTypes": {

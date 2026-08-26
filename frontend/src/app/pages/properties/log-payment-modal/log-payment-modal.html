@@ -19,6 +19,24 @@
       </div>
 
       <form [formGroup]="form" class="flex flex-col gap-4" (ngSubmit)="save()" novalidate>
+        <div class="flex flex-col gap-1.5">
+          <label for="residentProfileId" class="text-sm font-medium text-slate-navy">{{ 'payments.form.paidBy' | translate }}</label>
+          <select
+            id="residentProfileId"
+            formControlName="residentProfileId"
+            [attr.aria-invalid]="form.controls.residentProfileId.invalid && form.controls.residentProfileId.touched"
+            class="tap-target w-full rounded-md border border-slate-navy/20 px-3 py-2 text-slate-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
+          >
+            <option value="" disabled>{{ 'payments.form.paidByPlaceholder' | translate }}</option>
+            @for (resident of residents(); track resident.id) {
+              <option [value]="resident.id">{{ resident.firstName }} {{ resident.lastName }}</option>
+            }
+          </select>
+          @if (residents().length === 0) {
+            <p class="text-xs text-slate-navy-light">{{ 'payments.form.noResidents' | translate }}</p>
+          }
+        </div>
+
         <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div class="flex flex-col gap-1.5">
             <label for="amountPaid" class="text-sm font-medium text-slate-navy">{{ 'payments.form.amountPaid' | translate }}</label>

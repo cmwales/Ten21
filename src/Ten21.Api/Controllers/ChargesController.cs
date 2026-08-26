@@ -107,8 +107,13 @@ public class ChargesController : ControllerBase
         }).ToList();
 
         var chargeDescriptionsById = charges.ToDictionary(c => c.Id, c => c.Description);
+        var residentIds = payments.Select(p => p.ResidentProfileId).Distinct().ToList();
+        var residentNamesById = await _dbContext.ResidentProfiles
+            .Where(r => residentIds.Contains(r.Id))
+            .ToDictionaryAsync(r => r.Id, r => $"{r.FirstName} {r.LastName}", cancellationToken);
         var paymentResponses = payments.Select(p => new PaymentTransactionResponse(
-            p.Id, p.PropertyId, p.PaymentDate, p.AmountPaid, p.TenderType, p.ReferenceNumber, p.Notes,
+            p.Id, p.PropertyId, p.ResidentProfileId, residentNamesById.GetValueOrDefault(p.ResidentProfileId, "(unknown resident)"),
+            p.PaymentDate, p.AmountPaid, p.TenderType, p.ReferenceNumber, p.Notes,
             p.Allocations.Select(a => new PaymentAllocationSummaryResponse(
                 a.ChargeId,
                 chargeDescriptionsById.GetValueOrDefault(a.ChargeId, "(unknown charge)"),

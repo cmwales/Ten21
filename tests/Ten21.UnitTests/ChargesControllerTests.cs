@@ -74,10 +74,23 @@ public class ChargesControllerTests : IDisposable
 
     private static async Task AllocatePaymentAsync(Ten21DbContext db, Guid chargeId, decimal amount)
     {
+        var propertyId = (await db.Charges.SingleAsync(c => c.Id == chargeId)).PropertyId;
+        var resident = new ResidentProfile
+        {
+            Id = Guid.NewGuid(),
+            PropertyId = propertyId,
+            OccupantType = OccupantType.Primary,
+            FirstName = "Jamie",
+            LastName = "Rivera",
+            CreatedAt = DateTimeOffset.UtcNow,
+        };
+        db.ResidentProfiles.Add(resident);
+
         var payment = new PaymentTransaction
         {
             Id = Guid.NewGuid(),
-            PropertyId = (await db.Charges.SingleAsync(c => c.Id == chargeId)).PropertyId,
+            PropertyId = propertyId,
+            ResidentProfileId = resident.Id,
             PaymentDate = new DateOnly(2026, 9, 16),
             AmountPaid = amount,
             TenderType = TenderType.Cash,

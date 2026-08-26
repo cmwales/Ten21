@@ -66,6 +66,22 @@ public class PaymentsControllerTests : IDisposable
         return property;
     }
 
+    private static async Task<ResidentProfile> SeedResidentAsync(Ten21DbContext db, Guid propertyId)
+    {
+        var resident = new ResidentProfile
+        {
+            Id = Guid.NewGuid(),
+            PropertyId = propertyId,
+            OccupantType = OccupantType.Primary,
+            FirstName = "Jamie",
+            LastName = "Rivera",
+            CreatedAt = DateTimeOffset.UtcNow,
+        };
+        db.ResidentProfiles.Add(resident);
+        await db.SaveChangesAsync();
+        return resident;
+    }
+
     private static async Task<Guid> CreateChargeAsync(
         ChargesController charges, Guid propertyId, ChargeCategory category, decimal amount, DateOnly dueDate)
     {
@@ -80,7 +96,8 @@ public class PaymentsControllerTests : IDisposable
         return Assert.IsType<ChargeResponse>(Assert.IsType<CreatedAtActionResult>(result).Value).Id;
     }
 
-    private static LogPaymentRequest NewPaymentRequest(decimal amount) => new(
+    private static LogPaymentRequest NewPaymentRequest(Guid residentProfileId, decimal amount) => new(
+        ResidentProfileId: residentProfileId,
         PaymentDate: new DateOnly(2026, 9, 1),
         AmountPaid: amount,
         TenderType: TenderType.Check,
@@ -92,11 +109,14 @@ public class PaymentsControllerTests : IDisposable
     {
         var (db, charges, payments) = CreateControllers(Guid.NewGuid());
         var property = await SeedPropertyAsync(db);
+        var resident = await SeedResidentAsync(db, property.Id);
         var chargeId = await CreateChargeAsync(charges, property.Id, ChargeCategory.BaseRent, 1450m, new DateOnly(2026, 9, 1));
 
-        var result = await payments.LogPayment(property.Id, NewPaymentRequest(1450m), CancellationToken.None);
+        var result = await payments.LogPayment(property.Id, NewPaymentRequest(resident.Id, 1450m), CancellationToken.None);
 
         var response = Assert.IsType<PaymentTransactionResponse>(Assert.IsType<CreatedAtActionResult>(result).Value);
+        Assert.Equal(resident.Id, response.ResidentProfileId);
+        Assert.Equal("Jamie Rivera", response.ResidentName);
         var allocation = Assert.Single(response.Allocations);
         Assert.Equal(chargeId, allocation.ChargeId);
         Assert.Equal(1450m, allocation.AllocatedAmount);
@@ -111,6 +131,7 @@ public class PaymentsControllerTests : IDisposable
     {
         var (db, charges, payments) = CreateControllers(Guid.NewGuid());
         var property = await SeedPropertyAsync(db);
+        var resident = await SeedResidentAsync(db, property.Id);
         var rentId = await CreateChargeAsync(charges, property.Id, ChargeCategory.BaseRent, 1000m, new DateOnly(2026, 9, 1));
         var lateFeeId = await CreateChargeAsync(charges, property.Id, ChargeCategory.LateFee, 50m, new DateOnly(2026, 9, 1));
         var legalId = await CreateChargeAsync(charges, property.Id, ChargeCategory.Legal, 100m, new DateOnly(2026, 9, 1));
@@ -118,7 +139,7 @@ public class PaymentsControllerTests : IDisposable
         // Only enough to cover the LateFee (priority 1) and Legal (priority 2) charges, plus a
         // little left toward BaseRent (priority 3) -- proves priority order, not creation order
         // or amount order, drives allocation.
-        var result = await payments.LogPayment(property.Id, NewPaymentRequest(170m), CancellationToken.None);
+        var result = await payments.LogPayment(property.Id, NewPaymentRequest(resident.Id, 170m), CancellationToken.None);
 
         var response = Assert.IsType<PaymentTransactionResponse>(Assert.IsType<CreatedAtActionResult>(result).Value);
         Assert.Equal(3, response.Allocations.Count);
@@ -132,10 +153,11 @@ public class PaymentsControllerTests : IDisposable
     {
         var (db, charges, payments) = CreateControllers(Guid.NewGuid());
         var property = await SeedPropertyAsync(db);
+        var resident = await SeedResidentAsync(db, property.Id);
         var olderAddOnId = await CreateChargeAsync(charges, property.Id, ChargeCategory.AddOn, 60m, new DateOnly(2026, 8, 1));
         var newerAddOnId = await CreateChargeAsync(charges, property.Id, ChargeCategory.AddOn, 60m, new DateOnly(2026, 9, 1));
 
-        var result = await payments.LogPayment(property.Id, NewPaymentRequest(60m), CancellationToken.None);
+        var result = await payments.LogPayment(property.Id, NewPaymentRequest(resident.Id, 60m), CancellationToken.None);
 
         var response = Assert.IsType<PaymentTransactionResponse>(Assert.IsType<CreatedAtActionResult>(result).Value);
         var allocation = Assert.Single(response.Allocations);
@@ -151,9 +173,10 @@ public class PaymentsControllerTests : IDisposable
     {
         var (db, charges, payments) = CreateControllers(Guid.NewGuid());
         var property = await SeedPropertyAsync(db);
+        var resident = await SeedResidentAsync(db, property.Id);
         var chargeId = await CreateChargeAsync(charges, property.Id, ChargeCategory.BaseRent, 1450m, new DateOnly(2026, 9, 1));
 
-        var result = await payments.LogPayment(property.Id, NewPaymentRequest(500m), CancellationToken.None);
+        var result = await payments.LogPayment(property.Id, NewPaymentRequest(resident.Id, 500m), CancellationToken.None);
 
         var response = Assert.IsType<PaymentTransactionResponse>(Assert.IsType<CreatedAtActionResult>(result).Value);
         Assert.Equal(500m, Assert.Single(response.Allocations).AllocatedAmount);
@@ -169,20 +192,24 @@ public class PaymentsControllerTests : IDisposable
     {
         var (db, charges, payments) = CreateControllers(Guid.NewGuid());
         var property = await SeedPropertyAsync(db);
+        var resident = await SeedResidentAsync(db, property.Id);
         await CreateChargeAsync(charges, property.Id, ChargeCategory.BaseRent, 500m, new DateOnly(2026, 9, 1));
 
-        var result = await payments.LogPayment(property.Id, NewPaymentRequest(700m), CancellationToken.None);
+        var result = await payments.LogPayment(property.Id, NewPaymentRequest(resident.Id, 700m), CancellationToken.None);
 
         var response = Assert.IsType<PaymentTransactionResponse>(Assert.IsType<CreatedAtActionResult>(result).Value);
         // Only the 500 that had somewhere to go is allocated; the extra 200 is recorded on the
-        // payment (AmountPaid) but not tied to any charge -- it surfaces as a credit via the
-        // unit statement's Balance formula instead.
+        // payment (AmountPaid, still attributed to this resident so it's refundable to them --
+        // see PaymentTransaction's own comment) but not tied to any charge -- it surfaces as a
+        // credit via the unit statement's Balance formula instead.
         Assert.Equal(500m, Assert.Single(response.Allocations).AllocatedAmount);
         Assert.Equal(700m, response.AmountPaid);
+        Assert.Equal(resident.Id, response.ResidentProfileId);
 
         var statement = Assert.IsType<UnitStatementResponse>(Assert.IsType<OkObjectResult>(
             await charges.GetStatement(property.Id, CancellationToken.None)).Value);
         Assert.Equal(-200m, statement.Balance);
+        Assert.Equal(resident.Id, Assert.Single(statement.Payments).ResidentProfileId);
     }
 
     [Fact]
@@ -190,13 +217,14 @@ public class PaymentsControllerTests : IDisposable
     {
         var (db, charges, payments) = CreateControllers(Guid.NewGuid());
         var property = await SeedPropertyAsync(db);
+        var resident = await SeedResidentAsync(db, property.Id);
         var voidedId = await CreateChargeAsync(charges, property.Id, ChargeCategory.LateFee, 50m, new DateOnly(2026, 9, 1));
         var rentId = await CreateChargeAsync(charges, property.Id, ChargeCategory.BaseRent, 1000m, new DateOnly(2026, 9, 1));
         var voidedCharge = await db.Charges.SingleAsync(c => c.Id == voidedId);
         voidedCharge.Status = ChargeLifecycleStatus.Voided;
         await db.SaveChangesAsync();
 
-        var result = await payments.LogPayment(property.Id, NewPaymentRequest(50m), CancellationToken.None);
+        var result = await payments.LogPayment(property.Id, NewPaymentRequest(resident.Id, 50m), CancellationToken.None);
 
         var response = Assert.IsType<PaymentTransactionResponse>(Assert.IsType<CreatedAtActionResult>(result).Value);
         var allocation = Assert.Single(response.Allocations);
@@ -208,11 +236,12 @@ public class PaymentsControllerTests : IDisposable
     {
         var (db, charges, payments) = CreateControllers(Guid.NewGuid());
         var property = await SeedPropertyAsync(db);
+        var resident = await SeedResidentAsync(db, property.Id);
         var lateFeeId = await CreateChargeAsync(charges, property.Id, ChargeCategory.LateFee, 50m, new DateOnly(2026, 9, 1));
         var rentId = await CreateChargeAsync(charges, property.Id, ChargeCategory.BaseRent, 1000m, new DateOnly(2026, 9, 1));
-        await payments.LogPayment(property.Id, NewPaymentRequest(50m), CancellationToken.None);
+        await payments.LogPayment(property.Id, NewPaymentRequest(resident.Id, 50m), CancellationToken.None);
 
-        var result = await payments.LogPayment(property.Id, NewPaymentRequest(1000m), CancellationToken.None);
+        var result = await payments.LogPayment(property.Id, NewPaymentRequest(resident.Id, 1000m), CancellationToken.None);
 
         var response = Assert.IsType<PaymentTransactionResponse>(Assert.IsType<CreatedAtActionResult>(result).Value);
         var allocation = Assert.Single(response.Allocations);
@@ -225,9 +254,10 @@ public class PaymentsControllerTests : IDisposable
     {
         var (db, charges, payments) = CreateControllers(Guid.NewGuid());
         var property = await SeedPropertyAsync(db);
+        var resident = await SeedResidentAsync(db, property.Id);
 
         await Assert.ThrowsAsync<ValidationException>(() => payments.LogPayment(
-            property.Id, NewPaymentRequest(0m), CancellationToken.None));
+            property.Id, NewPaymentRequest(resident.Id, 0m), CancellationToken.None));
     }
 
     [Fact]
@@ -236,7 +266,19 @@ public class PaymentsControllerTests : IDisposable
         var (db, charges, payments) = CreateControllers(Guid.NewGuid());
 
         await Assert.ThrowsAsync<NotFoundException>(() => payments.LogPayment(
-            Guid.NewGuid(), NewPaymentRequest(100m), CancellationToken.None));
+            Guid.NewGuid(), NewPaymentRequest(Guid.NewGuid(), 100m), CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task LogPayment_ThrowsNotFound_WhenResidentDoesNotBelongToThisProperty()
+    {
+        var (db, charges, payments) = CreateControllers(Guid.NewGuid());
+        var propertyA = await SeedPropertyAsync(db);
+        var propertyB = await SeedPropertyAsync(db);
+        var residentOfB = await SeedResidentAsync(db, propertyB.Id);
+
+        await Assert.ThrowsAsync<NotFoundException>(() => payments.LogPayment(
+            propertyA.Id, NewPaymentRequest(residentOfB.Id, 100m), CancellationToken.None));
     }
 
     [Fact]
@@ -245,8 +287,9 @@ public class PaymentsControllerTests : IDisposable
         var (db, charges, payments) = CreateControllers(Guid.NewGuid());
         var propertyA = await SeedPropertyAsync(db);
         var propertyB = await SeedPropertyAsync(db);
+        var resident = await SeedResidentAsync(db, propertyA.Id);
         await CreateChargeAsync(charges, propertyA.Id, ChargeCategory.BaseRent, 500m, new DateOnly(2026, 9, 1));
-        var created = await payments.LogPayment(propertyA.Id, NewPaymentRequest(500m), CancellationToken.None);
+        var created = await payments.LogPayment(propertyA.Id, NewPaymentRequest(resident.Id, 500m), CancellationToken.None);
         var id = Assert.IsType<PaymentTransactionResponse>(Assert.IsType<CreatedAtActionResult>(created).Value).Id;
 
         await Assert.ThrowsAsync<NotFoundException>(() => payments.GetPayment(propertyB.Id, id, CancellationToken.None));
