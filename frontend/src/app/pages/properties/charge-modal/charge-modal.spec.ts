@@ -26,6 +26,7 @@ describe('ChargeModal', () => {
     outstandingAmount: 75,
     paymentStatus: 'Unpaid',
     isLocked: false,
+    notes: null,
   };
 
   function createComponent(): ChargeModal {

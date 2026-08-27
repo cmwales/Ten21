@@ -124,6 +124,7 @@
     "dashboard": "Dashboard",
     "ledger": "Ledger",
     "properties": "Properties",
+    "adminSettings": "Settings",
     "logout": "Log out",
     "workspaceSwitcher": {
       "loading": "Loading workspace…",
@@ -375,6 +376,7 @@
       "dueDate": "Due Date",
       "accountingCode": "GL Category",
       "accountingCodePlaceholder": "e.g. GL-4100 (optional)",
+      "notes": "Notes (optional)",
       "adjustmentType": "Adjustment Type",
       "reason": "Reason",
       "cancel": "Cancel",
@@ -430,6 +432,13 @@
       "reversedToast": "Payment reversed.",
       "reallocatedToast": "Payment reallocated.",
       "errorToast": "Something went wrong. Please try again."
+    },
+    "details": {
+      "trigger": "View Details",
+      "title": "Payment Details",
+      "close": "Close",
+      "allocations": "Allocation Breakdown",
+      "allocationsEmpty": "This payment wasn't applied to any charge."
     }
   },
   "refunds": {
@@ -451,7 +460,8 @@
     "Check": "Check",
     "Zelle": "Zelle",
     "Venmo": "Venmo",
-    "DirectDeposit": "Direct Deposit"
+    "DirectDeposit": "Direct Deposit",
+    "CreditCard": "Credit Card"
   },
   "dashboard": {
     "welcome": "Welcome back",
@@ -476,12 +486,11 @@
       "availableCredit": "Available Credit Held",
       "creditRemaining": "Credit remaining",
       "balance": "Current Balance",
-      "charges": "Charges",
-      "payments": "Payments",
+      "transactionLedger": "Transaction Ledger",
+      "runningBalance": "Balance",
+      "noTransactions": "No charges or payments posted yet.",
       "credits": "Credits Applied",
       "refunds": "Refunds",
-      "noCharges": "No charges posted yet.",
-      "noPayments": "No payments logged yet.",
       "voided": "Voided",
       "paidBy": "Paid by",
       "reference": "Ref",
@@ -537,6 +546,19 @@
       "Last12Months": "Last 12 Months"
     },
     "loadError": "Something went wrong loading this PDF."
+  },
+  "admin": {
+    "settings": {
+      "title": "Workspace Settings",
+      "communityDirectorySectionTitle": "Community Directory",
+      "enableCommunityDirectory": "Enable community directory",
+      "enableCommunityDirectoryHint": "Lets opted-in residents see the names and units of other opted-in residents at the same address. Turning this off hides the directory workspace-wide, regardless of individual opt-ins.",
+      "save": "Save",
+      "saving": "Saving…",
+      "savedToast": "Settings saved.",
+      "loadError": "Something went wrong loading workspace settings.",
+      "errorToast": "Something went wrong. Please try again."
+    }
   },
   "common": {
     "loading": "Loading…"

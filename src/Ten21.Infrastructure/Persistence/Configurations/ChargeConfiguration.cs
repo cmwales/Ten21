@@ -16,6 +16,7 @@ public class ChargeConfiguration : IEntityTypeConfiguration<Charge>
         builder.Property(c => c.Amount).IsRequired().HasColumnType("decimal(18,2)");
         builder.Property(c => c.DueDate).IsRequired();
         builder.Property(c => c.AccountingCode).HasMaxLength(50);
+        builder.Property(c => c.Notes).HasMaxLength(500);
         builder.Property(c => c.Category).IsRequired().HasConversion<string>().HasMaxLength(20);
         builder.Property(c => c.AllocationPriority).IsRequired();
         builder.Property(c => c.IsStatutoryLocked).IsRequired();

@@ -49,6 +49,7 @@ export class ChargeModal implements OnChanges {
     dueDate: ['', Validators.required],
     accountingCode: this.fb.control<string | null>(null),
     category: ['AddOn' as ChargeCategoryValue, Validators.required],
+    notes: this.fb.control<string | null>(null, Validators.maxLength(500)),
   });
 
   protected readonly adjustmentForm = this.fb.nonNullable.group({
@@ -70,7 +71,7 @@ export class ChargeModal implements OnChanges {
   }
 
   protected startAdd(): void {
-    this.form.reset({ description: '', amount: 0, dueDate: '', accountingCode: null, category: 'AddOn' as ChargeCategoryValue });
+    this.form.reset({ description: '', amount: 0, dueDate: '', accountingCode: null, category: 'AddOn' as ChargeCategoryValue, notes: null });
     this.showForm.set(true);
   }
 
@@ -134,6 +135,7 @@ export class ChargeModal implements OnChanges {
         dueDate: raw.dueDate,
         accountingCode: raw.accountingCode,
         category: raw.category,
+        notes: raw.notes,
       })
       .subscribe({
         next: () => {

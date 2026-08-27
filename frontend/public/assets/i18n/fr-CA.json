@@ -124,6 +124,7 @@
     "dashboard": "Tableau de bord",
     "ledger": "Grand livre",
     "properties": "Propriétés",
+    "adminSettings": "Paramètres",
     "logout": "Déconnexion",
     "workspaceSwitcher": {
       "loading": "Chargement de l'espace de travail…",
@@ -375,6 +376,7 @@
       "dueDate": "Date d'Échéance",
       "accountingCode": "Catégorie Comptable",
       "accountingCodePlaceholder": "p. ex. GL-4100 (facultatif)",
+      "notes": "Notes (facultatif)",
       "adjustmentType": "Type d'Ajustement",
       "reason": "Motif",
       "cancel": "Annuler",
@@ -430,6 +432,13 @@
       "reversedToast": "Paiement annulé.",
       "reallocatedToast": "Paiement réaffecté.",
       "errorToast": "Une erreur s'est produite. Veuillez réessayer."
+    },
+    "details": {
+      "trigger": "Voir les Détails",
+      "title": "Détails du Paiement",
+      "close": "Fermer",
+      "allocations": "Répartition de l'Affectation",
+      "allocationsEmpty": "Ce paiement n'a été appliqué à aucun frais."
     }
   },
   "refunds": {
@@ -451,7 +460,8 @@
     "Check": "Chèque",
     "Zelle": "Zelle",
     "Venmo": "Venmo",
-    "DirectDeposit": "Dépôt Direct"
+    "DirectDeposit": "Dépôt Direct",
+    "CreditCard": "Carte de Crédit"
   },
   "dashboard": {
     "welcome": "Content de vous revoir",
@@ -476,12 +486,11 @@
       "availableCredit": "Crédit Disponible",
       "creditRemaining": "Crédit restant",
       "balance": "Solde Actuel",
-      "charges": "Frais",
-      "payments": "Paiements",
+      "transactionLedger": "Grand Livre des Transactions",
+      "runningBalance": "Solde",
+      "noTransactions": "Aucun frais ni paiement publié pour le moment.",
       "credits": "Crédits Appliqués",
       "refunds": "Remboursements",
-      "noCharges": "Aucun frais publié pour le moment.",
-      "noPayments": "Aucun paiement enregistré pour le moment.",
       "voided": "Annulé",
       "paidBy": "Payé par",
       "reference": "Réf",
@@ -537,6 +546,19 @@
       "Last12Months": "12 Derniers Mois"
     },
     "loadError": "Une erreur s'est produite lors du chargement de ce PDF."
+  },
+  "admin": {
+    "settings": {
+      "title": "Paramètres de l'Espace de Travail",
+      "communityDirectorySectionTitle": "Répertoire Communautaire",
+      "enableCommunityDirectory": "Activer le répertoire communautaire",
+      "enableCommunityDirectoryHint": "Permet aux résidents ayant consenti de voir le nom et l'unité des autres résidents ayant consenti à la même adresse. Désactiver cette option masque le répertoire pour tout l'espace de travail, peu importe les choix individuels.",
+      "save": "Enregistrer",
+      "saving": "Enregistrement…",
+      "savedToast": "Paramètres enregistrés.",
+      "loadError": "Une erreur s'est produite lors du chargement des paramètres de l'espace de travail.",
+      "errorToast": "Une erreur s'est produite. Veuillez réessayer."
+    }
   },
   "common": {
     "loading": "Chargement…"

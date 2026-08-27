@@ -127,6 +127,9 @@
                   </div>
                 }
               </div>
+              @if (charge.notes) {
+                <p class="text-xs text-slate-navy-light">{{ charge.notes }}</p>
+              }
               <div class="flex flex-wrap items-center gap-2">
                 <p class="text-sm text-slate-navy">${{ charge.amount }} &middot; {{ 'charges.modal.dueOn' | translate }} {{ charge.dueDate }}</p>
                 @if (charge.status !== 'Voided') {
@@ -217,6 +220,17 @@
               [placeholder]="'charges.form.accountingCodePlaceholder' | translate"
               class="tap-target w-full rounded-md border border-slate-navy/20 px-3 py-2 text-slate-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
             />
+          </div>
+
+          <div class="flex flex-col gap-1.5">
+            <label for="chargeNotes" class="text-sm font-medium text-slate-navy">{{ 'charges.form.notes' | translate }}</label>
+            <textarea
+              id="chargeNotes"
+              rows="2"
+              formControlName="notes"
+              [attr.aria-invalid]="form.controls.notes.invalid && form.controls.notes.touched"
+              class="tap-target w-full rounded-md border border-slate-navy/20 px-3 py-2 text-slate-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
+            ></textarea>
           </div>
 
           <div class="flex justify-end gap-3 border-t border-slate-navy/10 pt-4">

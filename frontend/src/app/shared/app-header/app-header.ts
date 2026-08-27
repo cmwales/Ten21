@@ -26,6 +26,12 @@ export class AppHeader implements OnInit {
     const role = this.authService.role();
     return role !== null && role !== RoleNames.Tenant && role !== RoleNames.Vendor;
   };
+  /** Mirrors Permissions.Workspace.SettingsRead/Write's grant list -- see app.routes.ts's
+   * matching admin/settings route guard. */
+  protected readonly canManageWorkspaceSettings = () => {
+    const role = this.authService.role();
+    return role === RoleNames.PropertyManager || role === RoleNames.BoardMember || role === RoleNames.SuperAdmin;
+  };
 
   protected readonly workspaces = signal<TenantMembershipSummary[]>([]);
   protected readonly workspaceMenuOpen = signal(false);

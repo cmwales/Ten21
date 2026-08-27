@@ -37,6 +37,7 @@ export interface UpsertChargeRequest {
   dueDate: string;
   accountingCode: string | null;
   category: ChargeCategoryValue;
+  notes?: string | null;
 }
 
 /** Mirrors Ten21.Api.Contracts.Charges.ChargeResponse. AllocatedAmount/OutstandingAmount/
@@ -55,4 +56,5 @@ export interface ChargeResponse {
   outstandingAmount: number;
   paymentStatus: ChargePaymentStatusValue;
   isLocked: boolean;
+  notes: string | null;
 }

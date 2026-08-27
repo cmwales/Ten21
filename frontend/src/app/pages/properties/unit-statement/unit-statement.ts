@@ -1,16 +1,21 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { TranslatePipe } from '@ngx-translate/core';
 import { PropertyResponse } from '../../../core/models/property.models';
 import { ChargeService } from '../../../core/services/charge.service';
 import { CreditService } from '../../../core/services/credit.service';
-import { UnitStatementResponse } from '../../../core/models/ledger.models';
+import {
+  ChargeStatementItemResponse,
+  PaymentTransactionResponse,
+  UnitStatementResponse,
+} from '../../../core/models/ledger.models';
 import { PropertyService } from '../../../core/services/property.service';
 import { ToastService } from '../../../core/services/toast.service';
 import { AppHeader } from '../../../shared/app-header/app-header';
 import { CollectDepositModal } from '../collect-deposit-modal/collect-deposit-modal';
 import { LogPaymentModal } from '../log-payment-modal/log-payment-modal';
 import { PaymentActionModal } from '../payment-action-modal/payment-action-modal';
+import { PaymentDetailsModal } from '../payment-details-modal/payment-details-modal';
 import { RefundCreditModal } from '../refund-credit-modal/refund-credit-modal';
 import { SettleDepositModal } from '../settle-deposit-modal/settle-deposit-modal';
 
@@ -39,6 +44,7 @@ import { SettleDepositModal } from '../settle-deposit-modal/settle-deposit-modal
     LogPaymentModal,
     RefundCreditModal,
     PaymentActionModal,
+    PaymentDetailsModal,
     CollectDepositModal,
     SettleDepositModal,
   ],
@@ -60,8 +66,28 @@ export class UnitStatement implements OnInit {
   protected readonly refundModalOpen = signal(false);
   protected readonly applyingCredits = signal(false);
   protected readonly paymentActionTargetId = signal<string | null>(null);
+  protected readonly paymentDetailsTargetId = signal<string | null>(null);
   protected readonly collectDepositModalOpen = signal(false);
   protected readonly settleDepositTargetId = signal<string | null>(null);
+
+  /** Directive 3: lookup maps so the merged chronological transactionLines timeline can pull
+   * the already-loaded rich Charge/Payment object it needs to render (adjustments, badges,
+   * allocations, actions) without a second request per row. */
+  protected readonly chargesById = computed(() => {
+    const map = new Map<string, ChargeStatementItemResponse>();
+    for (const item of this.statement()?.charges ?? []) {
+      map.set(item.charge.id, item);
+    }
+    return map;
+  });
+
+  protected readonly paymentsById = computed(() => {
+    const map = new Map<string, PaymentTransactionResponse>();
+    for (const payment of this.statement()?.payments ?? []) {
+      map.set(payment.id, payment);
+    }
+    return map;
+  });
 
   ngOnInit(): void {
     const id = this.route.snapshot.paramMap.get('id');

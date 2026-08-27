@@ -35,6 +35,18 @@ public class DirectoryController : ControllerBase
     [Authorize(Policy = Permissions.Directory.Read)]
     public async Task<IActionResult> GetDirectory(CancellationToken cancellationToken)
     {
+        // Directive 4 (Refinement Sprint): a PM can turn the whole community directory off
+        // workspace-wide via /admin/settings, independent of any individual resident's own
+        // ShowInDirectory opt-in. No settings row yet (lazy-created by
+        // WorkspaceSettingsController) means the default -- enabled -- applies.
+        var directoryEnabled = await _dbContext.WorkspaceSettings
+            .Select(s => (bool?)s.EnableCommunityDirectory)
+            .FirstOrDefaultAsync(cancellationToken) ?? true;
+        if (!directoryEnabled)
+        {
+            throw new ForbiddenException("The community directory is disabled for this workspace.");
+        }
+
         var userIdClaim = User.FindFirst("user_id")?.Value;
         if (!Guid.TryParse(userIdClaim, out var callerId))
         {

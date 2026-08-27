@@ -30,6 +30,11 @@ public class Charge : ITenantScopedEntity, IAuditableEntity, ISoftDelete
     public DateOnly DueDate { get; set; }
     public string? AccountingCode { get; set; }
 
+    /// <summary>Refinement Sprint: free-text notes about the charge (e.g. context a PM wants
+    /// on record beyond the short Description label) -- distinct from Description, which is
+    /// the charge's required title/label shown throughout the UI.</summary>
+    public string? Notes { get; set; }
+
     public ChargeCategory Category { get; set; }
 
     /// <summary>1 (highest) - 10 (lowest). Defaults from Category via

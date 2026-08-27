@@ -68,6 +68,14 @@
         {{ 'nav.properties' | translate }}
       </a>
     }
+    @if (canManageWorkspaceSettings()) {
+      <a
+        routerLink="/admin/settings"
+        class="tap-target flex items-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
+      >
+        {{ 'nav.adminSettings' | translate }}
+      </a>
+    }
     <button
       type="button"
       (click)="logout()"

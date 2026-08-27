@@ -73,6 +73,7 @@ public class Ten21DbContext : IdentityDbContext<ApplicationUser, ApplicationRole
     public DbSet<RefundTransaction> RefundTransactions => Set<RefundTransaction>();
     public DbSet<SecurityDeposit> SecurityDeposits => Set<SecurityDeposit>();
     public DbSet<DepositSettlementAllocation> DepositSettlementAllocations => Set<DepositSettlementAllocation>();
+    public DbSet<WorkspaceSettings> WorkspaceSettings => Set<WorkspaceSettings>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

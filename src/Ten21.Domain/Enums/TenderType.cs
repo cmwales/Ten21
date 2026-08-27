@@ -10,4 +10,5 @@ public enum TenderType
     Zelle,
     Venmo,
     DirectDeposit,
+    CreditCard,
 }

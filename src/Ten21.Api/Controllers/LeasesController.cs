@@ -180,7 +180,7 @@ public class LeasesController : ControllerBase
         return Ok(new ChargeResponse(
             charge.Id, charge.PropertyId, charge.Description, charge.Amount, charge.DueDate, charge.AccountingCode,
             charge.Category, charge.Status, AllocatedAmount: 0m, OutstandingAmount: charge.Amount,
-            PaymentStatus: ChargePaymentStatus.Unpaid, IsLocked: false));
+            PaymentStatus: ChargePaymentStatus.Unpaid, IsLocked: false, charge.Notes));
     }
 
     /// <summary>
