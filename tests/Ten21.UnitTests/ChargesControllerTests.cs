@@ -77,7 +77,7 @@ public class ChargesControllerTests : IDisposable
         AccountingCode: "GL-4100",
         Category: category);
 
-    private static async Task AllocatePaymentAsync(Ten21DbContext db, Guid chargeId, decimal amount)
+    private static async Task AllocatePaymentAsync(Ten21DbContext db, Guid chargeId, decimal amount, DateOnly? paymentDate = null)
     {
         var propertyId = (await db.Charges.SingleAsync(c => c.Id == chargeId)).PropertyId;
         var resident = new ResidentProfile
@@ -96,7 +96,7 @@ public class ChargesControllerTests : IDisposable
             Id = Guid.NewGuid(),
             PropertyId = propertyId,
             ResidentProfileId = resident.Id,
-            PaymentDate = new DateOnly(2026, 9, 16),
+            PaymentDate = paymentDate ?? new DateOnly(2026, 9, 16),
             AmountPaid = amount,
             TenderType = TenderType.Cash,
             CreatedAt = DateTimeOffset.UtcNow,
@@ -132,6 +132,56 @@ public class ChargesControllerTests : IDisposable
 
         var stored = await db.Charges.SingleAsync();
         Assert.Equal(Charge.DefaultAllocationPriorityFor(ChargeCategory.BaseRent), stored.AllocationPriority);
+    }
+
+    [Fact]
+    public async Task CreateCharge_PersistsOptionalNotes()
+    {
+        var (db, controller) = CreateController(Guid.NewGuid());
+        var property = await SeedPropertyAsync(db);
+        var request = NewRequest() with { Notes = "Tenant disputes this fee -- see maintenance log." };
+
+        var result = await controller.CreateCharge(property.Id, request, CancellationToken.None);
+
+        var response = Assert.IsType<ChargeResponse>(Assert.IsType<CreatedAtActionResult>(result).Value);
+        Assert.Equal("Tenant disputes this fee -- see maintenance log.", response.Notes);
+    }
+
+    [Fact]
+    public async Task CreateCharge_NotesDefaultsToNull_WhenOmitted()
+    {
+        var (db, controller) = CreateController(Guid.NewGuid());
+        var property = await SeedPropertyAsync(db);
+
+        var result = await controller.CreateCharge(property.Id, NewRequest(), CancellationToken.None);
+
+        var response = Assert.IsType<ChargeResponse>(Assert.IsType<CreatedAtActionResult>(result).Value);
+        Assert.Null(response.Notes);
+    }
+
+    [Fact]
+    public async Task CreateCharge_ThrowsValidationException_WhenNotesExceeds500Characters()
+    {
+        var (db, controller) = CreateController(Guid.NewGuid());
+        var property = await SeedPropertyAsync(db);
+        var request = NewRequest() with { Notes = new string('x', 501) };
+
+        await Assert.ThrowsAsync<ValidationException>(() => controller.CreateCharge(
+            property.Id, request, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task UpdateCharge_UpdatesNotes_WhenUnlocked()
+    {
+        var (db, controller) = CreateController(Guid.NewGuid());
+        var property = await SeedPropertyAsync(db);
+        var created = await controller.CreateCharge(property.Id, NewRequest(), CancellationToken.None);
+        var id = Assert.IsType<ChargeResponse>(Assert.IsType<CreatedAtActionResult>(created).Value).Id;
+
+        var result = await controller.UpdateCharge(property.Id, id, NewRequest() with { Notes = "Updated context" }, CancellationToken.None);
+
+        var response = Assert.IsType<ChargeResponse>(Assert.IsType<OkObjectResult>(result).Value);
+        Assert.Equal("Updated context", response.Notes);
     }
 
     [Fact]
@@ -311,6 +361,61 @@ public class ChargesControllerTests : IDisposable
 
         var statement = Assert.IsType<UnitStatementResponse>(Assert.IsType<OkObjectResult>(result).Value);
         Assert.Equal(0m, statement.Balance);
+    }
+
+    [Fact]
+    public async Task GetStatement_TransactionLines_AreChronologicalWithRunningBalance()
+    {
+        var (db, controller) = CreateController(Guid.NewGuid());
+        var property = await SeedPropertyAsync(db);
+        // Due/paid out of insertion order on purpose -- proves the timeline sorts by date,
+        // not creation order.
+        var septemberRentCreated = await controller.CreateCharge(
+            property.Id, NewRequest(ChargeCategory.BaseRent) with { Amount = 1000m, DueDate = new DateOnly(2026, 9, 1) }, CancellationToken.None);
+        var septemberRentId = Assert.IsType<ChargeResponse>(Assert.IsType<CreatedAtActionResult>(septemberRentCreated).Value).Id;
+        var augustRentCreated = await controller.CreateCharge(
+            property.Id, NewRequest(ChargeCategory.BaseRent) with { Amount = 1000m, DueDate = new DateOnly(2026, 8, 1) }, CancellationToken.None);
+        var augustRentId = Assert.IsType<ChargeResponse>(Assert.IsType<CreatedAtActionResult>(augustRentCreated).Value).Id;
+        await AllocatePaymentAsync(db, augustRentId, 1000m, new DateOnly(2026, 8, 5));
+
+        var result = await controller.GetStatement(property.Id, CancellationToken.None);
+
+        var statement = Assert.IsType<UnitStatementResponse>(Assert.IsType<OkObjectResult>(result).Value);
+        Assert.Equal(3, statement.TransactionLines.Count);
+        // Aug 1 charge (+1000 -> 1000), Aug 5 payment (-1000 -> 0), Sep 1 charge (+1000 -> 1000).
+        Assert.Equal(new DateOnly(2026, 8, 1), statement.TransactionLines[0].Date);
+        Assert.Equal("Charge", statement.TransactionLines[0].Type);
+        Assert.Equal(augustRentId, statement.TransactionLines[0].ReferenceId);
+        Assert.Equal(1000m, statement.TransactionLines[0].RunningBalance);
+
+        Assert.Equal(new DateOnly(2026, 8, 5), statement.TransactionLines[1].Date);
+        Assert.Equal("Payment", statement.TransactionLines[1].Type);
+        Assert.Equal(0m, statement.TransactionLines[1].RunningBalance);
+
+        Assert.Equal(new DateOnly(2026, 9, 1), statement.TransactionLines[2].Date);
+        Assert.Equal("Charge", statement.TransactionLines[2].Type);
+        Assert.Equal(septemberRentId, statement.TransactionLines[2].ReferenceId);
+        Assert.Equal(1000m, statement.TransactionLines[2].RunningBalance);
+
+        // Matches the final aggregate Balance exactly at the last line.
+        Assert.Equal(statement.Balance, statement.TransactionLines[^1].RunningBalance);
+    }
+
+    [Fact]
+    public async Task GetStatement_TransactionLines_ExcludeVoidedCharges()
+    {
+        var (db, controller) = CreateController(Guid.NewGuid());
+        var property = await SeedPropertyAsync(db);
+        var created = await controller.CreateCharge(property.Id, NewRequest() with { Amount = 200m }, CancellationToken.None);
+        var id = Assert.IsType<ChargeResponse>(Assert.IsType<CreatedAtActionResult>(created).Value).Id;
+        var stored = await db.Charges.SingleAsync(c => c.Id == id);
+        stored.Status = ChargeLifecycleStatus.Voided;
+        await db.SaveChangesAsync();
+
+        var result = await controller.GetStatement(property.Id, CancellationToken.None);
+
+        var statement = Assert.IsType<UnitStatementResponse>(Assert.IsType<OkObjectResult>(result).Value);
+        Assert.Empty(statement.TransactionLines);
     }
 
     [Fact]

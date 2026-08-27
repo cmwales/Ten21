@@ -13,7 +13,8 @@ public record UpsertChargeRequest(
     decimal Amount,
     DateOnly DueDate,
     string? AccountingCode,
-    ChargeCategory Category);
+    ChargeCategory Category,
+    string? Notes = null);
 
 /// <summary>AllocatedAmount/PaymentStatus/IsLocked are computed at read time from
 /// PaymentAllocation + ChargeAdjustment rows, never stored on Charge itself -- see Charge's
@@ -30,7 +31,8 @@ public record ChargeResponse(
     decimal AllocatedAmount,
     decimal OutstandingAmount,
     ChargePaymentStatus PaymentStatus,
-    bool IsLocked);
+    bool IsLocked,
+    string? Notes);
 
 public record ChargeAdjustmentResponse(
     Guid Id,
@@ -155,4 +157,23 @@ public record UnitStatementResponse(
     IReadOnlyList<PaymentTransactionResponse> Payments,
     IReadOnlyList<CreditAllocationResponse> Credits,
     IReadOnlyList<RefundTransactionResponse> Refunds,
-    IReadOnlyList<SecurityDepositResponse> Deposits);
+    IReadOnlyList<SecurityDepositResponse> Deposits,
+    IReadOnlyList<UnitStatementTransactionLineResponse> TransactionLines);
+
+/// <summary>Refinement Sprint: Charges and PaymentTransactions merged into one chronological
+/// (oldest first) timeline with a per-line running Balance, so the statement UI can render a
+/// single ledger instead of two separate "Charges" / "Payments" lists. RunningBalance is
+/// computed by walking ALL balance-affecting events in date order (charges, adjustments,
+/// payments, overpayment refunds, deposit settlements -- the same terms UnitStatementResponse's
+/// own Balance formula uses) and snapshotting the cumulative total after each one, but only
+/// Charge/Payment events are surfaced here -- adjustments/credits/refunds/deposits already
+/// have their own nested/sectioned rendering elsewhere on the statement, so this stays a
+/// simple two-type timeline while still landing on the mathematically correct number at each
+/// point. ReferenceId is the Charge.Id or PaymentTransaction.Id so the UI can look up the
+/// full rich object (adjustments, allocations, actions) it already has loaded rather than
+/// duplicating that shape here.</summary>
+public record UnitStatementTransactionLineResponse(
+    string Type,
+    DateOnly Date,
+    Guid ReferenceId,
+    decimal RunningBalance);

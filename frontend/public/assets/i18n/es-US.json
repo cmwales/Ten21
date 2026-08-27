@@ -124,6 +124,7 @@
     "dashboard": "Panel",
     "ledger": "Libro contable",
     "properties": "Propiedades",
+    "adminSettings": "Configuración",
     "logout": "Cerrar sesión",
     "workspaceSwitcher": {
       "loading": "Cargando espacio de trabajo…",
@@ -375,6 +376,7 @@
       "dueDate": "Fecha de Vencimiento",
       "accountingCode": "Categoría Contable",
       "accountingCodePlaceholder": "p. ej. GL-4100 (opcional)",
+      "notes": "Notas (opcional)",
       "adjustmentType": "Tipo de Ajuste",
       "reason": "Motivo",
       "cancel": "Cancelar",
@@ -430,6 +432,13 @@
       "reversedToast": "Pago revertido.",
       "reallocatedToast": "Pago reasignado.",
       "errorToast": "Algo salió mal. Inténtalo de nuevo."
+    },
+    "details": {
+      "trigger": "Ver Detalles",
+      "title": "Detalles del Pago",
+      "close": "Cerrar",
+      "allocations": "Desglose de Asignación",
+      "allocationsEmpty": "Este pago no se aplicó a ningún cargo."
     }
   },
   "refunds": {
@@ -451,7 +460,8 @@
     "Check": "Cheque",
     "Zelle": "Zelle",
     "Venmo": "Venmo",
-    "DirectDeposit": "Depósito Directo"
+    "DirectDeposit": "Depósito Directo",
+    "CreditCard": "Tarjeta de Crédito"
   },
   "dashboard": {
     "welcome": "Bienvenido de nuevo",
@@ -476,12 +486,11 @@
       "availableCredit": "Crédito Disponible",
       "creditRemaining": "Crédito restante",
       "balance": "Saldo Actual",
-      "charges": "Cargos",
-      "payments": "Pagos",
+      "transactionLedger": "Libro Contable de Transacciones",
+      "runningBalance": "Saldo",
+      "noTransactions": "Aún no se han registrado cargos ni pagos.",
       "credits": "Créditos Aplicados",
       "refunds": "Reembolsos",
-      "noCharges": "Aún no se han registrado cargos.",
-      "noPayments": "Aún no se han registrado pagos.",
       "voided": "Anulado",
       "paidBy": "Pagado por",
       "reference": "Ref",
@@ -537,6 +546,19 @@
       "Last12Months": "Últimos 12 Meses"
     },
     "loadError": "Algo salió mal al cargar este PDF."
+  },
+  "admin": {
+    "settings": {
+      "title": "Configuración del Espacio de Trabajo",
+      "communityDirectorySectionTitle": "Directorio Comunitario",
+      "enableCommunityDirectory": "Habilitar directorio comunitario",
+      "enableCommunityDirectoryHint": "Permite que los residentes que optaron por participar vean el nombre y la unidad de otros residentes que también optaron por participar en la misma dirección. Al desactivarlo, se oculta el directorio en todo el espacio de trabajo, sin importar las preferencias individuales.",
+      "save": "Guardar",
+      "saving": "Guardando…",
+      "savedToast": "Configuración guardada.",
+      "loadError": "Algo salió mal al cargar la configuración del espacio de trabajo.",
+      "errorToast": "Algo salió mal. Inténtalo de nuevo."
+    }
   },
   "common": {
     "loading": "Cargando…"

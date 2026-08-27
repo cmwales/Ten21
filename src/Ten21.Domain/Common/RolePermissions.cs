@@ -21,12 +21,17 @@ public static class RolePermissions
 
             // "Fiduciary oversight, financial ledger access, executive notes, and official
             // community voting setup."
+            // Workspace.SettingsRead/Write added in the Refinement Sprint (Directive 4) --
+            // Board Members carry "fiduciary oversight... and executive notes" per
+            // SECURITY.docx §4.1, which covers workspace-wide admin toggles like the
+            // community directory switch, not just financial ledger access.
             [RoleNames.BoardMember] =
             [
                 Permissions.Ledger.Read, Permissions.Ledger.Write,
                 Permissions.Voting.Cast, Permissions.Voting.ManageBallots,
                 Permissions.WorkOrders.Read,
                 Permissions.Announcements.Read, Permissions.Announcements.Write,
+                Permissions.Workspace.SettingsRead, Permissions.Workspace.SettingsWrite,
             ],
 
             // "Personal dues ledgers, ARC submissions, tax forms, and official owner
@@ -59,6 +64,10 @@ public static class RolePermissions
             // which is unusable without this grant. Flagged explicitly rather than silently
             // widened -- worth reconfirming if/when a true HOA board-governed tenant needs
             // the original confidentiality boundary enforced.
+            // Workspace.SettingsRead/Write added in the Refinement Sprint (Directive 4) --
+            // "Administration Settings" (the /admin/settings toggle screen) is exactly the
+            // kind of "day-to-day operations... and community admin" this role's own comment
+            // above already describes.
             [RoleNames.PropertyManager] =
             [
                 Permissions.WorkOrders.Read, Permissions.WorkOrders.Write,
@@ -68,6 +77,7 @@ public static class RolePermissions
                 Permissions.Property.Import, Permissions.Property.Delete,
                 Permissions.Resident.Manage, Permissions.Resident.Read,
                 Permissions.Lease.Manage, Permissions.Lease.Read,
+                Permissions.Workspace.SettingsRead, Permissions.Workspace.SettingsWrite,
             ],
 
             // "Restricted strictly to maintenance tickets, amenity booking, and community

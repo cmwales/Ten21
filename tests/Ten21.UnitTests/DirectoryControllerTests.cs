@@ -7,6 +7,7 @@ using Ten21.Api.Contracts.Directory;
 using Ten21.Api.Controllers;
 using Ten21.Domain.Entities;
 using Ten21.Domain.Enums;
+using Ten21.Domain.Exceptions;
 using Ten21.Infrastructure.Persistence;
 using Ten21.Infrastructure.Persistence.Interceptors;
 using Ten21.Infrastructure.Security;
@@ -202,5 +203,55 @@ public class DirectoryControllerTests : IDisposable
 
         var entries = Assert.IsAssignableFrom<IEnumerable<DirectoryEntryResponse>>(Assert.IsType<OkObjectResult>(result).Value);
         Assert.Empty(entries);
+    }
+
+    /// <summary>Refinement Sprint (Directive 4): a workspace-wide EnableCommunityDirectory=false
+    /// hard-blocks this endpoint regardless of the dual-consent opt-ins below it.</summary>
+    [Fact]
+    public async Task GetDirectory_ThrowsForbidden_WhenWorkspaceDirectoryIsDisabled()
+    {
+        var tenantId = Guid.NewGuid();
+        var callerId = Guid.NewGuid();
+        var (db, controller) = CreateController(tenantId, callerId);
+
+        var callerProperty = NewProperty(tenantId, "100 Main St", allowTenantDirectory: true, unitIdentifier: "Suite A");
+        var siblingProperty = NewProperty(tenantId, "100 Main St", allowTenantDirectory: true, unitIdentifier: "Suite B");
+        db.Properties.AddRange(callerProperty, siblingProperty);
+        db.ResidentProfiles.AddRange(
+            NewResident(tenantId, callerProperty.Id, callerId, showInDirectory: true),
+            NewResident(tenantId, siblingProperty.Id, Guid.NewGuid(), showInDirectory: true, firstName: "Sam"));
+        db.WorkspaceSettings.Add(new WorkspaceSettings
+        {
+            Id = Guid.NewGuid(),
+            TenantId = tenantId,
+            EnableCommunityDirectory = false,
+            CreatedAt = DateTimeOffset.UtcNow,
+        });
+        await db.SaveChangesAsync();
+
+        await Assert.ThrowsAsync<ForbiddenException>(() => controller.GetDirectory(CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task GetDirectory_Allows_WhenNoWorkspaceSettingsRowExistsYet()
+    {
+        // No WorkspaceSettings row seeded at all -- the default (enabled) must apply, since
+        // WorkspaceSettingsController lazily creates the row rather than seeding it upfront.
+        var tenantId = Guid.NewGuid();
+        var callerId = Guid.NewGuid();
+        var (db, controller) = CreateController(tenantId, callerId);
+
+        var callerProperty = NewProperty(tenantId, "100 Main St", allowTenantDirectory: true, unitIdentifier: "Suite A");
+        var siblingProperty = NewProperty(tenantId, "100 Main St", allowTenantDirectory: true, unitIdentifier: "Suite B");
+        db.Properties.AddRange(callerProperty, siblingProperty);
+        db.ResidentProfiles.AddRange(
+            NewResident(tenantId, callerProperty.Id, callerId, showInDirectory: true),
+            NewResident(tenantId, siblingProperty.Id, Guid.NewGuid(), showInDirectory: true, firstName: "Sam"));
+        await db.SaveChangesAsync();
+
+        var result = await controller.GetDirectory(CancellationToken.None);
+
+        var entries = Assert.IsAssignableFrom<IEnumerable<DirectoryEntryResponse>>(Assert.IsType<OkObjectResult>(result).Value);
+        Assert.Single(entries);
     }
 }

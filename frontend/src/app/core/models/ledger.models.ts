@@ -7,6 +7,7 @@ export const TenderTypes = {
   Zelle: 'Zelle',
   Venmo: 'Venmo',
   DirectDeposit: 'DirectDeposit',
+  CreditCard: 'CreditCard',
 } as const;
 
 export type TenderTypeValue = (typeof TenderTypes)[keyof typeof TenderTypes];
@@ -168,4 +169,16 @@ export interface UnitStatementResponse {
   credits: CreditAllocationResponse[];
   refunds: RefundTransactionResponse[];
   deposits: SecurityDepositResponse[];
+  transactionLines: UnitStatementTransactionLineResponse[];
+}
+
+/** Mirrors Ten21.Api.Contracts.Charges.UnitStatementTransactionLineResponse (Refinement
+ * Sprint) -- Charges and Payments merged into one chronological (oldest-first) timeline with
+ * a per-line running balance. referenceId is the Charge.id or PaymentTransactionResponse.id,
+ * used to look up the already-loaded rich object for rendering. */
+export interface UnitStatementTransactionLineResponse {
+  type: 'Charge' | 'Payment';
+  date: string;
+  referenceId: string;
+  runningBalance: number;
 }

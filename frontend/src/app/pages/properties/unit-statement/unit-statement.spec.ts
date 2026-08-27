@@ -49,6 +49,7 @@ describe('UnitStatement', () => {
           outstandingAmount: 500,
           paymentStatus: 'Partial',
           isLocked: true,
+          notes: null,
         },
         adjustments: [
           { id: 'adj-1', adjustmentType: 'CreditAdjustment', amount: 25, reason: 'Goodwill discount for late maintenance', createdAt: '2026-09-05T00:00:00Z' },
@@ -76,6 +77,10 @@ describe('UnitStatement', () => {
     credits: [],
     refunds: [],
     deposits: [],
+    transactionLines: [
+      { type: 'Charge', date: '2026-09-01', referenceId: 'charge-1', runningBalance: 1450 },
+      { type: 'Payment', date: '2026-09-03', referenceId: 'payment-1', runningBalance: 500 },
+    ],
   };
 
   function createComponent(id: string | null = 'prop-1'): UnitStatement {

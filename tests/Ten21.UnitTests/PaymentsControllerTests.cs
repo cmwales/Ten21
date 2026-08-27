@@ -255,6 +255,21 @@ public class PaymentsControllerTests : IDisposable
     }
 
     [Fact]
+    public async Task LogPayment_AcceptsCreditCardTenderType()
+    {
+        var (db, charges, payments) = CreateControllers(Guid.NewGuid());
+        var property = await SeedPropertyAsync(db);
+        var resident = await SeedResidentAsync(db, property.Id);
+        await CreateChargeAsync(charges, property.Id, ChargeCategory.BaseRent, 500m, new DateOnly(2026, 9, 1));
+
+        var result = await payments.LogPayment(
+            property.Id, NewPaymentRequest(resident.Id, 500m) with { TenderType = TenderType.CreditCard }, CancellationToken.None);
+
+        var response = Assert.IsType<PaymentTransactionResponse>(Assert.IsType<CreatedAtActionResult>(result).Value);
+        Assert.Equal(TenderType.CreditCard, response.TenderType);
+    }
+
+    [Fact]
     public async Task LogPayment_ThrowsValidationException_WhenAmountIsNotPositive()
     {
         var (db, charges, payments) = CreateControllers(Guid.NewGuid());

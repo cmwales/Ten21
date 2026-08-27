@@ -120,6 +120,24 @@ export const routes: Routes = [
     canActivate: [authGuard, denyRolesGuard([RoleNames.Tenant, RoleNames.Vendor])],
     loadComponent: () => import('./pages/properties/pdf-viewer/pdf-viewer').then((m) => m.PdfViewer),
   },
+  {
+    // Refinement Sprint (Directive 4): workspace-wide admin toggles. Matches
+    // Permissions.Workspace.SettingsRead/Write's grant list (PropertyManager, BoardMember,
+    // SuperAdmin) -- everyone else is denied at the UI layer too, mirroring the API's policy.
+    path: 'admin/settings',
+    canActivate: [
+      authGuard,
+      denyRolesGuard([
+        RoleNames.PropertyOwner,
+        RoleNames.Tenant,
+        RoleNames.Vendor,
+        RoleNames.CommitteeMember,
+        RoleNames.OnSiteStaff,
+        RoleNames.Accountant,
+      ]),
+    ],
+    loadComponent: () => import('./pages/admin-settings/admin-settings').then((m) => m.AdminSettings),
+  },
   { path: '', pathMatch: 'full', redirectTo: 'dashboard' },
   { path: '**', redirectTo: 'dashboard' },
 ];

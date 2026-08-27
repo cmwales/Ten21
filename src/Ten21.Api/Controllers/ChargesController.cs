@@ -249,9 +249,68 @@ public class ChargesController : ControllerBase
             ? AccountStatus.TerminatedWithBalance
             : AccountStatus.Active;
 
+        var transactionLines = BuildTransactionLines(
+            charges, allAdjustments, clearedPayments, refunds, allDepositAllocations);
+
         return new UnitStatementResponse(
             propertyId, balance, availableCredit, accountStatus, chargeStatementItems, paymentResponses, creditResponses,
-            refundResponses, depositResponses);
+            refundResponses, depositResponses, transactionLines);
+    }
+
+    /// <summary>Directive 3 (Refinement Sprint): walks every balance-affecting event in
+    /// chronological order -- the same terms BuildStatementAsync's own Balance formula sums,
+    /// just per-event instead of all at once -- and snapshots the cumulative running balance
+    /// after each one. Only Charge/Payment events are returned (adjustments/refunds/deposit
+    /// settlements already render in their own sections), but their RunningBalance correctly
+    /// reflects any of those other events that happened in between, because the walk itself
+    /// includes all five event kinds before filtering the output.</summary>
+    private static List<UnitStatementTransactionLineResponse> BuildTransactionLines(
+        List<Charge> charges,
+        List<ChargeAdjustment> adjustments,
+        List<PaymentTransaction> clearedPayments,
+        List<RefundTransaction> refunds,
+        List<DepositSettlementAllocation> depositAllocations)
+    {
+        var events = new List<(DateOnly Date, string Type, Guid ReferenceId, decimal Delta, bool Surface)>();
+
+        foreach (var charge in charges.Where(c => c.Status == ChargeLifecycleStatus.Active))
+        {
+            events.Add((charge.DueDate, "Charge", charge.Id, charge.Amount, Surface: true));
+        }
+
+        foreach (var adjustment in adjustments)
+        {
+            var delta = adjustment.AdjustmentType == AdjustmentType.DebitAdjustment ? adjustment.Amount : -adjustment.Amount;
+            events.Add((DateOnly.FromDateTime(adjustment.CreatedAt.UtcDateTime), "Adjustment", adjustment.Id, delta, Surface: false));
+        }
+
+        foreach (var payment in clearedPayments)
+        {
+            events.Add((payment.PaymentDate, "Payment", payment.Id, -payment.AmountPaid, Surface: true));
+        }
+
+        foreach (var refund in refunds.Where(r => r.Reason == RefundReason.OverpaymentRefund))
+        {
+            events.Add((refund.RefundDate, "Refund", refund.Id, refund.Amount, Surface: false));
+        }
+
+        foreach (var depositAllocation in depositAllocations)
+        {
+            events.Add((depositAllocation.AppliedDate, "DepositSettlement", depositAllocation.Id, -depositAllocation.AppliedAmount, Surface: false));
+        }
+
+        var runningBalance = 0m;
+        var lines = new List<UnitStatementTransactionLineResponse>();
+        foreach (var evt in events.OrderBy(e => e.Date))
+        {
+            runningBalance += evt.Delta;
+            if (evt.Surface)
+            {
+                lines.Add(new UnitStatementTransactionLineResponse(evt.Type, evt.Date, evt.ReferenceId, runningBalance));
+            }
+        }
+
+        return lines;
     }
 
     [HttpPost]
@@ -271,6 +330,7 @@ public class ChargesController : ControllerBase
             DueDate = request.DueDate,
             AccountingCode = fields.AccountingCode,
             Category = request.Category,
+            Notes = fields.Notes,
             AllocationPriority = Charge.DefaultAllocationPriorityFor(request.Category),
             CreatedAt = DateTimeOffset.UtcNow,
         };
@@ -306,6 +366,7 @@ public class ChargesController : ControllerBase
         charge.DueDate = request.DueDate;
         charge.AccountingCode = fields.AccountingCode;
         charge.Category = request.Category;
+        charge.Notes = fields.Notes;
         charge.AllocationPriority = Charge.DefaultAllocationPriorityFor(request.Category);
 
         await _dbContext.SaveChangesAsync(cancellationToken);
@@ -488,18 +549,20 @@ public class ChargesController : ControllerBase
             allocatedAmount,
             outstandingAmount,
             paymentStatus,
-            IsLocked: allocatedAmount > 0);
+            IsLocked: allocatedAmount > 0,
+            charge.Notes);
     }
 
     private static ChargeAdjustmentResponse ToAdjustmentResponse(ChargeAdjustment adjustment) => new(
         adjustment.Id, adjustment.AdjustmentType, adjustment.Amount, adjustment.Reason, adjustment.CreatedAt);
 
-    private sealed record SanitizedFields(string Description, string? AccountingCode);
+    private sealed record SanitizedFields(string Description, string? AccountingCode, string? Notes);
 
     private SanitizedFields ValidateAndSanitize(UpsertChargeRequest request)
     {
         var description = _sanitizer.Sanitize(request.Description)!;
         var accountingCode = NullIfBlank(_sanitizer.Sanitize(request.AccountingCode));
+        var notes = NullIfBlank(_sanitizer.Sanitize(request.Notes));
 
         var errors = new Dictionary<string, string[]>();
 
@@ -522,12 +585,17 @@ public class ChargesController : ControllerBase
             errors[nameof(request.AccountingCode)] = ["Accounting code must be 50 characters or fewer."];
         }
 
+        if (notes is { Length: > 500 })
+        {
+            errors[nameof(request.Notes)] = ["Notes must be 500 characters or fewer."];
+        }
+
         if (errors.Count > 0)
         {
             throw new ValidationException(errors);
         }
 
-        return new SanitizedFields(description, accountingCode);
+        return new SanitizedFields(description, accountingCode, notes);
     }
 
     private static string? NullIfBlank(string? value) =>

@@ -66,6 +66,17 @@ public static class Permissions
         public const string Read = "Permissions.Lease.Read";
     }
 
+    /// <summary>Refinement Sprint (Directive 4): admin-configurable workspace-wide toggles
+    /// (e.g. WorkspaceSettings.EnableCommunityDirectory). Read is separate from Write so the
+    /// settings screen can show the current state to anyone who can reach it without also
+    /// granting the ability to change it -- same Read/Write split as every other permission
+    /// category here.</summary>
+    public static class Workspace
+    {
+        public const string SettingsRead = "Permissions.Workspace.SettingsRead";
+        public const string SettingsWrite = "Permissions.Workspace.SettingsWrite";
+    }
+
     /// <summary>
     /// Every permission constant above, discovered via reflection rather than hand-maintained.
     /// This is what lets policy registration (Infrastructure.AuthorizationConfiguration) and
