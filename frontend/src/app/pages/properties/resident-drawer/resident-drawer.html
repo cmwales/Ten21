@@ -65,7 +65,9 @@
               <p class="text-sm text-slate-navy-light">{{ resident.email }}</p>
             }
             @if (resident.noticeGivenDate) {
-              <p class="text-sm text-amber">{{ 'residents.drawer.noticeGiven' | translate }}</p>
+              <span class="mt-1 inline-block rounded-full bg-amber px-2 py-0.5 text-xs font-medium text-slate-navy">
+                {{ 'residents.drawer.noticeGiven' | translate }}
+              </span>
             }
             @if (resident.emergencyContacts.length > 0) {
               <p class="text-xs text-slate-navy-light">

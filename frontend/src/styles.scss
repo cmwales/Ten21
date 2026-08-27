@@ -10,7 +10,12 @@
   /* DESIGN_SYSTEM.md §2 — Slate Navy & Emerald Color Tokens */
   --color-slate-navy: #0f172a;
   --color-slate-navy-light: #1e293b;
-  --color-emerald: #059669;
+  /* Full-stack audit (2026-08-27): #059669 measured ~3.8:1 contrast against
+     white/#F8FAFC surfaces, failing WCAG AA's 4.5:1 minimum for normal text --
+     it only passed against the dark slate-navy header (~4.7:1). Darkened to
+     Tailwind's emerald-700 shade, ~5.5:1 on white, still reads as the same
+     "financial emerald" family and keeps passing on navy. */
+  --color-emerald: #047857;
   --color-amber: #d97706;
   --color-rose: #e11d48;
   --color-surface: #f8fafc;
@@ -40,4 +45,8 @@ body {
    rather than globally, so it doesn't inflate incidental inline links. */
 .tap-target {
   min-height: 48px;
+  /* Full-stack audit (2026-08-27): min-width was missing, so elements with no
+     other width driver (a bare checkbox, an unpadded text-only button) could
+     satisfy the 48px height but not the paired 48px width WCAG 2.5.5 needs. */
+  min-width: 48px;
 }

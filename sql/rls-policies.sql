@@ -59,6 +59,39 @@ CREATE POLICY tenant_isolation_audit_logs ON audit_logs
 -- `organizations` are deliberately excluded -- they are not themselves
 -- tenant-scoped (see Domain/Entities/Tenant.cs and Organization.cs for why).
 --
+-- ============================================================================
+-- POST-LAUNCH DRIFT, FOUND AND FIXED 2026-08-27 (full-stack audit):
+-- ============================================================================
+-- The "repeat this pattern" instruction above was NOT followed for five sprints.
+-- Every ITenantScopedEntity table added after InitialCreate -- charges,
+-- charge_adjustments, payment_transactions, payment_allocations,
+-- credit_allocations, refund_transactions, security_deposits,
+-- deposit_settlement_allocations, leases, lease_recurring_charges, unit_tiers,
+-- unit_groups, resident_profiles, emergency_contacts, workspace_settings (15
+-- tables) -- went live with the EF Core query filter as its ONLY isolation
+-- layer, silently violating this file's own instruction and CLAUDE.md's "never
+-- skip either" rule. Nothing (test, CI check, or review checklist) caught it,
+-- because RlsIsolationTests.cs only ever asserted RLS on the original 3 tables.
+--
+-- Fixed by migration `AddRowLevelSecurityForLedgerLeaseAndResidentTables`
+-- (src/Ten21.Infrastructure/Migrations/20260827225513_...), which applies the
+-- exact same ENABLE/FORCE/CREATE POLICY statements to all 15 tables in one
+-- pass, verified against a real Postgres container (RlsIsolationTests'
+-- RawSql_CannotReadAnotherTenantsChargeRows_EvenBypassingEfCoreFilter).
+--
+-- This file's own listing above was NOT retroactively expanded to also list
+-- those 15 tables' SQL verbatim -- the migration is now the single source of
+-- truth for what RLS policies exist. Treat this file as historical rationale
+-- (why RLS, why tenant_memberships is excluded, why FORCE/quoting matter), not
+-- as a complete inventory going forward.
+--
+-- PROCESS FIX NEEDED so this can't silently recur a sixth time: add a test (in
+-- either Ten21.UnitTests or Ten21.IntegrationTests) that reflects over every
+-- ITenantScopedEntity CLR type -- the same reflection Ten21DbContext.
+-- OnModelCreating already does for the EF Core filter -- and asserts a
+-- matching `pg_policies` row exists for its table. No such test exists yet;
+-- this comment is the tracking marker for that gap until one is written.
+--
 -- `tenant_memberships` is ALSO deliberately excluded, despite being ITenantScopedEntity,
 -- and this one is worth understanding rather than assuming it's an oversight:
 --
