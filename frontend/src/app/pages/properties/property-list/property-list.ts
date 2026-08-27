@@ -34,8 +34,12 @@ export class PropertyList implements OnInit {
   protected readonly pageSizes = PAGE_SIZES;
   protected readonly propertyTypes = Object.values(PropertyTypes);
 
+  // Full-stack audit (2026-08-27): Vacant used to be 'bg-amber/10 text-amber', which measures
+  // ~3.2:1 contrast on its light background and fails WCAG AA's 4.5:1 minimum -- switched to
+  // the solid-fill + text-slate-navy pattern already used correctly elsewhere in the app for
+  // amber badges (see deposits/charges status badges).
   protected readonly occupancyBadgeClass: Record<OccupancyStatusValue, string> = {
-    Vacant: 'bg-amber/10 text-amber',
+    Vacant: 'bg-amber text-slate-navy',
     Occupied: 'bg-emerald/10 text-emerald',
     Maintenance: 'bg-rose/10 text-rose',
   };

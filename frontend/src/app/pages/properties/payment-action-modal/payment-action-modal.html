@@ -22,11 +22,22 @@
         <fieldset class="flex flex-col gap-2">
           <legend class="text-sm font-medium text-slate-navy">{{ 'payments.action.whatHappened' | translate }}</legend>
           <label class="flex items-center gap-2 text-sm text-slate-navy">
-            <input type="radio" formControlName="actionType" value="reverse" class="h-4 w-4" />
+            <input
+              type="radio"
+              formControlName="actionType"
+              value="reverse"
+              class="tap-target focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
+            />
             {{ 'payments.action.reverse' | translate }}
           </label>
           <label class="flex items-center gap-2 text-sm text-slate-navy">
-            <input type="radio" formControlName="actionType" value="reallocate" (change)="onTargetPropertyChange()" class="h-4 w-4" />
+            <input
+              type="radio"
+              formControlName="actionType"
+              value="reallocate"
+              (change)="onTargetPropertyChange()"
+              class="tap-target focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
+            />
             {{ 'payments.action.reallocate' | translate }}
           </label>
         </fieldset>

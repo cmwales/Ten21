@@ -57,6 +57,18 @@ public class RlsIsolationTests : IAsyncLifetime
             grant.CommandText = "GRANT SELECT, INSERT ON properties TO ten21_app_test;";
             await grant.ExecuteNonQueryAsync();
         }
+
+        // Full-stack audit finding (2026-08-27): charges is one of the 15 tables that went
+        // live with an EF Core query filter but no RLS policy for several sprints (see
+        // AddRowLevelSecurityForLedgerLeaseAndResidentTables' own migration comment). Granted
+        // here so RawSql_CannotReadAnotherTenantsChargeRows below can prove the backfilled
+        // policy actually took effect, the same way the original test above proves it for
+        // properties -- catches this specific class of regression going forward.
+        await using (var grant = adminConnection.CreateCommand())
+        {
+            grant.CommandText = "GRANT SELECT, INSERT ON charges TO ten21_app_test;";
+            await grant.ExecuteNonQueryAsync();
+        }
     }
 
     public async Task DisposeAsync() => await _postgres.DisposeAsync();
@@ -117,6 +129,69 @@ public class RlsIsolationTests : IAsyncLifetime
 
         await using var crossTenantRead = connectionB.CreateCommand();
         crossTenantRead.CommandText = "SELECT * FROM properties;";
+        await using var reader = await crossTenantRead.ExecuteReaderAsync();
+
+        Assert.False(await reader.ReadAsync());
+    }
+
+    /// <summary>Full-stack audit finding (2026-08-27): representative regression test for the
+    /// 15 tables backfilled with RLS by AddRowLevelSecurityForLedgerLeaseAndResidentTables --
+    /// charges stands in for the rest (payment_transactions, leases, resident_profiles, etc.),
+    /// all added via the exact same per-table Sql() loop in that migration. Not exhaustive
+    /// over all 15 by design: this proves the migration's pattern actually takes effect against
+    /// a real Postgres server, not that each of the 15 policies is independently miswired.</summary>
+    [Fact]
+    public async Task RawSql_CannotReadAnotherTenantsChargeRows_EvenBypassingEfCoreFilter()
+    {
+        var tenantA = Guid.NewGuid();
+        var tenantB = Guid.NewGuid();
+        var propertyId = Guid.NewGuid();
+
+        await using var connectionA = CreateAppRoleConnection();
+        await connectionA.OpenAsync();
+        await SetActiveTenantAsync(connectionA, tenantA);
+
+        await using (var insertProperty = connectionA.CreateCommand())
+        {
+            insertProperty.CommandText = """
+                INSERT INTO properties
+                    ("Id", "TenantId", "Name", "PropertyType", "StreetAddress1", "City", "State", "PostalCode", "Country", "CreatedAt", "IsDeleted")
+                VALUES
+                    (@id, @tenantId, 'RLS Test Property', 'SingleFamily', '1 Tenant A Way', 'Salt Lake City', 'UT', '84000', 'USA', now(), false);
+                """;
+            insertProperty.Parameters.AddWithValue("id", propertyId);
+            insertProperty.Parameters.AddWithValue("tenantId", tenantA);
+            await insertProperty.ExecuteNonQueryAsync();
+        }
+
+        await using (var insertCharge = connectionA.CreateCommand())
+        {
+            insertCharge.CommandText = """
+                INSERT INTO charges
+                    ("Id", "TenantId", "PropertyId", "Description", "Amount", "DueDate", "Category", "AllocationPriority", "IsStatutoryLocked", "Status", "CreatedAt", "IsDeleted")
+                VALUES
+                    (@id, @tenantId, @propertyId, 'RLS Test Charge', 100.00, now(), 'AddOn', 4, true, 'Active', now(), false);
+                """;
+            insertCharge.Parameters.AddWithValue("id", Guid.NewGuid());
+            insertCharge.Parameters.AddWithValue("tenantId", tenantA);
+            insertCharge.Parameters.AddWithValue("propertyId", propertyId);
+            await insertCharge.ExecuteNonQueryAsync();
+        }
+
+        // Positive control, same reasoning as the properties test above.
+        await using (var ownRead = connectionA.CreateCommand())
+        {
+            ownRead.CommandText = "SELECT count(*) FROM charges;";
+            var ownCount = (long)(await ownRead.ExecuteScalarAsync())!;
+            Assert.Equal(1, ownCount);
+        }
+
+        await using var connectionB = CreateAppRoleConnection();
+        await connectionB.OpenAsync();
+        await SetActiveTenantAsync(connectionB, tenantB);
+
+        await using var crossTenantRead = connectionB.CreateCommand();
+        crossTenantRead.CommandText = "SELECT * FROM charges;";
         await using var reader = await crossTenantRead.ExecuteReaderAsync();
 
         Assert.False(await reader.ReadAsync());

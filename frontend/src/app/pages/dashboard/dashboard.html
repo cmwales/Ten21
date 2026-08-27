@@ -6,16 +6,16 @@
 
     @if (session(); as s) {
       <dl class="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <div class="rounded-lg bg-surface-card p-4 shadow-sm">
+        <div class="rounded-xl bg-surface-card p-6 shadow-xl">
           <dt class="text-sm text-slate-navy-light">{{ 'dashboard.role' | translate }}</dt>
           <dd class="mt-1 text-lg font-semibold text-emerald">{{ s.role }}</dd>
         </div>
-        <div class="rounded-lg bg-surface-card p-4 shadow-sm">
+        <div class="rounded-xl bg-surface-card p-6 shadow-xl">
           <dt class="text-sm text-slate-navy-light">{{ 'dashboard.tenant' | translate }}</dt>
           <dd class="mt-1 font-mono text-sm text-slate-navy">{{ s.tenantId }}</dd>
         </div>
         @if (s.organizationId) {
-          <div class="rounded-lg bg-surface-card p-4 shadow-sm">
+          <div class="rounded-xl bg-surface-card p-6 shadow-xl">
             <dt class="text-sm text-slate-navy-light">{{ 'dashboard.organization' | translate }}</dt>
             <dd class="mt-1 font-mono text-sm text-slate-navy">{{ s.organizationId }}</dd>
           </div>

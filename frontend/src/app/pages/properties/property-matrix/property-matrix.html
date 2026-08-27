@@ -157,7 +157,7 @@
                     [checked]="allSelected()"
                     (change)="toggleSelectAll()"
                     [attr.aria-label]="'properties.matrix.selectAll' | translate"
-                    class="tap-target"
+                    class="tap-target focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
                   />
                 </th>
                 <th class="px-4 py-3">{{ 'properties.list.columns.name' | translate }}</th>
@@ -177,7 +177,7 @@
                       [checked]="selectedIds().has(row.id)"
                       (change)="toggleSelectRow(row.id)"
                       [attr.aria-label]="'properties.matrix.selectRow' | translate: { name: row.name }"
-                      class="tap-target"
+                      class="tap-target focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
                     />
                   </td>
                   <td class="px-4 py-2 font-medium text-slate-navy">{{ row.name }}</td>
