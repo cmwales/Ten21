@@ -47,7 +47,12 @@ public class ChargesControllerTests : IDisposable
         var db = new Ten21DbContext(options, tenantContext);
         db.Database.EnsureCreated();
 
-        return (db, new ChargesController(db, _sanitizer, _pdfService));
+        var authorizationService = TestAuthorizationService.Create(tenantContext);
+        var controller = new ChargesController(db, _sanitizer, _pdfService, authorizationService)
+        {
+            ControllerContext = TestControllerContext.Create(),
+        };
+        return (db, controller);
     }
 
     private static async Task<Property> SeedPropertyAsync(Ten21DbContext db)
@@ -470,7 +475,7 @@ public class ChargesControllerTests : IDisposable
             property.Id, id, new CreateChargeAdjustmentRequest(AdjustmentType.CreditAdjustment, 50m, "Goodwill credit for late maintenance"),
             CancellationToken.None);
 
-        var created201 = Assert.IsType<ObjectResult>(result);
+        var created201 = Assert.IsType<CreatedAtActionResult>(result);
         Assert.Equal(201, created201.StatusCode);
         var adjustmentResponse = Assert.IsType<ChargeAdjustmentResponse>(created201.Value);
         Assert.Equal(50m, adjustmentResponse.Amount);

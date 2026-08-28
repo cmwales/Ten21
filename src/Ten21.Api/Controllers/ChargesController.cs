@@ -9,6 +9,7 @@ using Ten21.Domain.Common;
 using Ten21.Domain.Entities;
 using Ten21.Domain.Enums;
 using Ten21.Domain.Exceptions;
+using Ten21.Infrastructure.Authorization;
 using Ten21.Infrastructure.Persistence;
 
 namespace Ten21.Api.Controllers;
@@ -28,30 +29,49 @@ public class ChargesController : ControllerBase
     private readonly Ten21DbContext _dbContext;
     private readonly IInputSanitizer _sanitizer;
     private readonly IPdfService _pdfService;
+    private readonly IAuthorizationService _authorizationService;
 
-    public ChargesController(Ten21DbContext dbContext, IInputSanitizer sanitizer, IPdfService pdfService)
+    public ChargesController(
+        Ten21DbContext dbContext, IInputSanitizer sanitizer, IPdfService pdfService, IAuthorizationService authorizationService)
     {
         _dbContext = dbContext;
         _sanitizer = sanitizer;
         _pdfService = pdfService;
+        _authorizationService = authorizationService;
     }
 
+    /// <summary>
+    /// Audit Refinement Sprint: previously called BuildChargeResponseAsync per charge, each
+    /// of which issued 4 queries of its own (3 for allocated amount, 1 for adjustments) --
+    /// unbounded by pagination, so a property with 50 charges issued ~200 queries for one
+    /// GET. Now batch-loads allocations/adjustments for every charge on the property ONCE and
+    /// groups them in memory, the same pattern BuildStatementAsync already used correctly.
+    /// </summary>
     [HttpGet]
     [Authorize(Policy = Permissions.Ledger.Read)]
     public async Task<IActionResult> GetCharges(Guid propertyId, CancellationToken cancellationToken)
     {
-        await EnsurePropertyExistsAsync(propertyId, cancellationToken);
+        await _dbContext.EnsurePropertyExistsAsync(propertyId, cancellationToken);
 
-        var charges = await _dbContext.Charges
+        var charges = await _dbContext.Charges.AsNoTracking()
             .Where(c => c.PropertyId == propertyId)
             .OrderByDescending(c => c.DueDate)
             .ToListAsync(cancellationToken);
+        var chargeIds = charges.Select(c => c.Id).ToList();
 
-        var responses = new List<ChargeResponse>(charges.Count);
-        foreach (var charge in charges)
-        {
-            responses.Add(await BuildChargeResponseAsync(charge, cancellationToken));
-        }
+        var allocatedAmountsByChargeId = await GetAllocatedAmountsByChargeAsync(chargeIds, cancellationToken);
+        var adjustmentsByChargeId = (await _dbContext.ChargeAdjustments.AsNoTracking()
+            .Where(a => chargeIds.Contains(a.TargetChargeId))
+            .ToListAsync(cancellationToken))
+            .GroupBy(a => a.TargetChargeId)
+            .ToDictionary(g => g.Key, g => g.ToList());
+
+        var responses = charges
+            .Select(charge => BuildChargeResponse(
+                charge,
+                allocatedAmountsByChargeId.GetValueOrDefault(charge.Id, 0m),
+                adjustmentsByChargeId.GetValueOrDefault(charge.Id, [])))
+            .ToList();
 
         return Ok(responses);
     }
@@ -60,8 +80,9 @@ public class ChargesController : ControllerBase
     [Authorize(Policy = Permissions.Ledger.Read)]
     public async Task<IActionResult> GetCharge(Guid propertyId, Guid id, CancellationToken cancellationToken)
     {
-        var charge = await FindChargeAsync(propertyId, id, cancellationToken)
-            ?? throw new NotFoundException($"Charge '{id}' was not found on this property.");
+        var charge = await _authorizationService.EnsureSameTenantAsync(
+            User, await FindChargeAsync(propertyId, id, cancellationToken),
+            $"Charge '{id}' was not found on this property.", cancellationToken);
 
         return Ok(await BuildChargeResponseAsync(charge, cancellationToken));
     }
@@ -75,7 +96,7 @@ public class ChargesController : ControllerBase
     [Authorize(Policy = Permissions.Ledger.Read)]
     public async Task<IActionResult> GetStatement(Guid propertyId, CancellationToken cancellationToken)
     {
-        await EnsurePropertyExistsAsync(propertyId, cancellationToken);
+        await _dbContext.EnsurePropertyExistsAsync(propertyId, cancellationToken);
         return Ok(await BuildStatementAsync(propertyId, cancellationToken));
     }
 
@@ -90,8 +111,8 @@ public class ChargesController : ControllerBase
     public async Task<IActionResult> GetStatementPdf(
         Guid propertyId, [FromQuery] StatementDateRange range, CancellationToken cancellationToken)
     {
-        await EnsurePropertyExistsAsync(propertyId, cancellationToken);
-        var property = await _dbContext.Properties.FirstAsync(p => p.Id == propertyId, cancellationToken);
+        await _dbContext.EnsurePropertyExistsAsync(propertyId, cancellationToken);
+        var property = await _dbContext.Properties.AsNoTracking().FirstAsync(p => p.Id == propertyId, cancellationToken);
         var statement = await BuildStatementAsync(propertyId, cancellationToken);
 
         var today = DateOnly.FromDateTime(DateTime.UtcNow);
@@ -121,42 +142,42 @@ public class ChargesController : ControllerBase
 
     private async Task<UnitStatementResponse> BuildStatementAsync(Guid propertyId, CancellationToken cancellationToken)
     {
-        var charges = await _dbContext.Charges
+        var charges = await _dbContext.Charges.AsNoTracking()
             .Where(c => c.PropertyId == propertyId)
             .OrderByDescending(c => c.DueDate)
             .ToListAsync(cancellationToken);
         var chargeIds = charges.Select(c => c.Id).ToList();
 
-        var allAllocations = await _dbContext.PaymentAllocations
+        var allAllocations = await _dbContext.PaymentAllocations.AsNoTracking()
             .Where(a => chargeIds.Contains(a.ChargeId))
             .ToListAsync(cancellationToken);
         // Ordered client-side, not via OrderBy() in the query -- the SQLite provider (used
         // only by this codebase's in-memory unit tests) can't translate ORDER BY over a
         // DateTimeOffset column; Postgres has no such issue, but ordering after ToListAsync
         // works identically on both and this list is always small (one property's charges).
-        var allAdjustments = (await _dbContext.ChargeAdjustments
+        var allAdjustments = (await _dbContext.ChargeAdjustments.AsNoTracking()
             .Where(a => chargeIds.Contains(a.TargetChargeId))
             .ToListAsync(cancellationToken))
             .OrderBy(a => a.CreatedAt)
             .ToList();
-        var allCreditAllocations = (await _dbContext.CreditAllocations
+        var allCreditAllocations = (await _dbContext.CreditAllocations.AsNoTracking()
             .Where(a => chargeIds.Contains(a.TargetChargeId))
             .ToListAsync(cancellationToken))
             .OrderByDescending(a => a.AppliedDate)
             .ToList();
-        var allDepositAllocations = (await _dbContext.DepositSettlementAllocations
+        var allDepositAllocations = (await _dbContext.DepositSettlementAllocations.AsNoTracking()
             .Where(a => chargeIds.Contains(a.TargetChargeId))
             .ToListAsync(cancellationToken))
             .OrderByDescending(a => a.AppliedDate)
             .ToList();
 
-        var payments = await _dbContext.PaymentTransactions
+        var payments = await _dbContext.PaymentTransactions.AsNoTracking()
             .Include(p => p.Allocations)
             .Where(p => p.PropertyId == propertyId)
             .OrderByDescending(p => p.PaymentDate)
             .ToListAsync(cancellationToken);
 
-        var deposits = await _dbContext.SecurityDeposits
+        var deposits = await _dbContext.SecurityDeposits.AsNoTracking()
             .Where(d => d.PropertyId == propertyId)
             .OrderByDescending(d => d.CollectedDate)
             .ToListAsync(cancellationToken);
@@ -178,10 +199,8 @@ public class ChargesController : ControllerBase
         }).ToList();
 
         var chargeDescriptionsById = charges.ToDictionary(c => c.Id, c => c.Description);
-        var residentIds = payments.Select(p => p.ResidentProfileId).Distinct().ToList();
-        var residentNamesById = await _dbContext.ResidentProfiles
-            .Where(r => residentIds.Contains(r.Id))
-            .ToDictionaryAsync(r => r.Id, r => $"{r.FirstName} {r.LastName}", cancellationToken);
+        var residentNamesById = await _dbContext.GetResidentNamesAsync(
+            payments.Select(p => p.ResidentProfileId), cancellationToken);
         var paymentResponses = payments.Select(p => new PaymentTransactionResponse(
             p.Id, p.PropertyId, p.ResidentProfileId, residentNamesById.GetValueOrDefault(p.ResidentProfileId, "(unknown resident)"),
             p.PaymentDate, p.AmountPaid, p.TenderType, p.ReferenceNumber, p.Notes, p.UnallocatedAmount,
@@ -191,14 +210,12 @@ public class ChargesController : ControllerBase
                 chargeDescriptionsById.GetValueOrDefault(a.ChargeId, "(unknown charge)"),
                 a.AllocatedAmount)).ToList())).ToList();
 
-        var refunds = await _dbContext.RefundTransactions
+        var refunds = await _dbContext.RefundTransactions.AsNoTracking()
             .Where(r => r.PropertyId == propertyId)
             .OrderByDescending(r => r.RefundDate)
             .ToListAsync(cancellationToken);
-        var refundResidentIds = refunds.Select(r => r.ResidentProfileId).Distinct().ToList();
-        var refundResidentNamesById = await _dbContext.ResidentProfiles
-            .Where(r => refundResidentIds.Contains(r.Id))
-            .ToDictionaryAsync(r => r.Id, r => $"{r.FirstName} {r.LastName}", cancellationToken);
+        var refundResidentNamesById = await _dbContext.GetResidentNamesAsync(
+            refunds.Select(r => r.ResidentProfileId), cancellationToken);
         var refundResponses = refunds.Select(r => new RefundTransactionResponse(
             r.Id, r.ResidentProfileId, refundResidentNamesById.GetValueOrDefault(r.ResidentProfileId, "(unknown resident)"),
             r.PropertyId, r.Amount, r.RefundDate, r.TenderType, r.ReferenceNumber, r.Reason, r.CreatedAt)).ToList();
@@ -233,10 +250,8 @@ public class ChargesController : ControllerBase
         // Balance above instead) -- neither changes Balance directly.
         var availableCredit = clearedPayments.Sum(p => p.UnallocatedAmount);
 
-        var depositResidentIds = deposits.Select(d => d.ResidentProfileId).Distinct().ToList();
-        var depositResidentNamesById = await _dbContext.ResidentProfiles
-            .Where(r => depositResidentIds.Contains(r.Id))
-            .ToDictionaryAsync(r => r.Id, r => $"{r.FirstName} {r.LastName}", cancellationToken);
+        var depositResidentNamesById = await _dbContext.GetResidentNamesAsync(
+            deposits.Select(d => d.ResidentProfileId), cancellationToken);
         var depositResponses = deposits.Select(d => new SecurityDepositResponse(
             d.Id, d.PropertyId, d.ResidentProfileId, depositResidentNamesById.GetValueOrDefault(d.ResidentProfileId, "(unknown resident)"),
             d.OriginalAmount, d.AmountHeld, d.CollectedDate, d.Status)).ToList();
@@ -280,7 +295,7 @@ public class ChargesController : ControllerBase
 
         foreach (var adjustment in adjustments)
         {
-            var delta = adjustment.AdjustmentType == AdjustmentType.DebitAdjustment ? adjustment.Amount : -adjustment.Amount;
+            var delta = ChargeLedgerMath.NetAdjustment([adjustment]);
             events.Add((DateOnly.FromDateTime(adjustment.CreatedAt.UtcDateTime), "Adjustment", adjustment.Id, delta, Surface: false));
         }
 
@@ -318,7 +333,7 @@ public class ChargesController : ControllerBase
     public async Task<IActionResult> CreateCharge(
         Guid propertyId, [FromBody] UpsertChargeRequest request, CancellationToken cancellationToken)
     {
-        await EnsurePropertyExistsAsync(propertyId, cancellationToken);
+        await _dbContext.EnsurePropertyExistsAsync(propertyId, cancellationToken);
         var fields = ValidateAndSanitize(request);
 
         var charge = new Charge
@@ -351,8 +366,9 @@ public class ChargesController : ControllerBase
     {
         var fields = ValidateAndSanitize(request);
 
-        var charge = await FindChargeAsync(propertyId, id, cancellationToken)
-            ?? throw new NotFoundException($"Charge '{id}' was not found on this property.");
+        var charge = await _authorizationService.EnsureSameTenantAsync(
+            User, await FindChargeAsync(propertyId, id, cancellationToken),
+            $"Charge '{id}' was not found on this property.", cancellationToken);
 
         var allocatedAmount = await GetAllocatedAmountAsync(charge.Id, cancellationToken);
         if (allocatedAmount > 0)
@@ -382,8 +398,9 @@ public class ChargesController : ControllerBase
     [Authorize(Policy = Permissions.Ledger.Write)]
     public async Task<IActionResult> DeleteCharge(Guid propertyId, Guid id, CancellationToken cancellationToken)
     {
-        var charge = await FindChargeAsync(propertyId, id, cancellationToken)
-            ?? throw new NotFoundException($"Charge '{id}' was not found on this property.");
+        var charge = await _authorizationService.EnsureSameTenantAsync(
+            User, await FindChargeAsync(propertyId, id, cancellationToken),
+            $"Charge '{id}' was not found on this property.", cancellationToken);
 
         var allocatedAmount = await GetAllocatedAmountAsync(charge.Id, cancellationToken);
         if (allocatedAmount > 0)
@@ -410,8 +427,9 @@ public class ChargesController : ControllerBase
     [Authorize(Policy = Permissions.Ledger.Write)]
     public async Task<IActionResult> VoidCharge(Guid propertyId, Guid id, CancellationToken cancellationToken)
     {
-        var charge = await FindChargeAsync(propertyId, id, cancellationToken)
-            ?? throw new NotFoundException($"Charge '{id}' was not found on this property.");
+        var charge = await _authorizationService.EnsureSameTenantAsync(
+            User, await FindChargeAsync(propertyId, id, cancellationToken),
+            $"Charge '{id}' was not found on this property.", cancellationToken);
 
         if (charge.Status == ChargeLifecycleStatus.Voided)
         {
@@ -442,8 +460,9 @@ public class ChargesController : ControllerBase
     public async Task<IActionResult> CreateChargeAdjustment(
         Guid propertyId, Guid id, [FromBody] CreateChargeAdjustmentRequest request, CancellationToken cancellationToken)
     {
-        var charge = await FindChargeAsync(propertyId, id, cancellationToken)
-            ?? throw new NotFoundException($"Charge '{id}' was not found on this property.");
+        var charge = await _authorizationService.EnsureSameTenantAsync(
+            User, await FindChargeAsync(propertyId, id, cancellationToken),
+            $"Charge '{id}' was not found on this property.", cancellationToken);
 
         var reason = _sanitizer.Sanitize(request.Reason)!;
         var errors = new Dictionary<string, string[]>();
@@ -479,44 +498,57 @@ public class ChargesController : ControllerBase
         _dbContext.ChargeAdjustments.Add(adjustment);
         await _dbContext.SaveChangesAsync(cancellationToken);
 
-        return StatusCode(StatusCodes.Status201Created, ToAdjustmentResponse(adjustment));
-    }
-
-    private async Task EnsurePropertyExistsAsync(Guid propertyId, CancellationToken cancellationToken)
-    {
-        var exists = await _dbContext.Properties.AnyAsync(p => p.Id == propertyId, cancellationToken);
-        if (!exists)
-        {
-            throw new NotFoundException($"Property '{propertyId}' was not found.");
-        }
+        // Audit Refinement Sprint: was StatusCode(201, ...) -- no Location header, unlike
+        // every other create endpoint in this codebase. Adjustments have no standalone
+        // GET-by-id of their own (they're only ever read nested under their parent charge,
+        // via GetCharge/GetStatement), so this points at the charge they now belong to.
+        return CreatedAtAction(nameof(GetCharge), new { propertyId, id = charge.Id }, ToAdjustmentResponse(adjustment));
     }
 
     private async Task<Charge?> FindChargeAsync(Guid propertyId, Guid id, CancellationToken cancellationToken) =>
         await _dbContext.Charges.FirstOrDefaultAsync(c => c.PropertyId == propertyId && c.Id == id, cancellationToken);
 
+    /// <summary>Single-charge convenience wrapper over the batch method below -- still just
+    /// 3 queries for one charge, same cost as before, kept for the lock-check call sites
+    /// (Update/Delete/Void/CreateChargeAdjustment) that only ever need one charge at a time.</summary>
+    private async Task<decimal> GetAllocatedAmountAsync(Guid chargeId, CancellationToken cancellationToken) =>
+        (await GetAllocatedAmountsByChargeAsync([chargeId], cancellationToken)).GetValueOrDefault(chargeId, 0m);
+
     /// <summary>Sums PaymentAllocation (applied at waterfall time, when a payment was
     /// logged), CreditAllocation (US-37: applied later, when a PM ran "Apply Credits to
     /// Charges" against previously-unallocated overpayment credit), and
     /// DepositSettlementAllocation (US-39: applied via "Settle Deposit") -- all three lock a
-    /// charge and count toward its PaymentStatus/OutstandingAmount identically.</summary>
-    private async Task<decimal> GetAllocatedAmountAsync(Guid chargeId, CancellationToken cancellationToken)
+    /// charge and count toward its PaymentStatus/OutstandingAmount identically. Batched
+    /// across every requested charge ID in 3 queries total, however many charges are asked
+    /// for -- the fix for GetCharges' N+1 (audit finding).</summary>
+    private async Task<Dictionary<Guid, decimal>> GetAllocatedAmountsByChargeAsync(
+        List<Guid> chargeIds, CancellationToken cancellationToken)
     {
-        var fromPayments = await _dbContext.PaymentAllocations
-            .Where(a => a.ChargeId == chargeId)
-            .SumAsync(a => (decimal?)a.AllocatedAmount, cancellationToken) ?? 0m;
-        var fromCredits = await _dbContext.CreditAllocations
-            .Where(a => a.TargetChargeId == chargeId)
-            .SumAsync(a => (decimal?)a.AppliedAmount, cancellationToken) ?? 0m;
-        var fromDeposits = await _dbContext.DepositSettlementAllocations
-            .Where(a => a.TargetChargeId == chargeId)
-            .SumAsync(a => (decimal?)a.AppliedAmount, cancellationToken) ?? 0m;
-        return fromPayments + fromCredits + fromDeposits;
+        var fromPayments = await _dbContext.PaymentAllocations.AsNoTracking()
+            .Where(a => chargeIds.Contains(a.ChargeId))
+            .GroupBy(a => a.ChargeId)
+            .Select(g => new { ChargeId = g.Key, Total = g.Sum(a => a.AllocatedAmount) })
+            .ToDictionaryAsync(x => x.ChargeId, x => x.Total, cancellationToken);
+        var fromCredits = await _dbContext.CreditAllocations.AsNoTracking()
+            .Where(a => chargeIds.Contains(a.TargetChargeId))
+            .GroupBy(a => a.TargetChargeId)
+            .Select(g => new { ChargeId = g.Key, Total = g.Sum(a => a.AppliedAmount) })
+            .ToDictionaryAsync(x => x.ChargeId, x => x.Total, cancellationToken);
+        var fromDeposits = await _dbContext.DepositSettlementAllocations.AsNoTracking()
+            .Where(a => chargeIds.Contains(a.TargetChargeId))
+            .GroupBy(a => a.TargetChargeId)
+            .Select(g => new { ChargeId = g.Key, Total = g.Sum(a => a.AppliedAmount) })
+            .ToDictionaryAsync(x => x.ChargeId, x => x.Total, cancellationToken);
+
+        return chargeIds.ToDictionary(
+            id => id,
+            id => fromPayments.GetValueOrDefault(id, 0m) + fromCredits.GetValueOrDefault(id, 0m) + fromDeposits.GetValueOrDefault(id, 0m));
     }
 
     private async Task<ChargeResponse> BuildChargeResponseAsync(Charge charge, CancellationToken cancellationToken)
     {
         var allocatedAmount = await GetAllocatedAmountAsync(charge.Id, cancellationToken);
-        var adjustments = await _dbContext.ChargeAdjustments
+        var adjustments = await _dbContext.ChargeAdjustments.AsNoTracking()
             .Where(a => a.TargetChargeId == charge.Id)
             .ToListAsync(cancellationToken);
 
@@ -525,11 +557,10 @@ public class ChargesController : ControllerBase
 
     private static ChargeResponse BuildChargeResponse(Charge charge, decimal allocatedAmount, List<ChargeAdjustment> adjustments)
     {
-        var netAdjustment = adjustments.Sum(a => a.AdjustmentType == AdjustmentType.DebitAdjustment ? a.Amount : -a.Amount);
-        var netAmount = charge.Amount + netAdjustment;
+        var netAdjustment = ChargeLedgerMath.NetAdjustment(adjustments);
         var outstandingAmount = charge.Status == ChargeLifecycleStatus.Voided
             ? 0m
-            : Math.Max(0m, netAmount - allocatedAmount);
+            : ChargeLedgerMath.Outstanding(charge.Amount, netAdjustment, allocatedAmount);
 
         var paymentStatus = allocatedAmount <= 0
             ? ChargePaymentStatus.Unpaid

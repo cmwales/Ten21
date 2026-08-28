@@ -90,7 +90,11 @@ public class ResidentsControllerTests : IDisposable
         db.Properties.Add(property);
         db.SaveChanges();
 
-        var controller = new ResidentsController(db, _sanitizer, userManager, roleManager, emailSender);
+        var authorizationService = TestAuthorizationService.Create(tenantContext);
+        var controller = new ResidentsController(db, _sanitizer, userManager, roleManager, emailSender, authorizationService)
+        {
+            ControllerContext = TestControllerContext.Create(),
+        };
         return (db, controller, property.Id, userManager, emailSender);
     }
 

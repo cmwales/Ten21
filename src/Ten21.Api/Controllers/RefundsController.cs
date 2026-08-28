@@ -7,6 +7,7 @@ using Ten21.Domain.Common;
 using Ten21.Domain.Entities;
 using Ten21.Domain.Enums;
 using Ten21.Domain.Exceptions;
+using Ten21.Infrastructure.Authorization;
 using Ten21.Infrastructure.Persistence;
 
 namespace Ten21.Api.Controllers;
@@ -25,22 +26,26 @@ public class RefundsController : ControllerBase
 {
     private readonly Ten21DbContext _dbContext;
     private readonly IInputSanitizer _sanitizer;
+    private readonly IAuthorizationService _authorizationService;
 
-    public RefundsController(Ten21DbContext dbContext, IInputSanitizer sanitizer)
+    public RefundsController(Ten21DbContext dbContext, IInputSanitizer sanitizer, IAuthorizationService authorizationService)
     {
         _dbContext = dbContext;
         _sanitizer = sanitizer;
+        _authorizationService = authorizationService;
     }
 
     [HttpGet("{id:guid}")]
     [Authorize(Policy = Permissions.Ledger.Read)]
     public async Task<IActionResult> GetRefund(Guid propertyId, Guid id, CancellationToken cancellationToken)
     {
-        var refund = await _dbContext.RefundTransactions
-            .FirstOrDefaultAsync(r => r.PropertyId == propertyId && r.Id == id, cancellationToken)
-            ?? throw new NotFoundException($"Refund '{id}' was not found on this property.");
+        var refund = await _authorizationService.EnsureSameTenantAsync(
+            User,
+            await _dbContext.RefundTransactions.AsNoTracking()
+                .FirstOrDefaultAsync(r => r.PropertyId == propertyId && r.Id == id, cancellationToken),
+            $"Refund '{id}' was not found on this property.", cancellationToken);
 
-        var residentName = await GetResidentNameAsync(refund.ResidentProfileId, cancellationToken);
+        var residentName = await _dbContext.GetResidentNameAsync(refund.ResidentProfileId, cancellationToken);
         return Ok(ToResponse(refund, residentName));
     }
 
@@ -56,7 +61,7 @@ public class RefundsController : ControllerBase
     public async Task<IActionResult> RefundCreditBalance(
         Guid propertyId, [FromBody] RefundCreditBalanceRequest request, CancellationToken cancellationToken)
     {
-        await EnsurePropertyExistsAsync(propertyId, cancellationToken);
+        await _dbContext.EnsurePropertyExistsAsync(propertyId, cancellationToken);
         var referenceNumber = ValidateAndSanitize(request);
 
         var resident = await _dbContext.ResidentProfiles
@@ -105,24 +110,6 @@ public class RefundsController : ControllerBase
 
         var residentName = $"{resident.FirstName} {resident.LastName}";
         return CreatedAtAction(nameof(GetRefund), new { propertyId, id = refund.Id }, ToResponse(refund, residentName));
-    }
-
-    private async Task EnsurePropertyExistsAsync(Guid propertyId, CancellationToken cancellationToken)
-    {
-        var exists = await _dbContext.Properties.AnyAsync(p => p.Id == propertyId, cancellationToken);
-        if (!exists)
-        {
-            throw new NotFoundException($"Property '{propertyId}' was not found.");
-        }
-    }
-
-    private async Task<string> GetResidentNameAsync(Guid residentProfileId, CancellationToken cancellationToken)
-    {
-        var resident = await _dbContext.ResidentProfiles
-            .Where(r => r.Id == residentProfileId)
-            .Select(r => new { r.FirstName, r.LastName })
-            .FirstOrDefaultAsync(cancellationToken);
-        return resident is null ? "(unknown resident)" : $"{resident.FirstName} {resident.LastName}";
     }
 
     private static RefundTransactionResponse ToResponse(RefundTransaction refund, string residentName) => new(

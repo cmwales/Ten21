@@ -92,7 +92,7 @@ public class PropertiesController : ControllerBase
     [Authorize(Policy = Permissions.Property.Read)]
     public async Task<IActionResult> GetProperty(Guid id, CancellationToken cancellationToken)
     {
-        var property = await _dbContext.Properties
+        var property = await _dbContext.Properties.AsNoTracking()
             .FirstOrDefaultAsync(p => p.Id == id, cancellationToken)
             ?? throw new NotFoundException($"Property '{id}' was not found.");
 

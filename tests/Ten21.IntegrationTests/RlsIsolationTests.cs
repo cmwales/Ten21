@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using Npgsql;
+using Ten21.Domain.Common;
 using Ten21.Infrastructure.Persistence;
 using Testcontainers.PostgreSql;
 using Xunit;
@@ -195,5 +196,58 @@ public class RlsIsolationTests : IAsyncLifetime
         await using var reader = await crossTenantRead.ExecuteReaderAsync();
 
         Assert.False(await reader.ReadAsync());
+    }
+
+    /// <summary>
+    /// Audit Refinement Sprint: a process guardrail for the exact class of drift that
+    /// produced the gap AddRowLevelSecurityForLedgerLeaseAndResidentTables fixed -- 15
+    /// tables went 5 sprints deep with an EF Core query filter but no Postgres RLS policy,
+    /// and nothing caught it. Mirrors the same reflection Ten21DbContext.OnModelCreating
+    /// already uses to find every ITenantScopedEntity, then asserts a live `pg_policies` row
+    /// exists for each one's mapped table -- so the NEXT missed table fails a test instead of
+    /// silently shipping. tenant_memberships is the one deliberate, documented exception (see
+    /// sql/rls-policies.sql's own long-form comment on the auth-bootstrap problem).
+    /// </summary>
+    [Fact]
+    public async Task EveryTenantScopedEntityTable_HasARowLevelSecurityPolicy()
+    {
+        var deliberatelyExcluded = new HashSet<string> { "tenant_memberships" };
+
+        var options = new DbContextOptionsBuilder<Ten21DbContext>()
+            .UseNpgsql(_postgres.GetConnectionString())
+            .Options;
+        await using var db = new Ten21DbContext(options, new TenantContext());
+
+        var tenantScopedTables = db.Model.GetEntityTypes()
+            .Where(t => typeof(ITenantScopedEntity).IsAssignableFrom(t.ClrType))
+            .Select(t => t.GetTableName())
+            .Where(name => name is not null && !deliberatelyExcluded.Contains(name))
+            .Cast<string>()
+            .Distinct()
+            .ToList();
+
+        Assert.NotEmpty(tenantScopedTables);
+
+        await using var connection = new NpgsqlConnection(_postgres.GetConnectionString());
+        await connection.OpenAsync();
+
+        var tablesMissingAPolicy = new List<string>();
+        foreach (var table in tenantScopedTables)
+        {
+            await using var command = connection.CreateCommand();
+            command.CommandText = "SELECT count(*) FROM pg_policies WHERE tablename = @table;";
+            command.Parameters.AddWithValue("table", table);
+            var policyCount = (long)(await command.ExecuteScalarAsync())!;
+            if (policyCount == 0)
+            {
+                tablesMissingAPolicy.Add(table);
+            }
+        }
+
+        Assert.True(
+            tablesMissingAPolicy.Count == 0,
+            $"These ITenantScopedEntity tables have no Postgres RLS policy: {string.Join(", ", tablesMissingAPolicy)}. " +
+            "Add one in a migration (see AddRowLevelSecurityForLedgerLeaseAndResidentTables for the pattern), or add the " +
+            "table to this test's deliberatelyExcluded set with a comment explaining why, matching tenant_memberships.");
     }
 }

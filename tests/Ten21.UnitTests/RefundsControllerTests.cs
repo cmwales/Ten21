@@ -47,7 +47,20 @@ public class RefundsControllerTests : IDisposable
         var db = new Ten21DbContext(options, tenantContext);
         db.Database.EnsureCreated();
 
-        return (db, new ChargesController(db, _sanitizer, _pdfService), new PaymentsController(db, _sanitizer, _pdfService), new RefundsController(db, _sanitizer));
+        var authorizationService = TestAuthorizationService.Create(tenantContext);
+        var charges = new ChargesController(db, _sanitizer, _pdfService, authorizationService)
+        {
+            ControllerContext = TestControllerContext.Create(),
+        };
+        var payments = new PaymentsController(db, _sanitizer, _pdfService, authorizationService)
+        {
+            ControllerContext = TestControllerContext.Create(),
+        };
+        var refunds = new RefundsController(db, _sanitizer, authorizationService)
+        {
+            ControllerContext = TestControllerContext.Create(),
+        };
+        return (db, charges, payments, refunds);
     }
 
     private static async Task<Property> SeedPropertyAsync(Ten21DbContext db)

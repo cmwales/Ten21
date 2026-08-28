@@ -8,6 +8,7 @@ using Ten21.Application.Abstractions;
 using Ten21.Domain.Common;
 using Ten21.Domain.Entities;
 using Ten21.Domain.Exceptions;
+using Ten21.Infrastructure.Authorization;
 using Ten21.Infrastructure.Identity;
 using Ten21.Infrastructure.Persistence;
 
@@ -44,28 +45,31 @@ public class ResidentsController : ControllerBase
     private readonly UserManager<ApplicationUser> _userManager;
     private readonly RoleManager<ApplicationRole> _roleManager;
     private readonly IEmailSender _emailSender;
+    private readonly IAuthorizationService _authorizationService;
 
     public ResidentsController(
         Ten21DbContext dbContext,
         IInputSanitizer sanitizer,
         UserManager<ApplicationUser> userManager,
         RoleManager<ApplicationRole> roleManager,
-        IEmailSender emailSender)
+        IEmailSender emailSender,
+        IAuthorizationService authorizationService)
     {
         _dbContext = dbContext;
         _sanitizer = sanitizer;
         _userManager = userManager;
         _roleManager = roleManager;
         _emailSender = emailSender;
+        _authorizationService = authorizationService;
     }
 
     [HttpGet]
     [Authorize(Policy = Permissions.Resident.Read)]
     public async Task<IActionResult> GetResidents(Guid propertyId, CancellationToken cancellationToken)
     {
-        await EnsurePropertyExistsAsync(propertyId, cancellationToken);
+        await _dbContext.EnsurePropertyExistsAsync(propertyId, cancellationToken);
 
-        var residents = await _dbContext.ResidentProfiles
+        var residents = await _dbContext.ResidentProfiles.AsNoTracking()
             .Include(r => r.EmergencyContacts)
             .Where(r => r.PropertyId == propertyId)
             .OrderBy(r => r.OccupantType).ThenBy(r => r.LastName)
@@ -78,8 +82,9 @@ public class ResidentsController : ControllerBase
     [Authorize(Policy = Permissions.Resident.Read)]
     public async Task<IActionResult> GetResident(Guid propertyId, Guid id, CancellationToken cancellationToken)
     {
-        var resident = await FindResidentAsync(propertyId, id, cancellationToken)
-            ?? throw new NotFoundException($"Resident '{id}' was not found on this property.");
+        var resident = await _authorizationService.EnsureSameTenantAsync(
+            User, await FindResidentAsync(propertyId, id, cancellationToken),
+            $"Resident '{id}' was not found on this property.", cancellationToken);
 
         return Ok(ToResponse(resident, resident.EmergencyContacts.ToList()));
     }
@@ -89,7 +94,7 @@ public class ResidentsController : ControllerBase
     public async Task<IActionResult> CreateResident(
         Guid propertyId, [FromBody] UpsertResidentRequest request, CancellationToken cancellationToken)
     {
-        await EnsurePropertyExistsAsync(propertyId, cancellationToken);
+        await _dbContext.EnsurePropertyExistsAsync(propertyId, cancellationToken);
         ValidateRequest(request);
 
         var resident = new ResidentProfile
@@ -133,8 +138,9 @@ public class ResidentsController : ControllerBase
     {
         ValidateRequest(request);
 
-        var resident = await FindResidentAsync(propertyId, id, cancellationToken)
-            ?? throw new NotFoundException($"Resident '{id}' was not found on this property.");
+        var resident = await _authorizationService.EnsureSameTenantAsync(
+            User, await FindResidentAsync(propertyId, id, cancellationToken),
+            $"Resident '{id}' was not found on this property.", cancellationToken);
 
         resident.OccupantType = request.OccupantType;
         resident.FirstName = _sanitizer.Sanitize(request.FirstName)!;
@@ -176,8 +182,9 @@ public class ResidentsController : ControllerBase
     [Authorize(Policy = Permissions.Resident.Manage)]
     public async Task<IActionResult> DeleteResident(Guid propertyId, Guid id, CancellationToken cancellationToken)
     {
-        var resident = await FindResidentAsync(propertyId, id, cancellationToken)
-            ?? throw new NotFoundException($"Resident '{id}' was not found on this property.");
+        var resident = await _authorizationService.EnsureSameTenantAsync(
+            User, await FindResidentAsync(propertyId, id, cancellationToken),
+            $"Resident '{id}' was not found on this property.", cancellationToken);
 
         _dbContext.ResidentProfiles.Remove(resident);
         await _dbContext.SaveChangesAsync(cancellationToken);
@@ -334,15 +341,6 @@ public class ResidentsController : ControllerBase
         }
 
         return new string(chars);
-    }
-
-    private async Task EnsurePropertyExistsAsync(Guid propertyId, CancellationToken cancellationToken)
-    {
-        var exists = await _dbContext.Properties.AnyAsync(p => p.Id == propertyId, cancellationToken);
-        if (!exists)
-        {
-            throw new NotFoundException($"Property '{propertyId}' was not found.");
-        }
     }
 
     private async Task<ResidentProfile?> FindResidentAsync(Guid propertyId, Guid id, CancellationToken cancellationToken) =>

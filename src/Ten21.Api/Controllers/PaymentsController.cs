@@ -7,6 +7,7 @@ using Ten21.Domain.Common;
 using Ten21.Domain.Entities;
 using Ten21.Domain.Enums;
 using Ten21.Domain.Exceptions;
+using Ten21.Infrastructure.Authorization;
 using Ten21.Infrastructure.Persistence;
 
 namespace Ten21.Api.Controllers;
@@ -26,12 +27,15 @@ public class PaymentsController : ControllerBase
     private readonly Ten21DbContext _dbContext;
     private readonly IInputSanitizer _sanitizer;
     private readonly IPdfService _pdfService;
+    private readonly IAuthorizationService _authorizationService;
 
-    public PaymentsController(Ten21DbContext dbContext, IInputSanitizer sanitizer, IPdfService pdfService)
+    public PaymentsController(
+        Ten21DbContext dbContext, IInputSanitizer sanitizer, IPdfService pdfService, IAuthorizationService authorizationService)
     {
         _dbContext = dbContext;
         _sanitizer = sanitizer;
         _pdfService = pdfService;
+        _authorizationService = authorizationService;
     }
 
     /// <summary>
@@ -46,13 +50,15 @@ public class PaymentsController : ControllerBase
     [Authorize(Policy = Permissions.Ledger.Read)]
     public async Task<IActionResult> GetReceipt(Guid propertyId, Guid id, CancellationToken cancellationToken)
     {
-        var payment = await _dbContext.PaymentTransactions
-            .Include(p => p.Allocations)
-            .FirstOrDefaultAsync(p => p.PropertyId == propertyId && p.Id == id, cancellationToken)
-            ?? throw new NotFoundException($"Payment '{id}' was not found on this property.");
+        var payment = await _authorizationService.EnsureSameTenantAsync(
+            User,
+            await _dbContext.PaymentTransactions.AsNoTracking()
+                .Include(p => p.Allocations)
+                .FirstOrDefaultAsync(p => p.PropertyId == propertyId && p.Id == id, cancellationToken),
+            $"Payment '{id}' was not found on this property.", cancellationToken);
 
-        var property = await _dbContext.Properties.FirstAsync(p => p.Id == propertyId, cancellationToken);
-        var residentName = await GetResidentNameAsync(payment.ResidentProfileId, cancellationToken);
+        var property = await _dbContext.Properties.AsNoTracking().FirstAsync(p => p.Id == propertyId, cancellationToken);
+        var residentName = await _dbContext.GetResidentNameAsync(payment.ResidentProfileId, cancellationToken);
         var chargeDescriptionsById = await GetChargeDescriptionsAsync(payment.Allocations.Select(a => a.ChargeId), cancellationToken);
 
         var pdfData = new PaymentReceiptPdfData(
@@ -74,13 +80,15 @@ public class PaymentsController : ControllerBase
     [Authorize(Policy = Permissions.Ledger.Read)]
     public async Task<IActionResult> GetPayment(Guid propertyId, Guid id, CancellationToken cancellationToken)
     {
-        var payment = await _dbContext.PaymentTransactions
-            .Include(p => p.Allocations)
-            .FirstOrDefaultAsync(p => p.PropertyId == propertyId && p.Id == id, cancellationToken)
-            ?? throw new NotFoundException($"Payment '{id}' was not found on this property.");
+        var payment = await _authorizationService.EnsureSameTenantAsync(
+            User,
+            await _dbContext.PaymentTransactions.AsNoTracking()
+                .Include(p => p.Allocations)
+                .FirstOrDefaultAsync(p => p.PropertyId == propertyId && p.Id == id, cancellationToken),
+            $"Payment '{id}' was not found on this property.", cancellationToken);
 
         var chargeDescriptionsById = await GetChargeDescriptionsAsync(payment.Allocations.Select(a => a.ChargeId), cancellationToken);
-        var residentName = await GetResidentNameAsync(payment.ResidentProfileId, cancellationToken);
+        var residentName = await _dbContext.GetResidentNameAsync(payment.ResidentProfileId, cancellationToken);
         return Ok(ToResponse(payment, residentName, chargeDescriptionsById));
     }
 
@@ -98,7 +106,7 @@ public class PaymentsController : ControllerBase
     public async Task<IActionResult> LogPayment(
         Guid propertyId, [FromBody] LogPaymentRequest request, CancellationToken cancellationToken)
     {
-        await EnsurePropertyExistsAsync(propertyId, cancellationToken);
+        await _dbContext.EnsurePropertyExistsAsync(propertyId, cancellationToken);
         var fields = ValidateAndSanitize(request);
 
         var resident = await _dbContext.ResidentProfiles
@@ -149,10 +157,12 @@ public class PaymentsController : ControllerBase
     public async Task<IActionResult> ReversePayment(
         Guid propertyId, Guid id, [FromBody] ReversePaymentRequest request, CancellationToken cancellationToken)
     {
-        var payment = await _dbContext.PaymentTransactions
-            .Include(p => p.Allocations)
-            .FirstOrDefaultAsync(p => p.PropertyId == propertyId && p.Id == id, cancellationToken)
-            ?? throw new NotFoundException($"Payment '{id}' was not found on this property.");
+        var payment = await _authorizationService.EnsureSameTenantAsync(
+            User,
+            await _dbContext.PaymentTransactions
+                .Include(p => p.Allocations)
+                .FirstOrDefaultAsync(p => p.PropertyId == propertyId && p.Id == id, cancellationToken),
+            $"Payment '{id}' was not found on this property.", cancellationToken);
 
         if (payment.Status == PaymentTransactionStatus.Reversed)
         {
@@ -169,7 +179,7 @@ public class PaymentsController : ControllerBase
 
         await _dbContext.SaveChangesAsync(cancellationToken);
 
-        var residentName = await GetResidentNameAsync(payment.ResidentProfileId, cancellationToken);
+        var residentName = await _dbContext.GetResidentNameAsync(payment.ResidentProfileId, cancellationToken);
         return Ok(ToResponse(payment, residentName, []));
     }
 
@@ -186,10 +196,12 @@ public class PaymentsController : ControllerBase
     public async Task<IActionResult> ReallocatePayment(
         Guid propertyId, Guid id, [FromBody] ReallocatePaymentRequest request, CancellationToken cancellationToken)
     {
-        var payment = await _dbContext.PaymentTransactions
-            .Include(p => p.Allocations)
-            .FirstOrDefaultAsync(p => p.PropertyId == propertyId && p.Id == id, cancellationToken)
-            ?? throw new NotFoundException($"Payment '{id}' was not found on this property.");
+        var payment = await _authorizationService.EnsureSameTenantAsync(
+            User,
+            await _dbContext.PaymentTransactions
+                .Include(p => p.Allocations)
+                .FirstOrDefaultAsync(p => p.PropertyId == propertyId && p.Id == id, cancellationToken),
+            $"Payment '{id}' was not found on this property.", cancellationToken);
 
         if (payment.Status == PaymentTransactionStatus.Reversed)
         {
@@ -206,7 +218,7 @@ public class PaymentsController : ControllerBase
             });
         }
 
-        await EnsurePropertyExistsAsync(request.TargetPropertyId, cancellationToken);
+        await _dbContext.EnsurePropertyExistsAsync(request.TargetPropertyId, cancellationToken);
         var targetResident = await _dbContext.ResidentProfiles
             .FirstOrDefaultAsync(r => r.PropertyId == request.TargetPropertyId && r.Id == request.TargetResidentProfileId, cancellationToken)
             ?? throw new NotFoundException($"Resident '{request.TargetResidentProfileId}' was not found on the target property.");
@@ -310,10 +322,7 @@ public class PaymentsController : ControllerBase
             .Where(a => chargeIds.Contains(a.TargetChargeId))
             .ToListAsync(cancellationToken);
 
-        var orderedCharges = activeCharges
-            .OrderBy(c => c.AllocationPriority)
-            .ThenBy(c => c.DueDate)
-            .ToList();
+        var orderedCharges = ChargeLedgerMath.OrderByStatutoryPriority(activeCharges);
 
         var newAllocations = new List<PaymentAllocation>();
         var remaining = amountToAllocate;
@@ -326,9 +335,8 @@ public class PaymentsController : ControllerBase
             }
 
             var alreadyAllocated = existingAllocations.Where(a => a.ChargeId == charge.Id).Sum(a => a.AllocatedAmount);
-            var netAdjustment = existingAdjustments.Where(a => a.TargetChargeId == charge.Id)
-                .Sum(a => a.AdjustmentType == AdjustmentType.DebitAdjustment ? a.Amount : -a.Amount);
-            var outstanding = Math.Max(0m, charge.Amount + netAdjustment - alreadyAllocated);
+            var netAdjustment = ChargeLedgerMath.NetAdjustment(existingAdjustments.Where(a => a.TargetChargeId == charge.Id));
+            var outstanding = ChargeLedgerMath.Outstanding(charge.Amount, netAdjustment, alreadyAllocated);
 
             if (outstanding <= 0)
             {
@@ -350,30 +358,12 @@ public class PaymentsController : ControllerBase
         return newAllocations;
     }
 
-    private async Task EnsurePropertyExistsAsync(Guid propertyId, CancellationToken cancellationToken)
-    {
-        var exists = await _dbContext.Properties.AnyAsync(p => p.Id == propertyId, cancellationToken);
-        if (!exists)
-        {
-            throw new NotFoundException($"Property '{propertyId}' was not found.");
-        }
-    }
-
     private async Task<Dictionary<Guid, string>> GetChargeDescriptionsAsync(IEnumerable<Guid> chargeIds, CancellationToken cancellationToken)
     {
         var ids = chargeIds.Distinct().ToList();
-        return await _dbContext.Charges
+        return await _dbContext.Charges.AsNoTracking()
             .Where(c => ids.Contains(c.Id))
             .ToDictionaryAsync(c => c.Id, c => c.Description, cancellationToken);
-    }
-
-    private async Task<string> GetResidentNameAsync(Guid residentProfileId, CancellationToken cancellationToken)
-    {
-        var resident = await _dbContext.ResidentProfiles
-            .Where(r => r.Id == residentProfileId)
-            .Select(r => new { r.FirstName, r.LastName })
-            .FirstOrDefaultAsync(cancellationToken);
-        return resident is null ? "(unknown resident)" : $"{resident.FirstName} {resident.LastName}";
     }
 
     private static PaymentTransactionResponse ToResponse(

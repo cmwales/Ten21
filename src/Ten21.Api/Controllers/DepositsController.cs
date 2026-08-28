@@ -8,6 +8,7 @@ using Ten21.Domain.Common;
 using Ten21.Domain.Entities;
 using Ten21.Domain.Enums;
 using Ten21.Domain.Exceptions;
+using Ten21.Infrastructure.Authorization;
 using Ten21.Infrastructure.Persistence;
 
 namespace Ten21.Api.Controllers;
@@ -26,20 +27,22 @@ public class DepositsController : ControllerBase
 {
     private readonly Ten21DbContext _dbContext;
     private readonly IInputSanitizer _sanitizer;
+    private readonly IAuthorizationService _authorizationService;
 
-    public DepositsController(Ten21DbContext dbContext, IInputSanitizer sanitizer)
+    public DepositsController(Ten21DbContext dbContext, IInputSanitizer sanitizer, IAuthorizationService authorizationService)
     {
         _dbContext = dbContext;
         _sanitizer = sanitizer;
+        _authorizationService = authorizationService;
     }
 
     [HttpGet]
     [Authorize(Policy = Permissions.Ledger.Read)]
     public async Task<IActionResult> GetDeposits(Guid propertyId, CancellationToken cancellationToken)
     {
-        await EnsurePropertyExistsAsync(propertyId, cancellationToken);
+        await _dbContext.EnsurePropertyExistsAsync(propertyId, cancellationToken);
 
-        var deposits = await _dbContext.SecurityDeposits
+        var deposits = await _dbContext.SecurityDeposits.AsNoTracking()
             .Where(d => d.PropertyId == propertyId)
             .OrderByDescending(d => d.CollectedDate)
             .ToListAsync(cancellationToken);
@@ -57,8 +60,9 @@ public class DepositsController : ControllerBase
     [Authorize(Policy = Permissions.Ledger.Read)]
     public async Task<IActionResult> GetDeposit(Guid propertyId, Guid id, CancellationToken cancellationToken)
     {
-        var deposit = await FindDepositAsync(propertyId, id, cancellationToken)
-            ?? throw new NotFoundException($"Security deposit '{id}' was not found on this property.");
+        var deposit = await _authorizationService.EnsureSameTenantAsync(
+            User, await FindDepositAsync(propertyId, id, cancellationToken),
+            $"Security deposit '{id}' was not found on this property.", cancellationToken);
 
         return Ok(await BuildResponseAsync(deposit, cancellationToken));
     }
@@ -72,7 +76,7 @@ public class DepositsController : ControllerBase
     public async Task<IActionResult> CollectDeposit(
         Guid propertyId, [FromBody] CollectDepositRequest request, CancellationToken cancellationToken)
     {
-        await EnsurePropertyExistsAsync(propertyId, cancellationToken);
+        await _dbContext.EnsurePropertyExistsAsync(propertyId, cancellationToken);
 
         if (request.Amount <= 0)
         {
@@ -133,8 +137,9 @@ public class DepositsController : ControllerBase
     public async Task<IActionResult> SettleDeposit(
         Guid propertyId, Guid id, [FromBody] SettleDepositRequest request, CancellationToken cancellationToken)
     {
-        var deposit = await FindDepositAsync(propertyId, id, cancellationToken)
-            ?? throw new NotFoundException($"Security deposit '{id}' was not found on this property.");
+        var deposit = await _authorizationService.EnsureSameTenantAsync(
+            User, await FindDepositAsync(propertyId, id, cancellationToken),
+            $"Security deposit '{id}' was not found on this property.", cancellationToken);
 
         if (deposit.Status == SecurityDepositStatus.Settled)
         {
@@ -164,10 +169,7 @@ public class DepositsController : ControllerBase
         var existingAdjustments = await _dbContext.ChargeAdjustments
             .Where(a => chargeIds.Contains(a.TargetChargeId)).ToListAsync(cancellationToken);
 
-        var orderedCharges = activeCharges
-            .OrderBy(c => c.AllocationPriority)
-            .ThenBy(c => c.DueDate)
-            .ToList();
+        var orderedCharges = ChargeLedgerMath.OrderByStatutoryPriority(activeCharges);
 
         var newAllocations = new List<DepositSettlementAllocation>();
         var remaining = deposit.AmountHeld;
@@ -184,9 +186,8 @@ public class DepositsController : ControllerBase
                 + existingCreditAllocations.Where(a => a.TargetChargeId == charge.Id).Sum(a => a.AppliedAmount)
                 + existingDepositAllocations.Where(a => a.TargetChargeId == charge.Id).Sum(a => a.AppliedAmount)
                 + newAllocations.Where(a => a.TargetChargeId == charge.Id).Sum(a => a.AppliedAmount);
-            var netAdjustment = existingAdjustments.Where(a => a.TargetChargeId == charge.Id)
-                .Sum(a => a.AdjustmentType == AdjustmentType.DebitAdjustment ? a.Amount : -a.Amount);
-            var outstanding = Math.Max(0m, charge.Amount + netAdjustment - alreadyAllocated);
+            var netAdjustment = ChargeLedgerMath.NetAdjustment(existingAdjustments.Where(a => a.TargetChargeId == charge.Id));
+            var outstanding = ChargeLedgerMath.Outstanding(charge.Amount, netAdjustment, alreadyAllocated);
 
             if (outstanding <= 0)
             {
@@ -240,7 +241,7 @@ public class DepositsController : ControllerBase
             chargeDescriptionsById.GetValueOrDefault(a.TargetChargeId, "(unknown charge)"),
             a.AppliedAmount, a.AppliedDate)).ToList();
 
-        var residentName = await GetResidentNameAsync(deposit.ResidentProfileId, cancellationToken);
+        var residentName = await _dbContext.GetResidentNameAsync(deposit.ResidentProfileId, cancellationToken);
         var refundResponse = refund is null
             ? null
             : new RefundTransactionResponse(
@@ -253,30 +254,12 @@ public class DepositsController : ControllerBase
             amountApplied, amountRefunded, allocationResponses, refundResponse));
     }
 
-    private async Task EnsurePropertyExistsAsync(Guid propertyId, CancellationToken cancellationToken)
-    {
-        var exists = await _dbContext.Properties.AnyAsync(p => p.Id == propertyId, cancellationToken);
-        if (!exists)
-        {
-            throw new NotFoundException($"Property '{propertyId}' was not found.");
-        }
-    }
-
     private async Task<SecurityDeposit?> FindDepositAsync(Guid propertyId, Guid id, CancellationToken cancellationToken) =>
         await _dbContext.SecurityDeposits.FirstOrDefaultAsync(d => d.PropertyId == propertyId && d.Id == id, cancellationToken);
 
-    private async Task<string> GetResidentNameAsync(Guid residentProfileId, CancellationToken cancellationToken)
-    {
-        var resident = await _dbContext.ResidentProfiles
-            .Where(r => r.Id == residentProfileId)
-            .Select(r => new { r.FirstName, r.LastName })
-            .FirstOrDefaultAsync(cancellationToken);
-        return resident is null ? "(unknown resident)" : $"{resident.FirstName} {resident.LastName}";
-    }
-
     private async Task<SecurityDepositResponse> BuildResponseAsync(SecurityDeposit deposit, CancellationToken cancellationToken)
     {
-        var residentName = await GetResidentNameAsync(deposit.ResidentProfileId, cancellationToken);
+        var residentName = await _dbContext.GetResidentNameAsync(deposit.ResidentProfileId, cancellationToken);
         return new SecurityDepositResponse(
             deposit.Id, deposit.PropertyId, deposit.ResidentProfileId, residentName,
             deposit.OriginalAmount, deposit.AmountHeld, deposit.CollectedDate, deposit.Status);
