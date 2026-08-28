@@ -38,9 +38,9 @@ describe('SettleDepositModal', () => {
     httpMock = TestBed.inject(HttpTestingController);
     const fixture = TestBed.createComponent(SettleDepositModal);
     const component = fixture.componentInstance;
-    component.propertyId = 'prop-1';
-    component.depositId = 'deposit-1';
-    component.open = true;
+    fixture.componentRef.setInput('propertyId', 'prop-1');
+    fixture.componentRef.setInput('depositId', 'deposit-1');
+    fixture.componentRef.setInput('open', true);
     return component;
   }
 

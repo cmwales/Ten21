@@ -1,3 +1,4 @@
+import { CurrencyPipe } from '@angular/common';
 import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { RouterLink } from '@angular/router';
@@ -24,7 +25,7 @@ type PageSize = (typeof PAGE_SIZES)[number];
  */
 @Component({
   selector: 'app-property-list',
-  imports: [RouterLink, TranslatePipe, AppHeader],
+  imports: [RouterLink, TranslatePipe, AppHeader, CurrencyPipe],
   templateUrl: './property-list.html',
 })
 export class PropertyList implements OnInit {

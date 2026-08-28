@@ -1,7 +1,6 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
-import { SimpleChange } from '@angular/core';
-import { TestBed } from '@angular/core/testing';
+import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ActivatedRoute } from '@angular/router';
 import { provideTranslateService } from '@ngx-translate/core';
 import { ApiResponse } from '../../../core/models/auth.models';
@@ -13,6 +12,7 @@ import { LogPaymentModal } from './log-payment-modal';
 describe('LogPaymentModal', () => {
   let httpMock: HttpTestingController;
   let toastService: { show: ReturnType<typeof vi.fn> };
+  let fixture: ComponentFixture<LogPaymentModal>;
 
   const resident: ResidentResponse = {
     id: 'resident-1',
@@ -60,15 +60,15 @@ describe('LogPaymentModal', () => {
     });
 
     httpMock = TestBed.inject(HttpTestingController);
-    const fixture = TestBed.createComponent(LogPaymentModal);
+    fixture = TestBed.createComponent(LogPaymentModal);
     const component = fixture.componentInstance;
-    component.propertyId = 'prop-1';
+    fixture.componentRef.setInput('propertyId', 'prop-1');
     return component;
   }
 
-  function open(component: LogPaymentModal): void {
-    component.open = true;
-    component.ngOnChanges({ open: new SimpleChange(false, true, false) });
+  function open(_component: LogPaymentModal): void {
+    fixture.componentRef.setInput('open', true);
+    TestBed.flushEffects();
     httpMock.expectOne('/api/properties/prop-1/residents').flush({
       success: true, data: [resident], message: null, statusCode: 200, traceId: 't1',
     } satisfies ApiResponse<ResidentResponse[]>);
@@ -84,10 +84,10 @@ describe('LogPaymentModal', () => {
     expect(component['form'].controls.tenderType.value).toBe('Cash');
   });
 
-  it('does not reload residents when open changes to false', () => {
-    const component = createComponent();
-    component.open = false;
-    component.ngOnChanges({ open: new SimpleChange(true, false, false) });
+  it('does not reload residents when open is false', () => {
+    createComponent();
+    fixture.componentRef.setInput('open', false);
+    TestBed.flushEffects();
 
     httpMock.expectNone('/api/properties/prop-1/residents');
   });

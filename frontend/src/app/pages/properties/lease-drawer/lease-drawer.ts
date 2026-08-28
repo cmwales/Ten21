@@ -1,4 +1,5 @@
-import { Component, EventEmitter, Input, OnChanges, Output, SimpleChanges, inject, signal } from '@angular/core';
+import { CurrencyPipe } from '@angular/common';
+import { Component, inject, input, signal } from '@angular/core';
 import { FormArray, FormBuilder, FormGroup, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { TranslatePipe } from '@ngx-translate/core';
 import { LeaseResponse, LeaseStatusValue, LeaseStatuses } from '../../../core/models/lease.models';
@@ -6,6 +7,7 @@ import { ResidentResponse } from '../../../core/models/resident.models';
 import { LeaseService } from '../../../core/services/lease.service';
 import { PropertyService } from '../../../core/services/property.service';
 import { ResidentService } from '../../../core/services/resident.service';
+import { ModalBase } from '../../../shared/modal-base';
 import { ToastService } from '../../../core/services/toast.service';
 
 interface RecurringChargeControls {
@@ -33,13 +35,11 @@ interface LeaseFormControls {
  */
 @Component({
   selector: 'app-lease-drawer',
-  imports: [ReactiveFormsModule, FormsModule, TranslatePipe],
+  imports: [ReactiveFormsModule, FormsModule, TranslatePipe, CurrencyPipe],
   templateUrl: './lease-drawer.html',
 })
-export class LeaseDrawer implements OnChanges {
-  @Input({ required: true }) propertyId!: string;
-  @Input() open = false;
-  @Output() closed = new EventEmitter<void>();
+export class LeaseDrawer extends ModalBase {
+  readonly propertyId = input.required<string>();
 
   private readonly fb = inject(FormBuilder);
   private readonly leaseService = inject(LeaseService);
@@ -71,17 +71,15 @@ export class LeaseDrawer implements OnChanges {
    * value round-tripped from the server. */
   protected readonly liveTotalMonthlyDues = signal(0);
 
-  ngOnChanges(changes: SimpleChanges): void {
-    if (changes['open'] && this.open) {
-      this.loadLeases();
-      this.loadResidents();
-      this.loadPropertyMoveOutNotice();
-    }
+  protected override onOpen(): void {
+    this.loadLeases();
+    this.loadResidents();
+    this.loadPropertyMoveOutNotice();
   }
 
   protected onMoveOutNoticeChange(value: string): void {
     this.savingMoveOutNotice.set(true);
-    this.propertyService.updateMoveOutNotice(this.propertyId, { moveOutNoticeDate: value || null }).subscribe({
+    this.propertyService.updateMoveOutNotice(this.propertyId(), { moveOutNoticeDate: value || null }).subscribe({
       next: (property) => {
         this.savingMoveOutNotice.set(false);
         this.propertyMoveOutNoticeDate.set(property.moveOutNoticeDate ?? null);
@@ -95,14 +93,14 @@ export class LeaseDrawer implements OnChanges {
   }
 
   private loadPropertyMoveOutNotice(): void {
-    this.propertyService.getProperty(this.propertyId).subscribe({
+    this.propertyService.getProperty(this.propertyId()).subscribe({
       next: (property) => this.propertyMoveOutNoticeDate.set(property.moveOutNoticeDate ?? null),
     });
   }
 
-  protected close(): void {
+  protected override close(): void {
     this.showForm.set(false);
-    this.closed.emit();
+    super.close();
   }
 
   protected startAdd(): void {
@@ -190,8 +188,8 @@ export class LeaseDrawer implements OnChanges {
 
     const leaseId = this.editingLeaseId();
     const call = leaseId
-      ? this.leaseService.updateLease(this.propertyId, leaseId, request)
-      : this.leaseService.createLease(this.propertyId, request);
+      ? this.leaseService.updateLease(this.propertyId(), leaseId, request)
+      : this.leaseService.createLease(this.propertyId(), request);
 
     call.subscribe({
       next: () => {
@@ -209,7 +207,7 @@ export class LeaseDrawer implements OnChanges {
   }
 
   protected deleteLease(lease: LeaseResponse): void {
-    this.leaseService.deleteLease(this.propertyId, lease.id).subscribe({
+    this.leaseService.deleteLease(this.propertyId(), lease.id).subscribe({
       next: () => {
         this.toastService.show('leases.drawer.removedToast');
         this.loadLeases();
@@ -233,7 +231,7 @@ export class LeaseDrawer implements OnChanges {
     }
 
     this.creatingMoveInCharge.set(true);
-    this.leaseService.createMoveInCharge(this.propertyId, lease.id, { moveInDate: this.moveInDate() }).subscribe({
+    this.leaseService.createMoveInCharge(this.propertyId(), lease.id, { moveInDate: this.moveInDate() }).subscribe({
       next: () => {
         this.creatingMoveInCharge.set(false);
         this.moveInChargeLeaseId.set(null);
@@ -255,7 +253,7 @@ export class LeaseDrawer implements OnChanges {
 
   private loadLeases(): void {
     this.loading.set(true);
-    this.leaseService.listLeases(this.propertyId).subscribe({
+    this.leaseService.listLeases(this.propertyId()).subscribe({
       next: (leases) => {
         this.leases.set(leases);
         this.loading.set(false);
@@ -265,7 +263,7 @@ export class LeaseDrawer implements OnChanges {
   }
 
   private loadResidents(): void {
-    this.residentService.listResidents(this.propertyId).subscribe({
+    this.residentService.listResidents(this.propertyId()).subscribe({
       next: (residents) => this.residents.set(residents),
     });
   }

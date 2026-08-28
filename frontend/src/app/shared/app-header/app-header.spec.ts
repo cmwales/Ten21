@@ -96,4 +96,15 @@ describe('AppHeader', () => {
     component['closeWorkspaceMenu']();
     expect(component['workspaceMenuOpen']()).toBe(false);
   });
+
+  it('toggleMobileMenu()/closeMobileMenu() control the mobile hamburger nav open state', () => {
+    const component = createComponent();
+    expect(component['mobileMenuOpen']()).toBe(false);
+
+    component['toggleMobileMenu']();
+    expect(component['mobileMenuOpen']()).toBe(true);
+
+    component['closeMobileMenu']();
+    expect(component['mobileMenuOpen']()).toBe(false);
+  });
 });

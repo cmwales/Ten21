@@ -1,8 +1,9 @@
-import { Component, EventEmitter, Input, Output, inject, signal } from '@angular/core';
+import { Component, inject, input, output, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { TranslatePipe } from '@ngx-translate/core';
 import { RefundTenderTypes, RefundTenderTypeValue } from '../../../core/models/ledger.models';
 import { DepositService } from '../../../core/services/deposit.service';
+import { ModalBase } from '../../../shared/modal-base';
 import { ToastService } from '../../../core/services/toast.service';
 
 /**
@@ -16,12 +17,10 @@ import { ToastService } from '../../../core/services/toast.service';
   imports: [ReactiveFormsModule, TranslatePipe],
   templateUrl: './settle-deposit-modal.html',
 })
-export class SettleDepositModal {
-  @Input({ required: true }) propertyId!: string;
-  @Input({ required: true }) depositId!: string;
-  @Input() open = false;
-  @Output() closed = new EventEmitter<void>();
-  @Output() saved = new EventEmitter<void>();
+export class SettleDepositModal extends ModalBase {
+  readonly propertyId = input.required<string>();
+  readonly depositId = input.required<string>();
+  readonly saved = output<void>();
 
   private readonly fb = inject(FormBuilder);
   private readonly depositService = inject(DepositService);
@@ -35,10 +34,6 @@ export class SettleDepositModal {
     referenceNumber: this.fb.control<string | null>(null),
   });
 
-  protected close(): void {
-    this.closed.emit();
-  }
-
   protected save(): void {
     if (this.submitting()) {
       return;
@@ -46,7 +41,7 @@ export class SettleDepositModal {
 
     this.submitting.set(true);
     const raw = this.form.getRawValue();
-    this.depositService.settleDeposit(this.propertyId, this.depositId, raw).subscribe({
+    this.depositService.settleDeposit(this.propertyId(), this.depositId(), raw).subscribe({
       next: (result) => {
         this.submitting.set(false);
         this.toastService.show(

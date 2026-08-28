@@ -1,9 +1,10 @@
-import { Component, EventEmitter, Input, OnChanges, Output, SimpleChanges, inject, signal } from '@angular/core';
+import { Component, inject, input, output, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { TranslatePipe } from '@ngx-translate/core';
 import { ResidentResponse } from '../../../core/models/resident.models';
 import { DepositService } from '../../../core/services/deposit.service';
 import { ResidentService } from '../../../core/services/resident.service';
+import { ModalBase } from '../../../shared/modal-base';
 import { ToastService } from '../../../core/services/toast.service';
 
 /**
@@ -17,11 +18,9 @@ import { ToastService } from '../../../core/services/toast.service';
   imports: [ReactiveFormsModule, TranslatePipe],
   templateUrl: './collect-deposit-modal.html',
 })
-export class CollectDepositModal implements OnChanges {
-  @Input({ required: true }) propertyId!: string;
-  @Input() open = false;
-  @Output() closed = new EventEmitter<void>();
-  @Output() saved = new EventEmitter<void>();
+export class CollectDepositModal extends ModalBase {
+  readonly propertyId = input.required<string>();
+  readonly saved = output<void>();
 
   private readonly fb = inject(FormBuilder);
   private readonly depositService = inject(DepositService);
@@ -37,17 +36,11 @@ export class CollectDepositModal implements OnChanges {
     residentProfileId: [''],
   });
 
-  ngOnChanges(changes: SimpleChanges): void {
-    if (changes['open'] && this.open) {
-      this.form.reset({ amount: 0, collectedDate: '', residentProfileId: '' });
-      this.residentService.listResidents(this.propertyId).subscribe({
-        next: (residents) => this.residents.set(residents),
-      });
-    }
-  }
-
-  protected close(): void {
-    this.closed.emit();
+  protected override onOpen(): void {
+    this.form.reset({ amount: 0, collectedDate: '', residentProfileId: '' });
+    this.residentService.listResidents(this.propertyId()).subscribe({
+      next: (residents) => this.residents.set(residents),
+    });
   }
 
   protected save(): void {
@@ -59,7 +52,7 @@ export class CollectDepositModal implements OnChanges {
     this.submitting.set(true);
     const raw = this.form.getRawValue();
     this.depositService
-      .collectDeposit(this.propertyId, {
+      .collectDeposit(this.propertyId(), {
         amount: raw.amount,
         collectedDate: raw.collectedDate,
         residentProfileId: raw.residentProfileId || null,

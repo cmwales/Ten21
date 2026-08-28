@@ -126,6 +126,8 @@
     "properties": "Properties",
     "adminSettings": "Settings",
     "logout": "Log out",
+    "openMenu": "Open menu",
+    "closeMenu": "Close menu",
     "workspaceSwitcher": {
       "loading": "Loading workspace…",
       "noOtherWorkspaces": "No other workspaces yet."
@@ -203,7 +205,9 @@
       "allowTenantDirectoryHint": "Lets opted-in residents see each other's name and unit -- never contact info.",
       "save": "Save",
       "saving": "Saving…",
+      "saveTooltip": "Save changes and return to list",
       "apply": "Apply",
+      "applyTooltip": "Save changes and stay on page",
       "cancel": "Cancel",
       "savedToast": "Property saved.",
       "validationError": "Please check the highlighted fields and try again.",
@@ -479,6 +483,7 @@
     "statement": {
       "title": "Unit Statement",
       "backToProperty": "Back to Property",
+      "moreActions": "More actions",
       "logPayment": "Log Payment",
       "applyCredits": "Apply Credits to Charges",
       "applyingCredits": "Applying…",

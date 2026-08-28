@@ -37,20 +37,45 @@
               {{ 'ledger.statement.refundCredit' | translate }}
             </button>
           }
-          <button
-            type="button"
-            (click)="collectDepositModalOpen.set(true)"
-            class="tap-target flex items-center rounded-md border border-white/40 px-4 py-2 font-semibold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
-          >
-            {{ 'deposits.collectDeposit' | translate }}
-          </button>
-          <a
-            [routerLink]="['/properties', propertyId(), 'ledger', 'pdf']"
-            [queryParams]="{ type: 'statement', range: 'Lifetime' }"
-            class="tap-target flex items-center rounded-md border border-white/40 px-4 py-2 font-semibold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
-          >
-            {{ 'pdfViewer.downloadStatement' | translate }}
-          </a>
+          <div class="relative">
+            <button
+              type="button"
+              (click)="toggleMoreActionsMenu()"
+              [attr.aria-expanded]="moreActionsMenuOpen()"
+              aria-haspopup="true"
+              [attr.aria-label]="'ledger.statement.moreActions' | translate"
+              class="tap-target flex items-center rounded-md border border-white/40 px-3 font-semibold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
+            >
+              <span aria-hidden="true" class="text-lg leading-none">&#8942;</span>
+            </button>
+
+            @if (moreActionsMenuOpen()) {
+              <div class="fixed inset-0 z-10" (click)="closeMoreActionsMenu()"></div>
+
+              <div
+                class="absolute right-0 z-20 mt-2 w-56 rounded-md border border-slate-navy/10 bg-surface-card py-1 shadow-xl"
+                role="menu"
+              >
+                <button
+                  type="button"
+                  role="menuitem"
+                  (click)="collectDepositModalOpen.set(true); closeMoreActionsMenu()"
+                  class="tap-target flex w-full items-center px-4 py-2 text-left text-sm font-medium text-slate-navy hover:bg-slate-navy/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
+                >
+                  {{ 'deposits.collectDeposit' | translate }}
+                </button>
+                <a
+                  role="menuitem"
+                  [routerLink]="['/properties', propertyId(), 'ledger', 'pdf']"
+                  [queryParams]="{ type: 'statement', range: 'Lifetime' }"
+                  (click)="closeMoreActionsMenu()"
+                  class="tap-target flex items-center px-4 py-2 text-sm font-medium text-slate-navy hover:bg-slate-navy/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
+                >
+                  {{ 'pdfViewer.downloadStatement' | translate }}
+                </a>
+              </div>
+            }
+          </div>
           <a
             [routerLink]="['/properties', propertyId()]"
             class="tap-target flex items-center rounded-md border border-white/40 px-4 py-2 font-semibold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
@@ -109,13 +134,13 @@
                 [class.text-rose]="statement()!.balance > 0"
                 [class.text-emerald]="statement()!.balance <= 0"
               >
-                ${{ statement()!.balance }}
+                {{ statement()!.balance | currency }}
               </p>
             </div>
             <div class="flex flex-col items-end gap-2">
               @if (statement()!.availableCredit > 0) {
                 <span class="rounded-full bg-emerald px-3 py-1.5 text-sm font-semibold text-white">
-                  {{ 'ledger.statement.availableCredit' | translate }}: ${{ statement()!.availableCredit }}
+                  {{ 'ledger.statement.availableCredit' | translate }}: {{ statement()!.availableCredit | currency }}
                 </span>
               }
               @if (statement()!.accountStatus === 'TerminatedWithBalance') {
@@ -167,10 +192,10 @@
                             {{ 'charges.paymentStatuses.' + item.charge.paymentStatus | translate }}
                           </span>
                         }
-                        <span class="font-semibold text-slate-navy">${{ item.charge.amount }}</span>
+                        <span class="font-semibold text-slate-navy">{{ item.charge.amount | currency }}</span>
                       </div>
                       <span class="text-xs text-slate-navy-light">
-                        {{ 'ledger.statement.runningBalance' | translate }}: ${{ line.runningBalance }}
+                        {{ 'ledger.statement.runningBalance' | translate }}: {{ line.runningBalance | currency }}
                       </span>
                     </div>
                   </div>
@@ -184,7 +209,7 @@
                             [class.text-rose]="adjustment.adjustmentType === 'DebitAdjustment'"
                             [class.text-emerald]="adjustment.adjustmentType === 'CreditAdjustment'"
                           >
-                            {{ 'ledger.statement.adjustmentTypes.' + adjustment.adjustmentType | translate }}: ${{ adjustment.amount }}
+                            {{ 'ledger.statement.adjustmentTypes.' + adjustment.adjustmentType | translate }}: {{ adjustment.amount | currency }}
                           </span>
                           <span class="text-slate-navy-light"> &mdash; {{ adjustment.reason }}</span>
                         </div>
@@ -207,9 +232,9 @@
                       <p class="text-xs text-slate-navy-light">{{ 'ledger.statement.paidBy' | translate }}: {{ payment.residentName }}</p>
                     </div>
                     <div class="flex flex-col items-end gap-1">
-                      <span class="font-semibold text-emerald">${{ payment.amountPaid }}</span>
+                      <span class="font-semibold text-emerald">{{ payment.amountPaid | currency }}</span>
                       <span class="text-xs text-slate-navy-light">
-                        {{ 'ledger.statement.runningBalance' | translate }}: ${{ line.runningBalance }}
+                        {{ 'ledger.statement.runningBalance' | translate }}: {{ line.runningBalance | currency }}
                       </span>
                     </div>
                   </div>
@@ -241,7 +266,7 @@
                   </div>
                   @if (payment.unallocatedAmount > 0) {
                     <p class="mt-2 text-xs font-semibold text-emerald">
-                      {{ 'ledger.statement.creditRemaining' | translate }}: ${{ payment.unallocatedAmount }}
+                      {{ 'ledger.statement.creditRemaining' | translate }}: {{ payment.unallocatedAmount | currency }}
                     </p>
                   }
                 </div>
@@ -278,7 +303,7 @@
                     <p class="font-semibold text-slate-navy">{{ credit.chargeDescription }}</p>
                     <p class="text-xs text-slate-navy-light">{{ credit.appliedDate }}</p>
                   </div>
-                  <span class="font-semibold text-emerald">${{ credit.appliedAmount }}</span>
+                  <span class="font-semibold text-emerald">{{ credit.appliedAmount | currency }}</span>
                 </div>
               }
             </div>
@@ -301,7 +326,7 @@
                         <p class="text-xs text-slate-navy-light">{{ 'ledger.statement.reference' | translate }}: {{ refund.referenceNumber }}</p>
                       }
                     </div>
-                    <span class="font-semibold text-rose">${{ refund.amount }}</span>
+                    <span class="font-semibold text-rose">{{ refund.amount | currency }}</span>
                   </div>
                 </div>
               }
@@ -332,7 +357,7 @@
                       >
                         {{ 'deposits.statuses.' + deposit.status | translate }}
                       </span>
-                      <span class="font-semibold text-slate-navy">${{ deposit.amountHeld }} / ${{ deposit.originalAmount }}</span>
+                      <span class="font-semibold text-slate-navy">{{ deposit.amountHeld | currency }} / {{ deposit.originalAmount | currency }}</span>
                       @if (deposit.status === 'Held') {
                         <button
                           type="button"

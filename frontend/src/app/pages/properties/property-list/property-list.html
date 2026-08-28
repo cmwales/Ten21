@@ -111,7 +111,7 @@
                       </span>
                     </td>
                     <td class="px-4 py-3 text-slate-navy">
-                      {{ property.targetRent !== null ? ('$' + property.targetRent) : ('properties.list.noTargetRent' | translate) }}
+                      {{ property.targetRent !== null ? (property.targetRent | currency) : ('properties.list.noTargetRent' | translate) }}
                     </td>
                     <td class="px-4 py-3 text-right">
                       <a

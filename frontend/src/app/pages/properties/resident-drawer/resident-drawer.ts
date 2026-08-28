@@ -1,8 +1,9 @@
-import { Component, EventEmitter, Input, OnChanges, Output, SimpleChanges, inject, signal } from '@angular/core';
+import { Component, inject, input, signal } from '@angular/core';
 import { FormArray, FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { TranslatePipe } from '@ngx-translate/core';
 import { OccupantTypeValue, OccupantTypes, ResidentResponse, UpsertResidentRequest } from '../../../core/models/resident.models';
 import { ResidentService } from '../../../core/services/resident.service';
+import { ModalBase } from '../../../shared/modal-base';
 import { ToastService } from '../../../core/services/toast.service';
 
 interface EmergencyContactControls {
@@ -35,10 +36,8 @@ interface ResidentFormControls {
   imports: [ReactiveFormsModule, TranslatePipe],
   templateUrl: './resident-drawer.html',
 })
-export class ResidentDrawer implements OnChanges {
-  @Input({ required: true }) propertyId!: string;
-  @Input() open = false;
-  @Output() closed = new EventEmitter<void>();
+export class ResidentDrawer extends ModalBase {
+  readonly propertyId = input.required<string>();
 
   private readonly fb = inject(FormBuilder);
   private readonly residentService = inject(ResidentService);
@@ -53,15 +52,13 @@ export class ResidentDrawer implements OnChanges {
 
   protected form: FormGroup<ResidentFormControls> = this.buildForm();
 
-  ngOnChanges(changes: SimpleChanges): void {
-    if (changes['open'] && this.open) {
-      this.loadResidents();
-    }
+  protected override onOpen(): void {
+    this.loadResidents();
   }
 
-  protected close(): void {
+  protected override close(): void {
     this.showForm.set(false);
-    this.closed.emit();
+    super.close();
   }
 
   protected startAdd(): void {
@@ -139,8 +136,8 @@ export class ResidentDrawer implements OnChanges {
 
     const residentId = this.editingResidentId();
     const call = residentId
-      ? this.residentService.updateResident(this.propertyId, residentId, request)
-      : this.residentService.createResident(this.propertyId, request);
+      ? this.residentService.updateResident(this.propertyId(), residentId, request)
+      : this.residentService.createResident(this.propertyId(), request);
 
     call.subscribe({
       next: () => {
@@ -158,7 +155,7 @@ export class ResidentDrawer implements OnChanges {
   }
 
   protected deleteResident(resident: ResidentResponse): void {
-    this.residentService.deleteResident(this.propertyId, resident.id).subscribe({
+    this.residentService.deleteResident(this.propertyId(), resident.id).subscribe({
       next: () => {
         this.toastService.show('residents.drawer.removedToast');
         this.loadResidents();
@@ -169,7 +166,7 @@ export class ResidentDrawer implements OnChanges {
 
   private loadResidents(): void {
     this.loading.set(true);
-    this.residentService.listResidents(this.propertyId).subscribe({
+    this.residentService.listResidents(this.propertyId()).subscribe({
       next: (residents) => {
         this.residents.set(residents);
         this.loading.set(false);

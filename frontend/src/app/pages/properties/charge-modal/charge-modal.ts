@@ -1,9 +1,11 @@
-import { Component, EventEmitter, Input, OnChanges, Output, SimpleChanges, inject, signal } from '@angular/core';
+import { CurrencyPipe } from '@angular/common';
+import { Component, inject, input, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { TranslatePipe } from '@ngx-translate/core';
 import { ChargeCategories, ChargeCategoryValue, ChargeResponse } from '../../../core/models/charge.models';
 import { AdjustmentTypes, AdjustmentTypeValue } from '../../../core/models/ledger.models';
 import { ChargeService } from '../../../core/services/charge.service';
+import { ModalBase } from '../../../shared/modal-base';
 import { ToastService } from '../../../core/services/toast.service';
 
 /**
@@ -23,13 +25,11 @@ import { ToastService } from '../../../core/services/toast.service';
  */
 @Component({
   selector: 'app-charge-modal',
-  imports: [ReactiveFormsModule, TranslatePipe],
+  imports: [ReactiveFormsModule, TranslatePipe, CurrencyPipe],
   templateUrl: './charge-modal.html',
 })
-export class ChargeModal implements OnChanges {
-  @Input({ required: true }) propertyId!: string;
-  @Input() open = false;
-  @Output() closed = new EventEmitter<void>();
+export class ChargeModal extends ModalBase {
+  readonly propertyId = input.required<string>();
 
   private readonly fb = inject(FormBuilder);
   private readonly chargeService = inject(ChargeService);
@@ -58,16 +58,14 @@ export class ChargeModal implements OnChanges {
     reason: ['', [Validators.required, Validators.maxLength(500)]],
   });
 
-  ngOnChanges(changes: SimpleChanges): void {
-    if (changes['open'] && this.open) {
-      this.loadCharges();
-    }
+  protected override onOpen(): void {
+    this.loadCharges();
   }
 
-  protected close(): void {
+  protected override close(): void {
     this.showForm.set(false);
     this.adjustingCharge.set(null);
-    this.closed.emit();
+    super.close();
   }
 
   protected startAdd(): void {
@@ -96,7 +94,7 @@ export class ChargeModal implements OnChanges {
 
     this.submitting.set(true);
     const raw = this.adjustmentForm.getRawValue();
-    this.chargeService.createAdjustment(this.propertyId, this.adjustingCharge()!.id, raw).subscribe({
+    this.chargeService.createAdjustment(this.propertyId(), this.adjustingCharge()!.id, raw).subscribe({
       next: () => {
         this.submitting.set(false);
         this.adjustingCharge.set(null);
@@ -111,7 +109,7 @@ export class ChargeModal implements OnChanges {
   }
 
   protected voidCharge(charge: ChargeResponse): void {
-    this.chargeService.voidCharge(this.propertyId, charge.id).subscribe({
+    this.chargeService.voidCharge(this.propertyId(), charge.id).subscribe({
       next: () => {
         this.toastService.show('charges.modal.voidedToast');
         this.loadCharges();
@@ -129,7 +127,7 @@ export class ChargeModal implements OnChanges {
     this.submitting.set(true);
     const raw = this.form.getRawValue();
     this.chargeService
-      .createCharge(this.propertyId, {
+      .createCharge(this.propertyId(), {
         description: raw.description,
         amount: raw.amount,
         dueDate: raw.dueDate,
@@ -152,7 +150,7 @@ export class ChargeModal implements OnChanges {
   }
 
   protected deleteCharge(charge: ChargeResponse): void {
-    this.chargeService.deleteCharge(this.propertyId, charge.id).subscribe({
+    this.chargeService.deleteCharge(this.propertyId(), charge.id).subscribe({
       next: () => {
         this.toastService.show('charges.modal.removedToast');
         this.loadCharges();
@@ -163,7 +161,7 @@ export class ChargeModal implements OnChanges {
 
   private loadCharges(): void {
     this.loading.set(true);
-    this.chargeService.listCharges(this.propertyId).subscribe({
+    this.chargeService.listCharges(this.propertyId()).subscribe({
       next: (charges) => {
         this.charges.set(charges);
         this.loading.set(false);

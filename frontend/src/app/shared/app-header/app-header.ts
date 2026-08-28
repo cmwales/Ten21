@@ -36,6 +36,10 @@ export class AppHeader implements OnInit {
   protected readonly workspaces = signal<TenantMembershipSummary[]>([]);
   protected readonly workspaceMenuOpen = signal(false);
   protected readonly switching = signal(false);
+  /** Audit Refinement Sprint: the header's nav links (up to 5: Dashboard, Ledger, Properties,
+   * Settings, Logout) had no responsive treatment and would crowd/overflow on narrow
+   * viewports. Below the `md` breakpoint they collapse behind this hamburger toggle instead. */
+  protected readonly mobileMenuOpen = signal(false);
 
   protected readonly activeWorkspaceName = computed(() => {
     const tenantId = this.authService.tenantId();
@@ -59,6 +63,14 @@ export class AppHeader implements OnInit {
 
   protected closeWorkspaceMenu(): void {
     this.workspaceMenuOpen.set(false);
+  }
+
+  protected toggleMobileMenu(): void {
+    this.mobileMenuOpen.update((open) => !open);
+  }
+
+  protected closeMobileMenu(): void {
+    this.mobileMenuOpen.set(false);
   }
 
   protected switchWorkspace(tenantId: string): void {

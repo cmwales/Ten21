@@ -126,6 +126,8 @@
     "properties": "Propriétés",
     "adminSettings": "Paramètres",
     "logout": "Déconnexion",
+    "openMenu": "Ouvrir le menu",
+    "closeMenu": "Fermer le menu",
     "workspaceSwitcher": {
       "loading": "Chargement de l'espace de travail…",
       "noOtherWorkspaces": "Aucun autre espace de travail pour l'instant."
@@ -203,7 +205,9 @@
       "allowTenantDirectoryHint": "Permet aux résidents inscrits de voir le nom et l'unité des autres -- jamais leurs coordonnées.",
       "save": "Enregistrer",
       "saving": "Enregistrement…",
+      "saveTooltip": "Enregistrer les modifications et retourner à la liste",
       "apply": "Appliquer",
+      "applyTooltip": "Enregistrer les modifications et rester sur la page",
       "cancel": "Annuler",
       "savedToast": "Propriété enregistrée.",
       "validationError": "Veuillez vérifier les champs surlignés et réessayer.",
@@ -479,6 +483,7 @@
     "statement": {
       "title": "Relevé de l'Unité",
       "backToProperty": "Retour à la Propriété",
+      "moreActions": "Plus d'actions",
       "logPayment": "Enregistrer un Paiement",
       "applyCredits": "Appliquer les Crédits aux Frais",
       "applyingCredits": "Application en cours…",

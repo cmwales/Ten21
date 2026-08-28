@@ -1,6 +1,8 @@
-import { Component, EventEmitter, Input, Output } from '@angular/core';
+import { CurrencyPipe } from '@angular/common';
+import { Component, input } from '@angular/core';
 import { TranslatePipe } from '@ngx-translate/core';
 import { PaymentTransactionResponse } from '../../../core/models/ledger.models';
+import { ModalBase } from '../../../shared/modal-base';
 
 /**
  * Directive 2 (Refinement Sprint): a dedicated "Payment Details" view of one already-logged
@@ -11,15 +13,9 @@ import { PaymentTransactionResponse } from '../../../core/models/ledger.models';
  */
 @Component({
   selector: 'app-payment-details-modal',
-  imports: [TranslatePipe],
+  imports: [TranslatePipe, CurrencyPipe],
   templateUrl: './payment-details-modal.html',
 })
-export class PaymentDetailsModal {
-  @Input({ required: true }) payment!: PaymentTransactionResponse;
-  @Input() open = false;
-  @Output() closed = new EventEmitter<void>();
-
-  protected close(): void {
-    this.closed.emit();
-  }
+export class PaymentDetailsModal extends ModalBase {
+  readonly payment = input.required<PaymentTransactionResponse>();
 }

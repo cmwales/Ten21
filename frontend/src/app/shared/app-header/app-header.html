@@ -45,7 +45,9 @@
     }
   </div>
 
-  <nav class="flex items-center gap-4 text-sm text-white">
+  <!-- Audit Refinement Sprint: full link set stays inline at md+; below that it collapses
+       behind the hamburger toggle so up to 5 items never crowd/overflow a narrow viewport. -->
+  <nav class="hidden items-center gap-4 text-sm text-white md:flex">
     <a
       routerLink="/dashboard"
       class="tap-target flex items-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
@@ -84,4 +86,64 @@
       {{ 'nav.logout' | translate }}
     </button>
   </nav>
+
+  <button
+    type="button"
+    (click)="toggleMobileMenu()"
+    [attr.aria-expanded]="mobileMenuOpen()"
+    aria-controls="app-header-mobile-nav"
+    [attr.aria-label]="(mobileMenuOpen() ? 'nav.closeMenu' : 'nav.openMenu') | translate"
+    class="tap-target flex items-center justify-center rounded-md text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald md:hidden"
+  >
+    <span aria-hidden="true" class="text-2xl leading-none">{{ mobileMenuOpen() ? '×' : '☰' }}</span>
+  </button>
+
+  @if (mobileMenuOpen()) {
+    <nav
+      id="app-header-mobile-nav"
+      class="absolute inset-x-0 top-full z-20 flex flex-col gap-1 bg-slate-navy px-4 pb-4 text-sm text-white shadow-xl md:hidden"
+    >
+      <a
+        routerLink="/dashboard"
+        (click)="closeMobileMenu()"
+        class="tap-target flex items-center rounded-md px-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
+      >
+        {{ 'nav.dashboard' | translate }}
+      </a>
+      @if (!isTenant()) {
+        <a
+          routerLink="/ledger"
+          (click)="closeMobileMenu()"
+          class="tap-target flex items-center rounded-md px-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
+        >
+          {{ 'nav.ledger' | translate }}
+        </a>
+      }
+      @if (canManageProperties()) {
+        <a
+          routerLink="/properties"
+          (click)="closeMobileMenu()"
+          class="tap-target flex items-center rounded-md px-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
+        >
+          {{ 'nav.properties' | translate }}
+        </a>
+      }
+      @if (canManageWorkspaceSettings()) {
+        <a
+          routerLink="/admin/settings"
+          (click)="closeMobileMenu()"
+          class="tap-target flex items-center rounded-md px-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
+        >
+          {{ 'nav.adminSettings' | translate }}
+        </a>
+      }
+      <button
+        type="button"
+        (click)="logout()"
+        class="tap-target flex items-center rounded-md bg-slate-navy-light px-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
+      >
+        {{ 'nav.logout' | translate }}
+      </button>
+    </nav>
+  }
 </header>

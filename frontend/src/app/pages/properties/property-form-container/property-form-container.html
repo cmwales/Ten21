@@ -65,6 +65,7 @@
               type="button"
               [disabled]="submitting()"
               (click)="apply()"
+              [appTooltip]="'properties.form.applyTooltip' | translate"
               class="tap-target rounded-md border border-emerald px-4 py-2 font-semibold text-emerald focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald disabled:opacity-60"
             >
               {{ 'properties.form.apply' | translate }}
@@ -72,6 +73,7 @@
             <button
               type="submit"
               [disabled]="submitting()"
+              [appTooltip]="'properties.form.saveTooltip' | translate"
               class="tap-target rounded-md bg-emerald px-4 py-2 font-semibold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald disabled:opacity-60"
             >
               {{ (submitting() ? 'properties.form.saving' : 'properties.form.save') | translate }}
