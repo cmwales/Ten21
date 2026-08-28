@@ -124,6 +124,7 @@
     "dashboard": "Panel",
     "ledger": "Libro contable",
     "properties": "Propiedades",
+    "directory": "Directorio",
     "adminSettings": "Configuración",
     "logout": "Cerrar sesión",
     "openMenu": "Abrir menú",
@@ -551,6 +552,13 @@
       "Last12Months": "Últimos 12 Meses"
     },
     "loadError": "Algo salió mal al cargar este PDF."
+  },
+  "directory": {
+    "title": "Directorio Comunitario",
+    "subtitle": "Vecinos en su dirección que optaron por aparecer aquí.",
+    "empty": "Aún ningún vecino ha optado por aparecer en el directorio.",
+    "disabled": "El directorio comunitario no está disponible para su propiedad en este momento.",
+    "loadError": "Algo salió mal al cargar el directorio."
   },
   "admin": {
     "settings": {

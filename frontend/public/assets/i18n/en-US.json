@@ -124,6 +124,7 @@
     "dashboard": "Dashboard",
     "ledger": "Ledger",
     "properties": "Properties",
+    "directory": "Directory",
     "adminSettings": "Settings",
     "logout": "Log out",
     "openMenu": "Open menu",
@@ -551,6 +552,13 @@
       "Last12Months": "Last 12 Months"
     },
     "loadError": "Something went wrong loading this PDF."
+  },
+  "directory": {
+    "title": "Community Directory",
+    "subtitle": "Neighbors at your address who've opted in to be listed here.",
+    "empty": "No neighbors have opted into the directory yet.",
+    "disabled": "The community directory isn't available for your property right now.",
+    "loadError": "Something went wrong loading the directory."
   },
   "admin": {
     "settings": {

@@ -124,6 +124,7 @@
     "dashboard": "Tableau de bord",
     "ledger": "Grand livre",
     "properties": "Propriétés",
+    "directory": "Répertoire",
     "adminSettings": "Paramètres",
     "logout": "Déconnexion",
     "openMenu": "Ouvrir le menu",
@@ -551,6 +552,13 @@
       "Last12Months": "12 Derniers Mois"
     },
     "loadError": "Une erreur s'est produite lors du chargement de ce PDF."
+  },
+  "directory": {
+    "title": "Répertoire Communautaire",
+    "subtitle": "Voisins à votre adresse ayant choisi d'y figurer.",
+    "empty": "Aucun voisin n'a encore choisi de figurer dans le répertoire.",
+    "disabled": "Le répertoire communautaire n'est pas disponible pour votre propriété pour le moment.",
+    "loadError": "Une erreur s'est produite lors du chargement du répertoire."
   },
   "admin": {
     "settings": {

@@ -26,6 +26,12 @@ export class AppHeader implements OnInit {
     const role = this.authService.role();
     return role !== null && role !== RoleNames.Tenant && role !== RoleNames.Vendor;
   };
+  /** Mirrors Permissions.Directory.Read's grant list (RolePermissions.Bundles: Tenant and
+   * SuperAdmin only) -- see app.routes.ts's matching /directory route guard. */
+  protected readonly canViewDirectory = () => {
+    const role = this.authService.role();
+    return role === RoleNames.Tenant || role === RoleNames.SuperAdmin;
+  };
   /** Mirrors Permissions.Workspace.SettingsRead/Write's grant list -- see app.routes.ts's
    * matching admin/settings route guard. */
   protected readonly canManageWorkspaceSettings = () => {

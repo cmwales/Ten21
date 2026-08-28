@@ -77,6 +77,20 @@ describe('AppHeader', () => {
     expect(component['canManageProperties']()).toBe(false);
   });
 
+  it('canViewDirectory() is true only for Tenant and SuperAdmin', () => {
+    const component = createComponent();
+    expect(component['canViewDirectory']()).toBe(false);
+
+    authService.role.set('Tenant');
+    expect(component['canViewDirectory']()).toBe(true);
+
+    authService.role.set('SuperAdmin');
+    expect(component['canViewDirectory']()).toBe(true);
+
+    authService.role.set('Vendor');
+    expect(component['canViewDirectory']()).toBe(false);
+  });
+
   it('logout() calls AuthService and navigates to /login', () => {
     const component = createComponent();
 

@@ -121,6 +121,26 @@ export const routes: Routes = [
     loadComponent: () => import('./pages/properties/pdf-viewer/pdf-viewer').then((m) => m.PdfViewer),
   },
   {
+    // Audit Refinement Sprint: US-25's community directory -- Permissions.Directory.Read is
+    // only granted to Tenant and SuperAdmin (Permissions.All) in RolePermissions.Bundles, so
+    // every other role is denied here too, mirroring the API's own permission grant at the UI
+    // layer (same "hard-block at both layers" convention as the /ledger route above).
+    path: 'directory',
+    canActivate: [
+      authGuard,
+      denyRolesGuard([
+        RoleNames.PropertyManager,
+        RoleNames.BoardMember,
+        RoleNames.PropertyOwner,
+        RoleNames.Vendor,
+        RoleNames.CommitteeMember,
+        RoleNames.OnSiteStaff,
+        RoleNames.Accountant,
+      ]),
+    ],
+    loadComponent: () => import('./pages/directory/directory').then((m) => m.Directory),
+  },
+  {
     // Refinement Sprint (Directive 4): workspace-wide admin toggles. Matches
     // Permissions.Workspace.SettingsRead/Write's grant list (PropertyManager, BoardMember,
     // SuperAdmin) -- everyone else is denied at the UI layer too, mirroring the API's policy.
