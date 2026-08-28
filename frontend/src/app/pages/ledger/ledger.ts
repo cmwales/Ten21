@@ -1,3 +1,4 @@
+import { CurrencyPipe } from '@angular/common';
 import { Component, OnInit, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { TranslatePipe } from '@ngx-translate/core';
@@ -16,7 +17,7 @@ import { AppHeader } from '../../shared/app-header/app-header';
  */
 @Component({
   selector: 'app-ledger',
-  imports: [RouterLink, TranslatePipe, AppHeader],
+  imports: [RouterLink, TranslatePipe, AppHeader, CurrencyPipe],
   templateUrl: './ledger.html',
 })
 export class Ledger implements OnInit {

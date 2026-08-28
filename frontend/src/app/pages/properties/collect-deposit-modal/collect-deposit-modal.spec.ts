@@ -1,7 +1,6 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
-import { SimpleChange } from '@angular/core';
-import { TestBed } from '@angular/core/testing';
+import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ActivatedRoute } from '@angular/router';
 import { provideTranslateService } from '@ngx-translate/core';
 import { ApiResponse } from '../../../core/models/auth.models';
@@ -13,6 +12,7 @@ import { CollectDepositModal } from './collect-deposit-modal';
 describe('CollectDepositModal', () => {
   let httpMock: HttpTestingController;
   let toastService: { show: ReturnType<typeof vi.fn> };
+  let fixture: ComponentFixture<CollectDepositModal>;
 
   const resident: ResidentResponse = {
     id: 'resident-1',
@@ -54,15 +54,15 @@ describe('CollectDepositModal', () => {
     });
 
     httpMock = TestBed.inject(HttpTestingController);
-    const fixture = TestBed.createComponent(CollectDepositModal);
+    fixture = TestBed.createComponent(CollectDepositModal);
     const component = fixture.componentInstance;
-    component.propertyId = 'prop-1';
+    fixture.componentRef.setInput('propertyId', 'prop-1');
     return component;
   }
 
-  function open(component: CollectDepositModal): void {
-    component.open = true;
-    component.ngOnChanges({ open: new SimpleChange(false, true, false) });
+  function open(_component: CollectDepositModal): void {
+    fixture.componentRef.setInput('open', true);
+    TestBed.flushEffects();
     httpMock.expectOne('/api/properties/prop-1/residents').flush({
       success: true, data: [resident], message: null, statusCode: 200, traceId: 't1',
     } satisfies ApiResponse<ResidentResponse[]>);

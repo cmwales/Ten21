@@ -44,6 +44,15 @@ public class PropertyConfiguration : IEntityTypeConfiguration<Property>
         builder.HasIndex(p => p.UnitGroupId);
         builder.HasIndex(p => p.UnitTierId);
 
+        // Audit Refinement Sprint: PropertiesController.EnsureNoDuplicatePropertyAsync/
+        // MarkDuplicateRowsAsync query this exact 6-column tuple on every property
+        // create/update and on every row of a bulk import -- previously an unindexed full
+        // table scan per call. Not a unique index (deliberately, per
+        // EnsureNoDuplicatePropertyAsync's own comment: "not backed by a DB-level unique
+        // constraint (yet) -- this is the single app-level gate"), just a supporting index
+        // for the lookup itself.
+        builder.HasIndex(p => new { p.StreetAddress1, p.City, p.State, p.PostalCode, p.Country, p.UnitIdentifier });
+
         // TenantId index is also added generically for every ITenantScopedEntity in
         // Ten21DbContext.OnModelCreating; EF Core no-ops the duplicate definition, so this
         // comment stands in place of repeating it here.

@@ -68,8 +68,9 @@ public class OrganizationController : ControllerBase
 
         var memberships = await _dbContext.TenantMemberships
             .IgnoreQueryFilters()
+            .AsNoTracking()
             .Where(tm => tm.UserId == userId)
-            .Join(_dbContext.Tenants.IgnoreQueryFilters(),
+            .Join(_dbContext.Tenants.IgnoreQueryFilters().AsNoTracking(),
                 tm => tm.TenantId, t => t.Id,
                 (tm, t) => new { Membership = tm, Tenant = t })
             .ToListAsync(cancellationToken);

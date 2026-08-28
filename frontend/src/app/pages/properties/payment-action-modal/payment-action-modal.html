@@ -1,4 +1,4 @@
-@if (open) {
+@if (open()) {
   <div class="fixed inset-0 z-40 flex items-center justify-center bg-slate-navy/40 p-4" (click)="close()">
     <div
       class="flex max-h-[90vh] w-full max-w-md flex-col gap-6 overflow-y-auto rounded-xl bg-surface-card p-6 shadow-xl"
@@ -95,7 +95,7 @@
           <button
             type="submit"
             [disabled]="submitting()"
-            class="tap-target rounded-md bg-rose px-4 py-2 font-semibold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose disabled:opacity-60"
+            class="tap-target rounded-md bg-slate-navy px-4 py-2 font-semibold text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald disabled:opacity-60"
           >
             {{ (submitting() ? 'charges.form.saving' : 'payments.action.save') | translate }}
           </button>

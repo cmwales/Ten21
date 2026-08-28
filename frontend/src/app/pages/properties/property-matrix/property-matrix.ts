@@ -1,3 +1,4 @@
+import { CurrencyPipe } from '@angular/common';
 import { Component, ElementRef, OnInit, computed, inject, signal } from '@angular/core';
 import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { TranslatePipe } from '@ngx-translate/core';
@@ -32,7 +33,7 @@ const SAVED_INDICATOR_MS = 2000;
  */
 @Component({
   selector: 'app-property-matrix',
-  imports: [ReactiveFormsModule, FormsModule, TranslatePipe, AppHeader],
+  imports: [ReactiveFormsModule, FormsModule, TranslatePipe, AppHeader, CurrencyPipe],
   templateUrl: './property-matrix.html',
 })
 export class PropertyMatrix implements OnInit {

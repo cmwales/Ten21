@@ -1,4 +1,4 @@
-@if (open) {
+@if (open() && payment(); as payment) {
   <div class="fixed inset-0 z-40 flex items-center justify-center bg-slate-navy/40 p-4" (click)="close()">
     <div
       class="flex max-h-[90vh] w-full max-w-md flex-col gap-6 overflow-y-auto rounded-xl bg-surface-card p-6 shadow-xl"
@@ -24,7 +24,7 @@
             <p class="font-semibold text-slate-navy">{{ 'tenderTypes.' + payment.tenderType | translate }}</p>
             <p class="text-xs text-slate-navy-light">{{ payment.paymentDate }}</p>
           </div>
-          <span class="text-xl font-bold text-emerald">${{ payment.amountPaid }}</span>
+          <span class="text-xl font-bold text-emerald">{{ payment.amountPaid | currency }}</span>
         </div>
 
         @if (payment.status === 'Reversed') {
@@ -70,7 +70,7 @@
                 @for (allocation of payment.allocations; track allocation.chargeId) {
                   <tr class="border-b border-slate-navy/10 last:border-0">
                     <td class="py-1.5 pr-2 text-slate-navy">{{ allocation.chargeDescription }}</td>
-                    <td class="py-1.5 text-right font-semibold text-slate-navy">${{ allocation.allocatedAmount }}</td>
+                    <td class="py-1.5 text-right font-semibold text-slate-navy">{{ allocation.allocatedAmount | currency }}</td>
                   </tr>
                 }
               </tbody>
@@ -78,7 +78,7 @@
           }
           @if (payment.unallocatedAmount > 0) {
             <p class="mt-3 text-sm font-semibold text-emerald">
-              {{ 'ledger.statement.creditRemaining' | translate }}: ${{ payment.unallocatedAmount }}
+              {{ 'ledger.statement.creditRemaining' | translate }}: {{ payment.unallocatedAmount | currency }}
             </p>
           }
         </div>

@@ -1,7 +1,6 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
-import { SimpleChange } from '@angular/core';
-import { TestBed } from '@angular/core/testing';
+import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ActivatedRoute } from '@angular/router';
 import { provideTranslateService } from '@ngx-translate/core';
 import { ApiResponse } from '../../../core/models/auth.models';
@@ -12,6 +11,7 @@ import { ChargeModal } from './charge-modal';
 describe('ChargeModal', () => {
   let httpMock: HttpTestingController;
   let toastService: { show: ReturnType<typeof vi.fn> };
+  let fixture: ComponentFixture<ChargeModal>;
 
   const charge: ChargeResponse = {
     id: 'charge-1',
@@ -43,15 +43,15 @@ describe('ChargeModal', () => {
     });
 
     httpMock = TestBed.inject(HttpTestingController);
-    const fixture = TestBed.createComponent(ChargeModal);
+    fixture = TestBed.createComponent(ChargeModal);
     const component = fixture.componentInstance;
-    component.propertyId = 'prop-1';
+    fixture.componentRef.setInput('propertyId', 'prop-1');
     return component;
   }
 
-  function open(component: ChargeModal): void {
-    component.open = true;
-    component.ngOnChanges({ open: new SimpleChange(false, true, false) });
+  function open(_component: ChargeModal): void {
+    fixture.componentRef.setInput('open', true);
+    TestBed.flushEffects();
     httpMock.expectOne('/api/properties/prop-1/charges').flush({
       success: true, data: [charge], message: null, statusCode: 200, traceId: 't1',
     } satisfies ApiResponse<ChargeResponse[]>);
@@ -66,10 +66,10 @@ describe('ChargeModal', () => {
     expect(component['charges']()).toEqual([charge]);
   });
 
-  it('does not reload when open changes to false', () => {
-    const component = createComponent();
-    component.open = false;
-    component.ngOnChanges({ open: new SimpleChange(true, false, false) });
+  it('does not reload when open is false', () => {
+    createComponent();
+    fixture.componentRef.setInput('open', false);
+    TestBed.flushEffects();
 
     httpMock.expectNone('/api/properties/prop-1/charges');
   });

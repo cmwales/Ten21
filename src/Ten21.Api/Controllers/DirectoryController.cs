@@ -70,7 +70,7 @@ public class DirectoryController : ControllerBase
         var siblingPropertyIds = new HashSet<Guid>();
         foreach (var occupiedPropertyId in occupiedPropertyIds)
         {
-            var occupied = await _dbContext.Properties
+            var occupied = await _dbContext.Properties.AsNoTracking()
                 .FirstOrDefaultAsync(p => p.Id == occupiedPropertyId, cancellationToken);
             if (occupied is null)
             {

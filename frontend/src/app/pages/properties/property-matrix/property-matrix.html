@@ -16,7 +16,7 @@
               <li class="flex items-center justify-between py-2 text-sm">
                 <div>
                   <span class="font-medium text-slate-navy">{{ tier.tierName }}</span>
-                  <span class="ml-2 text-slate-navy-light">${{ tier.defaultRent }}</span>
+                  <span class="ml-2 text-slate-navy-light">{{ tier.defaultRent | currency }}</span>
                 </div>
                 <button
                   type="button"

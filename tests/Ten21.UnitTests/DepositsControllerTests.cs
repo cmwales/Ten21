@@ -48,7 +48,16 @@ public class DepositsControllerTests : IDisposable
         var db = new Ten21DbContext(options, tenantContext);
         db.Database.EnsureCreated();
 
-        return (db, new ChargesController(db, _sanitizer, _pdfService), new DepositsController(db, _sanitizer));
+        var authorizationService = TestAuthorizationService.Create(tenantContext);
+        var charges = new ChargesController(db, _sanitizer, _pdfService, authorizationService)
+        {
+            ControllerContext = TestControllerContext.Create(),
+        };
+        var deposits = new DepositsController(db, _sanitizer, authorizationService)
+        {
+            ControllerContext = TestControllerContext.Create(),
+        };
+        return (db, charges, deposits);
     }
 
     private static async Task<Property> SeedPropertyAsync(Ten21DbContext db)

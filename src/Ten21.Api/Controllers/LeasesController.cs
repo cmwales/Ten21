@@ -8,6 +8,7 @@ using Ten21.Domain.Common;
 using Ten21.Domain.Entities;
 using Ten21.Domain.Enums;
 using Ten21.Domain.Exceptions;
+using Ten21.Infrastructure.Authorization;
 using Ten21.Infrastructure.Persistence;
 
 namespace Ten21.Api.Controllers;
@@ -32,11 +33,13 @@ public class LeasesController : ControllerBase
 
     private readonly Ten21DbContext _dbContext;
     private readonly IInputSanitizer _sanitizer;
+    private readonly IAuthorizationService _authorizationService;
 
-    public LeasesController(Ten21DbContext dbContext, IInputSanitizer sanitizer)
+    public LeasesController(Ten21DbContext dbContext, IInputSanitizer sanitizer, IAuthorizationService authorizationService)
     {
         _dbContext = dbContext;
         _sanitizer = sanitizer;
+        _authorizationService = authorizationService;
     }
 
     [HttpGet]
@@ -45,7 +48,7 @@ public class LeasesController : ControllerBase
     {
         var property = await GetPropertyAsync(propertyId, cancellationToken);
 
-        var leases = await _dbContext.Leases
+        var leases = await _dbContext.Leases.AsNoTracking()
             .Include(l => l.RecurringCharges)
             .Where(l => l.PropertyId == propertyId)
             .OrderByDescending(l => l.StartDate)
@@ -59,8 +62,9 @@ public class LeasesController : ControllerBase
     public async Task<IActionResult> GetLease(Guid propertyId, Guid id, CancellationToken cancellationToken)
     {
         var property = await GetPropertyAsync(propertyId, cancellationToken);
-        var lease = await FindLeaseAsync(propertyId, id, cancellationToken)
-            ?? throw new NotFoundException($"Lease '{id}' was not found on this property.");
+        var lease = await _authorizationService.EnsureSameTenantAsync(
+            User, await FindLeaseAsync(propertyId, id, cancellationToken),
+            $"Lease '{id}' was not found on this property.", cancellationToken);
 
         return Ok(ToResponse(lease, lease.RecurringCharges.ToList(), property.MoveOutNoticeDate));
     }
@@ -106,8 +110,9 @@ public class LeasesController : ControllerBase
         await EnsureResidentBelongsToPropertyAsync(propertyId, request.ResidentId, cancellationToken);
         ValidateRequest(request);
 
-        var lease = await FindLeaseAsync(propertyId, id, cancellationToken)
-            ?? throw new NotFoundException($"Lease '{id}' was not found on this property.");
+        var lease = await _authorizationService.EnsureSameTenantAsync(
+            User, await FindLeaseAsync(propertyId, id, cancellationToken),
+            $"Lease '{id}' was not found on this property.", cancellationToken);
 
         lease.ResidentId = request.ResidentId;
         lease.StartDate = request.StartDate;
@@ -147,8 +152,9 @@ public class LeasesController : ControllerBase
     public async Task<IActionResult> CreateMoveInCharge(
         Guid propertyId, Guid id, [FromBody] CreateMoveInChargeRequest request, CancellationToken cancellationToken)
     {
-        var lease = await FindLeaseAsync(propertyId, id, cancellationToken)
-            ?? throw new NotFoundException($"Lease '{id}' was not found on this property.");
+        var lease = await _authorizationService.EnsureSameTenantAsync(
+            User, await FindLeaseAsync(propertyId, id, cancellationToken),
+            $"Lease '{id}' was not found on this property.", cancellationToken);
 
         if (request.MoveInDate < lease.StartDate || request.MoveInDate >= lease.EndDate)
         {
@@ -214,8 +220,9 @@ public class LeasesController : ControllerBase
     [Authorize(Policy = Permissions.Lease.Manage)]
     public async Task<IActionResult> DeleteLease(Guid propertyId, Guid id, CancellationToken cancellationToken)
     {
-        var lease = await FindLeaseAsync(propertyId, id, cancellationToken)
-            ?? throw new NotFoundException($"Lease '{id}' was not found on this property.");
+        var lease = await _authorizationService.EnsureSameTenantAsync(
+            User, await FindLeaseAsync(propertyId, id, cancellationToken),
+            $"Lease '{id}' was not found on this property.", cancellationToken);
 
         _dbContext.Leases.Remove(lease);
         await _dbContext.SaveChangesAsync(cancellationToken);
@@ -226,7 +233,7 @@ public class LeasesController : ControllerBase
     /// <summary>Also the source of MoveOutNoticeDate for ToResponse -- fetching the full row
     /// (not just an existence check) costs nothing extra here and every caller needs it.</summary>
     private async Task<Property> GetPropertyAsync(Guid propertyId, CancellationToken cancellationToken) =>
-        await _dbContext.Properties.FirstOrDefaultAsync(p => p.Id == propertyId, cancellationToken)
+        await _dbContext.Properties.AsNoTracking().FirstOrDefaultAsync(p => p.Id == propertyId, cancellationToken)
             ?? throw new NotFoundException($"Property '{propertyId}' was not found.");
 
     /// <summary>A resident is only ever attached to a lease on the SAME property their

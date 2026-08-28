@@ -32,7 +32,7 @@ public class UnitGroupsController : ControllerBase
     [Authorize(Policy = Permissions.Property.Read)]
     public async Task<IActionResult> GetUnitGroups(CancellationToken cancellationToken)
     {
-        var groups = await _dbContext.UnitGroups
+        var groups = await _dbContext.UnitGroups.AsNoTracking()
             .OrderBy(g => g.GroupName)
             .Select(g => ToResponse(g))
             .ToListAsync(cancellationToken);
@@ -44,7 +44,7 @@ public class UnitGroupsController : ControllerBase
     [Authorize(Policy = Permissions.Property.Read)]
     public async Task<IActionResult> GetUnitGroup(Guid id, CancellationToken cancellationToken)
     {
-        var group = await _dbContext.UnitGroups.FirstOrDefaultAsync(g => g.Id == id, cancellationToken)
+        var group = await _dbContext.UnitGroups.AsNoTracking().FirstOrDefaultAsync(g => g.Id == id, cancellationToken)
             ?? throw new NotFoundException($"Unit group '{id}' was not found.");
 
         return Ok(ToResponse(group));

@@ -1,7 +1,6 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
-import { SimpleChange } from '@angular/core';
-import { TestBed } from '@angular/core/testing';
+import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ActivatedRoute } from '@angular/router';
 import { provideTranslateService } from '@ngx-translate/core';
 import { ApiResponse } from '../../../core/models/auth.models';
@@ -14,6 +13,7 @@ import { PaymentActionModal } from './payment-action-modal';
 describe('PaymentActionModal', () => {
   let httpMock: HttpTestingController;
   let toastService: { show: ReturnType<typeof vi.fn> };
+  let fixture: ComponentFixture<PaymentActionModal>;
 
   const otherProperty: PropertyListItemDto = {
     id: 'prop-2',
@@ -74,16 +74,16 @@ describe('PaymentActionModal', () => {
     });
 
     httpMock = TestBed.inject(HttpTestingController);
-    const fixture = TestBed.createComponent(PaymentActionModal);
+    fixture = TestBed.createComponent(PaymentActionModal);
     const component = fixture.componentInstance;
-    component.propertyId = 'prop-1';
-    component.paymentId = 'payment-1';
+    fixture.componentRef.setInput('propertyId', 'prop-1');
+    fixture.componentRef.setInput('paymentId', 'payment-1');
     return component;
   }
 
-  function open(component: PaymentActionModal): void {
-    component.open = true;
-    component.ngOnChanges({ open: new SimpleChange(false, true, false) });
+  function open(_component: PaymentActionModal): void {
+    fixture.componentRef.setInput('open', true);
+    TestBed.flushEffects();
     httpMock.expectOne('/api/properties').flush({
       success: true,
       data: { items: [otherProperty], totalCount: 1, pageNumber: 1, pageSize: 50 },

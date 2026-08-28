@@ -1,7 +1,6 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
-import { SimpleChange } from '@angular/core';
-import { TestBed } from '@angular/core/testing';
+import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ActivatedRoute } from '@angular/router';
 import { provideTranslateService } from '@ngx-translate/core';
 import { ApiResponse } from '../../../core/models/auth.models';
@@ -13,6 +12,7 @@ import { RefundCreditModal } from './refund-credit-modal';
 describe('RefundCreditModal', () => {
   let httpMock: HttpTestingController;
   let toastService: { show: ReturnType<typeof vi.fn> };
+  let fixture: ComponentFixture<RefundCreditModal>;
 
   const resident: ResidentResponse = {
     id: 'resident-1',
@@ -56,15 +56,15 @@ describe('RefundCreditModal', () => {
     });
 
     httpMock = TestBed.inject(HttpTestingController);
-    const fixture = TestBed.createComponent(RefundCreditModal);
+    fixture = TestBed.createComponent(RefundCreditModal);
     const component = fixture.componentInstance;
-    component.propertyId = 'prop-1';
+    fixture.componentRef.setInput('propertyId', 'prop-1');
     return component;
   }
 
-  function open(component: RefundCreditModal): void {
-    component.open = true;
-    component.ngOnChanges({ open: new SimpleChange(false, true, false) });
+  function open(_component: RefundCreditModal): void {
+    fixture.componentRef.setInput('open', true);
+    TestBed.flushEffects();
     httpMock.expectOne('/api/properties/prop-1/residents').flush({
       success: true, data: [resident], message: null, statusCode: 200, traceId: 't1',
     } satisfies ApiResponse<ResidentResponse[]>);

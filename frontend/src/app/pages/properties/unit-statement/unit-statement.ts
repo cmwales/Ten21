@@ -1,3 +1,4 @@
+import { CurrencyPipe } from '@angular/common';
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
 import { ActivatedRoute, RouterLink } from '@angular/router';
 import { TranslatePipe } from '@ngx-translate/core';
@@ -47,6 +48,7 @@ import { SettleDepositModal } from '../settle-deposit-modal/settle-deposit-modal
     PaymentDetailsModal,
     CollectDepositModal,
     SettleDepositModal,
+    CurrencyPipe,
   ],
   templateUrl: './unit-statement.html',
 })
@@ -69,6 +71,10 @@ export class UnitStatement implements OnInit {
   protected readonly paymentDetailsTargetId = signal<string | null>(null);
   protected readonly collectDepositModalOpen = signal(false);
   protected readonly settleDepositTargetId = signal<string | null>(null);
+  /** Audit Refinement Sprint (UX): up to 6 header actions crowded this row on narrow
+   * viewports. Log Payment stays the one primary (filled) action; Collect Deposit and
+   * Download PDF move into this "More Actions" overflow menu. */
+  protected readonly moreActionsMenuOpen = signal(false);
 
   /** Directive 3: lookup maps so the merged chronological transactionLines timeline can pull
    * the already-loaded rich Charge/Payment object it needs to render (adjustments, badges,
@@ -115,6 +121,14 @@ export class UnitStatement implements OnInit {
         this.errorKey.set('ledger.statement.loadError');
       },
     });
+  }
+
+  protected toggleMoreActionsMenu(): void {
+    this.moreActionsMenuOpen.update((open) => !open);
+  }
+
+  protected closeMoreActionsMenu(): void {
+    this.moreActionsMenuOpen.set(false);
   }
 
   protected applyCredits(): void {

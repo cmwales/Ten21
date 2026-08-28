@@ -1,4 +1,4 @@
-import { Component, EventEmitter, Input, OnChanges, Output, SimpleChanges, inject, signal } from '@angular/core';
+import { Component, inject, input, output, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { TranslatePipe } from '@ngx-translate/core';
 import { PropertyListItemDto } from '../../../core/models/property.models';
@@ -6,6 +6,7 @@ import { ResidentResponse } from '../../../core/models/resident.models';
 import { PaymentService } from '../../../core/services/payment.service';
 import { PropertyService } from '../../../core/services/property.service';
 import { ResidentService } from '../../../core/services/resident.service';
+import { ModalBase } from '../../../shared/modal-base';
 import { ToastService } from '../../../core/services/toast.service';
 
 /**
@@ -20,12 +21,10 @@ import { ToastService } from '../../../core/services/toast.service';
   imports: [ReactiveFormsModule, TranslatePipe],
   templateUrl: './payment-action-modal.html',
 })
-export class PaymentActionModal implements OnChanges {
-  @Input({ required: true }) propertyId!: string;
-  @Input({ required: true }) paymentId!: string;
-  @Input() open = false;
-  @Output() closed = new EventEmitter<void>();
-  @Output() saved = new EventEmitter<void>();
+export class PaymentActionModal extends ModalBase {
+  readonly propertyId = input.required<string>();
+  readonly paymentId = input.required<string>();
+  readonly saved = output<void>();
 
   private readonly fb = inject(FormBuilder);
   private readonly paymentService = inject(PaymentService);
@@ -44,14 +43,12 @@ export class PaymentActionModal implements OnChanges {
     targetResidentProfileId: [''],
   });
 
-  ngOnChanges(changes: SimpleChanges): void {
-    if (changes['open'] && this.open) {
-      this.form.reset({ actionType: 'reverse', reversalReason: '', targetPropertyId: '', targetResidentProfileId: '' });
-      this.targetResidents.set([]);
-      this.propertyService.listProperties().subscribe({
-        next: (result) => this.properties.set(result.items.filter((p) => p.id !== this.propertyId)),
-      });
-    }
+  protected override onOpen(): void {
+    this.form.reset({ actionType: 'reverse', reversalReason: '', targetPropertyId: '', targetResidentProfileId: '' });
+    this.targetResidents.set([]);
+    this.propertyService.listProperties().subscribe({
+      next: (result) => this.properties.set(result.items.filter((p) => p.id !== this.propertyId())),
+    });
   }
 
   protected onTargetPropertyChange(): void {
@@ -65,10 +62,6 @@ export class PaymentActionModal implements OnChanges {
     }
   }
 
-  protected close(): void {
-    this.closed.emit();
-  }
-
   protected save(): void {
     const raw = this.form.getRawValue();
     const isReallocate = raw.actionType === 'reallocate';
@@ -80,12 +73,12 @@ export class PaymentActionModal implements OnChanges {
 
     this.submitting.set(true);
     const request$ = isReallocate
-      ? this.paymentService.reallocatePayment(this.propertyId, this.paymentId, {
+      ? this.paymentService.reallocatePayment(this.propertyId(), this.paymentId(), {
           targetPropertyId: raw.targetPropertyId,
           targetResidentProfileId: raw.targetResidentProfileId,
           reversalReason: raw.reversalReason,
         })
-      : this.paymentService.reversePayment(this.propertyId, this.paymentId, { reversalReason: raw.reversalReason });
+      : this.paymentService.reversePayment(this.propertyId(), this.paymentId(), { reversalReason: raw.reversalReason });
 
     request$.subscribe({
       next: () => {

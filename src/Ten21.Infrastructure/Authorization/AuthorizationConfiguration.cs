@@ -25,6 +25,9 @@ public static class AuthorizationConfiguration
         services.AddScoped<IClaimsTransformation, PermissionClaimsTransformation>();
         services.AddSingleton<IAuthorizationHandler, PermissionClaimAuthorizationHandler>();
         services.AddSingleton<IAuthorizationHandler, TenantHardBlockAuthorizationHandler>();
+        // Scoped, not Singleton -- depends on ITenantContext, which is itself Scoped
+        // (resolved per-request from the JWT/TenantMiddleware).
+        services.AddScoped<IAuthorizationHandler, SameTenantResourceAuthorizationHandler>();
 
         services.AddAuthorization(options =>
         {
@@ -37,6 +40,11 @@ public static class AuthorizationConfiguration
                 options.AddPolicy(permission, policy =>
                     policy.Requirements.Add(new PermissionRequirement(permission)));
             }
+
+            // Resource-based BOLA/IDOR backstop (Audit Refinement Sprint) -- see
+            // ResourceAuthorizationExtensions.EnsureSameTenantAsync for the call-site shape.
+            options.AddPolicy(ResourceAuthorizationPolicies.SameTenant, policy =>
+                policy.Requirements.Add(new SameTenantRequirement()));
         });
 
         return services;

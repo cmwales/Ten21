@@ -12,6 +12,7 @@ import { LeaseDrawer } from '../lease-drawer/lease-drawer';
 import { PropertyInfoForm } from '../property-info-form/property-info-form';
 import { PropertyFormGroup } from '../property-form.types';
 import { ResidentDrawer } from '../resident-drawer/resident-drawer';
+import { TooltipDirective } from '../../../shared/tooltip/tooltip.directive';
 
 /**
  * PropertyFormContainer -- one flat component serving both /properties/new (create mode)
@@ -23,7 +24,7 @@ import { ResidentDrawer } from '../resident-drawer/resident-drawer';
  */
 @Component({
   selector: 'app-property-form-container',
-  imports: [ReactiveFormsModule, TranslatePipe, RouterLink, PropertyInfoForm, ResidentDrawer, LeaseDrawer, ChargeModal],
+  imports: [ReactiveFormsModule, TranslatePipe, RouterLink, PropertyInfoForm, ResidentDrawer, LeaseDrawer, ChargeModal, TooltipDirective],
   templateUrl: './property-form-container.html',
 })
 export class PropertyFormContainer implements OnInit, ComponentWithUnsavedChanges {

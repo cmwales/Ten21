@@ -1,4 +1,4 @@
-@if (open) {
+@if (open()) {
   <div class="fixed inset-0 z-40 bg-slate-navy/40" (click)="close()"></div>
 
   <aside
@@ -82,7 +82,7 @@
 
             <p class="text-sm text-slate-navy-light">{{ lease.startDate }} &ndash; {{ lease.endDate }}</p>
             <p class="text-sm text-slate-navy">
-              {{ 'leases.drawer.totalMonthlyDues' | translate }}: <span class="font-semibold">${{ lease.totalMonthlyDues }}</span>
+              {{ 'leases.drawer.totalMonthlyDues' | translate }}: <span class="font-semibold">{{ lease.totalMonthlyDues | currency }}</span>
             </p>
             @if (lease.recurringCharges.length > 0) {
               <p class="text-xs text-slate-navy-light">
@@ -277,7 +277,7 @@
 
         <div class="rounded-md bg-slate-navy/5 px-4 py-3">
           <p class="text-sm font-semibold text-slate-navy">
-            {{ 'leases.form.totalMonthlyDues' | translate }}: <span class="text-emerald">${{ liveTotalMonthlyDues() }}</span>
+            {{ 'leases.form.totalMonthlyDues' | translate }}: <span class="text-emerald">{{ liveTotalMonthlyDues() | currency }}</span>
           </p>
         </div>
 

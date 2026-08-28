@@ -1,10 +1,11 @@
-import { Component, EventEmitter, Input, OnChanges, Output, SimpleChanges, inject, signal } from '@angular/core';
+import { Component, inject, input, output, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { TranslatePipe } from '@ngx-translate/core';
 import { RefundTenderTypes, RefundTenderTypeValue } from '../../../core/models/ledger.models';
 import { ResidentResponse } from '../../../core/models/resident.models';
 import { CreditService } from '../../../core/services/credit.service';
 import { ResidentService } from '../../../core/services/resident.service';
+import { ModalBase } from '../../../shared/modal-base';
 import { ToastService } from '../../../core/services/toast.service';
 
 /**
@@ -18,11 +19,9 @@ import { ToastService } from '../../../core/services/toast.service';
   imports: [ReactiveFormsModule, TranslatePipe],
   templateUrl: './refund-credit-modal.html',
 })
-export class RefundCreditModal implements OnChanges {
-  @Input({ required: true }) propertyId!: string;
-  @Input() open = false;
-  @Output() closed = new EventEmitter<void>();
-  @Output() saved = new EventEmitter<void>();
+export class RefundCreditModal extends ModalBase {
+  readonly propertyId = input.required<string>();
+  readonly saved = output<void>();
 
   private readonly fb = inject(FormBuilder);
   private readonly creditService = inject(CreditService);
@@ -41,16 +40,10 @@ export class RefundCreditModal implements OnChanges {
     referenceNumber: this.fb.control<string | null>(null),
   });
 
-  ngOnChanges(changes: SimpleChanges): void {
-    if (changes['open'] && this.open) {
-      this.residentService.listResidents(this.propertyId).subscribe({
-        next: (residents) => this.residents.set(residents),
-      });
-    }
-  }
-
-  protected close(): void {
-    this.closed.emit();
+  protected override onOpen(): void {
+    this.residentService.listResidents(this.propertyId()).subscribe({
+      next: (residents) => this.residents.set(residents),
+    });
   }
 
   protected save(): void {
@@ -62,7 +55,7 @@ export class RefundCreditModal implements OnChanges {
     this.submitting.set(true);
     const raw = this.form.getRawValue();
     this.creditService
-      .refundCreditBalance(this.propertyId, {
+      .refundCreditBalance(this.propertyId(), {
         residentProfileId: raw.residentProfileId,
         amount: raw.amount,
         refundDate: raw.refundDate,

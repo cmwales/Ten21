@@ -50,6 +50,15 @@ public class DocumentsController : ControllerBase
             });
         }
 
+        // Audit Refinement Sprint: strictly validate EntityId belongs to the caller's own
+        // active tenant BEFORE signing -- see AnyTenantScopedRecordExistsAsync's own comment
+        // for why this is a generic cross-table check rather than a Category-typed lookup.
+        var entityBelongsToTenant = await _dbContext.AnyTenantScopedRecordExistsAsync(request.EntityId, cancellationToken);
+        if (!entityBelongsToTenant)
+        {
+            throw new NotFoundException($"Entity '{request.EntityId}' was not found.");
+        }
+
         // This action requires authentication (secure-by-default fallback policy), so
         // TenantContext.TenantId is guaranteed resolved here -- unlike AuthController's
         // login/refresh bootstrap cases, there's no IgnoreQueryFilters()-style exception

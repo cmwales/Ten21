@@ -6,7 +6,6 @@ using Ten21.Api.Contracts.Credits;
 using Ten21.Domain.Common;
 using Ten21.Domain.Entities;
 using Ten21.Domain.Enums;
-using Ten21.Domain.Exceptions;
 using Ten21.Infrastructure.Persistence;
 
 namespace Ten21.Api.Controllers;
@@ -46,7 +45,7 @@ public class CreditsController : ControllerBase
     [Authorize(Policy = Permissions.Ledger.Write)]
     public async Task<IActionResult> ApplyCreditsToCharges(Guid propertyId, CancellationToken cancellationToken)
     {
-        await EnsurePropertyExistsAsync(propertyId, cancellationToken);
+        await _dbContext.EnsurePropertyExistsAsync(propertyId, cancellationToken);
 
         var paymentsWithCredit = await _dbContext.PaymentTransactions
             .Where(p => p.PropertyId == propertyId && p.UnallocatedAmount > 0)
@@ -73,10 +72,7 @@ public class CreditsController : ControllerBase
             .Where(a => chargeIds.Contains(a.TargetChargeId))
             .ToListAsync(cancellationToken);
 
-        var orderedCharges = activeCharges
-            .OrderBy(c => c.AllocationPriority)
-            .ThenBy(c => c.DueDate)
-            .ToList();
+        var orderedCharges = ChargeLedgerMath.OrderByStatutoryPriority(activeCharges);
 
         var newAllocations = new List<CreditAllocation>();
         var today = DateOnly.FromDateTime(DateTime.UtcNow);
@@ -91,9 +87,8 @@ public class CreditsController : ControllerBase
             var alreadyAllocated = existingPaymentAllocations.Where(a => a.ChargeId == charge.Id).Sum(a => a.AllocatedAmount)
                 + existingCreditAllocations.Where(a => a.TargetChargeId == charge.Id).Sum(a => a.AppliedAmount)
                 + newAllocations.Where(a => a.TargetChargeId == charge.Id).Sum(a => a.AppliedAmount);
-            var netAdjustment = existingAdjustments.Where(a => a.TargetChargeId == charge.Id)
-                .Sum(a => a.AdjustmentType == AdjustmentType.DebitAdjustment ? a.Amount : -a.Amount);
-            var outstanding = Math.Max(0m, charge.Amount + netAdjustment - alreadyAllocated);
+            var netAdjustment = ChargeLedgerMath.NetAdjustment(existingAdjustments.Where(a => a.TargetChargeId == charge.Id));
+            var outstanding = ChargeLedgerMath.Outstanding(charge.Amount, netAdjustment, alreadyAllocated);
 
             while (outstanding > 0)
             {
@@ -128,14 +123,5 @@ public class CreditsController : ControllerBase
             a.AppliedAmount, a.AppliedDate)).ToList();
 
         return Ok(new ApplyCreditsResponse(responses.Sum(r => r.AppliedAmount), responses));
-    }
-
-    private async Task EnsurePropertyExistsAsync(Guid propertyId, CancellationToken cancellationToken)
-    {
-        var exists = await _dbContext.Properties.AnyAsync(p => p.Id == propertyId, cancellationToken);
-        if (!exists)
-        {
-            throw new NotFoundException($"Property '{propertyId}' was not found.");
-        }
     }
 }

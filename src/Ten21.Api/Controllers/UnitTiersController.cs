@@ -32,7 +32,7 @@ public class UnitTiersController : ControllerBase
     [Authorize(Policy = Permissions.Property.Read)]
     public async Task<IActionResult> GetUnitTiers(CancellationToken cancellationToken)
     {
-        var tiers = await _dbContext.UnitTiers
+        var tiers = await _dbContext.UnitTiers.AsNoTracking()
             .OrderBy(t => t.TierName)
             .Select(t => ToResponse(t))
             .ToListAsync(cancellationToken);
@@ -44,7 +44,7 @@ public class UnitTiersController : ControllerBase
     [Authorize(Policy = Permissions.Property.Read)]
     public async Task<IActionResult> GetUnitTier(Guid id, CancellationToken cancellationToken)
     {
-        var tier = await _dbContext.UnitTiers.FirstOrDefaultAsync(t => t.Id == id, cancellationToken)
+        var tier = await _dbContext.UnitTiers.AsNoTracking().FirstOrDefaultAsync(t => t.Id == id, cancellationToken)
             ?? throw new NotFoundException($"Unit tier '{id}' was not found.");
 
         return Ok(ToResponse(tier));

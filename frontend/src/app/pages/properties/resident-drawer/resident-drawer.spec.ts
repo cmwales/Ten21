@@ -1,7 +1,6 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
-import { SimpleChange } from '@angular/core';
-import { TestBed } from '@angular/core/testing';
+import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { provideTranslateService } from '@ngx-translate/core';
 import { ApiResponse } from '../../../core/models/auth.models';
 import { ResidentResponse } from '../../../core/models/resident.models';
@@ -11,6 +10,7 @@ import { ResidentDrawer } from './resident-drawer';
 describe('ResidentDrawer', () => {
   let httpMock: HttpTestingController;
   let toastService: { show: ReturnType<typeof vi.fn> };
+  let fixture: ComponentFixture<ResidentDrawer>;
 
   const resident: ResidentResponse = {
     id: 'resident-1',
@@ -40,9 +40,9 @@ describe('ResidentDrawer', () => {
     });
 
     httpMock = TestBed.inject(HttpTestingController);
-    const fixture = TestBed.createComponent(ResidentDrawer);
+    fixture = TestBed.createComponent(ResidentDrawer);
     const component = fixture.componentInstance;
-    component.propertyId = 'prop-1';
+    fixture.componentRef.setInput('propertyId', 'prop-1');
     return component;
   }
 
@@ -50,8 +50,8 @@ describe('ResidentDrawer', () => {
 
   it('loads residents for the property when opened', () => {
     const component = createComponent();
-    component.open = true;
-    component.ngOnChanges({ open: new SimpleChange(false, true, false) });
+    fixture.componentRef.setInput('open', true);
+    TestBed.flushEffects();
 
     const req = httpMock.expectOne('/api/properties/prop-1/residents');
     expect(req.request.method).toBe('GET');
@@ -62,10 +62,10 @@ describe('ResidentDrawer', () => {
     expect(component['residents']()).toEqual([resident]);
   });
 
-  it('does not reload when open changes to false', () => {
-    const component = createComponent();
-    component.open = false;
-    component.ngOnChanges({ open: new SimpleChange(true, false, false) });
+  it('does not reload when open is false', () => {
+    createComponent();
+    fixture.componentRef.setInput('open', false);
+    TestBed.flushEffects();
 
     httpMock.expectNone('/api/properties/prop-1/residents');
   });

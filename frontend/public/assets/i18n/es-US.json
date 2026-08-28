@@ -126,6 +126,8 @@
     "properties": "Propiedades",
     "adminSettings": "Configuración",
     "logout": "Cerrar sesión",
+    "openMenu": "Abrir menú",
+    "closeMenu": "Cerrar menú",
     "workspaceSwitcher": {
       "loading": "Cargando espacio de trabajo…",
       "noOtherWorkspaces": "Aún no hay otros espacios de trabajo."
@@ -203,7 +205,9 @@
       "allowTenantDirectoryHint": "Permite que los residentes que optaron por participar vean el nombre y la unidad de los demás -- nunca la información de contacto.",
       "save": "Guardar",
       "saving": "Guardando…",
+      "saveTooltip": "Guardar cambios y volver a la lista",
       "apply": "Aplicar",
+      "applyTooltip": "Guardar cambios y permanecer en la página",
       "cancel": "Cancelar",
       "savedToast": "Propiedad guardada.",
       "validationError": "Verifique los campos resaltados e inténtelo de nuevo.",
@@ -479,6 +483,7 @@
     "statement": {
       "title": "Estado de Cuenta de la Unidad",
       "backToProperty": "Volver a la Propiedad",
+      "moreActions": "Más acciones",
       "logPayment": "Registrar Pago",
       "applyCredits": "Aplicar Créditos a Cargos",
       "applyingCredits": "Aplicando…",

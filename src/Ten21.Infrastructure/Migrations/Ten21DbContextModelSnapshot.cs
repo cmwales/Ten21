@@ -715,6 +715,8 @@ namespace Ten21.Infrastructure.Migrations
 
                     b.HasIndex("UnitTierId");
 
+                    b.HasIndex("StreetAddress1", "City", "State", "PostalCode", "Country", "UnitIdentifier");
+
                     b.ToTable("properties", (string)null);
                 });
 
@@ -873,6 +875,8 @@ namespace Ten21.Infrastructure.Migrations
                     b.HasIndex("PropertyId");
 
                     b.HasIndex("TenantId");
+
+                    b.HasIndex("UserId");
 
                     b.ToTable("resident_profiles", (string)null);
                 });

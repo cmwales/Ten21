@@ -1,4 +1,4 @@
-@if (open) {
+@if (open()) {
   <div class="fixed inset-0 z-40 flex items-center justify-center bg-slate-navy/40 p-4" (click)="close()">
     <div
       class="flex max-h-[90vh] w-full max-w-md flex-col gap-6 overflow-y-auto rounded-xl bg-surface-card p-6 shadow-xl"
@@ -131,7 +131,7 @@
                 <p class="text-xs text-slate-navy-light">{{ charge.notes }}</p>
               }
               <div class="flex flex-wrap items-center gap-2">
-                <p class="text-sm text-slate-navy">${{ charge.amount }} &middot; {{ 'charges.modal.dueOn' | translate }} {{ charge.dueDate }}</p>
+                <p class="text-sm text-slate-navy">{{ charge.amount | currency }} &middot; {{ 'charges.modal.dueOn' | translate }} {{ charge.dueDate }}</p>
                 @if (charge.status !== 'Voided') {
                   <span
                     class="rounded-full px-2 py-0.5 text-xs font-semibold"

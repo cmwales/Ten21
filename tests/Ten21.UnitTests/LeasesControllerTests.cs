@@ -42,7 +42,12 @@ public class LeasesControllerTests : IDisposable
         var db = new Ten21DbContext(options, tenantContext);
         db.Database.EnsureCreated();
 
-        return (db, new LeasesController(db, _sanitizer));
+        var authorizationService = TestAuthorizationService.Create(tenantContext);
+        var controller = new LeasesController(db, _sanitizer, authorizationService)
+        {
+            ControllerContext = TestControllerContext.Create(),
+        };
+        return (db, controller);
     }
 
     private static async Task<Property> SeedPropertyAsync(Ten21DbContext db)

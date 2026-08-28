@@ -1,10 +1,11 @@
-import { Component, EventEmitter, Input, OnChanges, Output, SimpleChanges, inject, signal } from '@angular/core';
+import { Component, inject, input, output, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { TranslatePipe } from '@ngx-translate/core';
 import { ResidentResponse } from '../../../core/models/resident.models';
 import { TenderTypes, TenderTypeValue } from '../../../core/models/ledger.models';
 import { PaymentService } from '../../../core/services/payment.service';
 import { ResidentService } from '../../../core/services/resident.service';
+import { ModalBase } from '../../../shared/modal-base';
 import { ToastService } from '../../../core/services/toast.service';
 
 /**
@@ -25,11 +26,9 @@ import { ToastService } from '../../../core/services/toast.service';
   imports: [ReactiveFormsModule, TranslatePipe],
   templateUrl: './log-payment-modal.html',
 })
-export class LogPaymentModal implements OnChanges {
-  @Input({ required: true }) propertyId!: string;
-  @Input() open = false;
-  @Output() closed = new EventEmitter<void>();
-  @Output() saved = new EventEmitter<void>();
+export class LogPaymentModal extends ModalBase {
+  readonly propertyId = input.required<string>();
+  readonly saved = output<void>();
 
   private readonly fb = inject(FormBuilder);
   private readonly paymentService = inject(PaymentService);
@@ -49,16 +48,10 @@ export class LogPaymentModal implements OnChanges {
     notes: this.fb.control<string | null>(null),
   });
 
-  ngOnChanges(changes: SimpleChanges): void {
-    if (changes['open'] && this.open) {
-      this.residentService.listResidents(this.propertyId).subscribe({
-        next: (residents) => this.residents.set(residents),
-      });
-    }
-  }
-
-  protected close(): void {
-    this.closed.emit();
+  protected override onOpen(): void {
+    this.residentService.listResidents(this.propertyId()).subscribe({
+      next: (residents) => this.residents.set(residents),
+    });
   }
 
   protected save(): void {
@@ -70,7 +63,7 @@ export class LogPaymentModal implements OnChanges {
     this.submitting.set(true);
     const raw = this.form.getRawValue();
     this.paymentService
-      .logPayment(this.propertyId, {
+      .logPayment(this.propertyId(), {
         residentProfileId: raw.residentProfileId,
         paymentDate: raw.paymentDate,
         amountPaid: raw.amountPaid,

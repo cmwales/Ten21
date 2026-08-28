@@ -5,6 +5,10 @@
  * all shared visual language lives here.
  */
 @import "tailwindcss";
+/* Structural positioning CSS for @angular/cdk/overlay (used by the CDK tooltip directive) --
+   no Material theme involved, just the plain .cdk-overlay-* layout rules the overlay
+   container relies on. */
+@import "@angular/cdk/overlay-prebuilt.css";
 
 @theme {
   /* DESIGN_SYSTEM.md §2 — Slate Navy & Emerald Color Tokens */

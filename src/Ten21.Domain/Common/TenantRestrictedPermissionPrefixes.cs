@@ -15,6 +15,13 @@ public static class TenantRestrictedPermissionPrefixes
     [
         "Permissions.Ledger.",
         "Permissions.Voting.",
+        // Audit Refinement Sprint: workspace-wide admin settings (e.g.
+        // EnableCommunityDirectory) are a PM/Board/SuperAdmin administrative concern, not
+        // something a non-owner renter should ever configure -- added explicitly (rather
+        // than left as an unstated "Tenant just isn't granted it today" gap) the moment
+        // Permissions.Workspace was added, so this list stays in sync with Permissions.cs
+        // the way every other category here already is.
+        "Permissions.Workspace.",
     ];
 
     // SECURITY.docx also names "legal notices" and "delinquency reports" in this same

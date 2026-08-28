@@ -21,7 +21,7 @@
             [class.text-rose]="ledger()!.totalBalance > 0"
             [class.text-emerald]="ledger()!.totalBalance <= 0"
           >
-            ${{ ledger()!.totalBalance }}
+            {{ ledger()!.totalBalance | currency }}
           </p>
         </div>
 
@@ -48,7 +48,7 @@
                   [class.text-rose]="property.balance > 0"
                   [class.text-emerald]="property.balance <= 0"
                 >
-                  ${{ property.balance }}
+                  {{ property.balance | currency }}
                 </span>
               </a>
             }

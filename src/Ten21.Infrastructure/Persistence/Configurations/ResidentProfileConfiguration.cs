@@ -38,6 +38,14 @@ public class ResidentProfileConfiguration : IEntityTypeConfiguration<ResidentPro
 
         builder.HasIndex(r => r.PropertyId);
 
+        // Audit Refinement Sprint: DirectoryController.GetDirectory queries by UserId on
+        // every single directory request (resolving the caller's own occupancy from their
+        // JWT user_id claim); AuthController's login/refresh paths do too, indirectly via
+        // ApplicationUser. Nullable column (profile-only residents with no login have
+        // UserId = null) -- a non-unique index is still worthwhile since Postgres can skip
+        // NULLs efficiently in a B-tree lookup for the (common, real login) case.
+        builder.HasIndex(r => r.UserId);
+
         // TenantId index is also added generically for every ITenantScopedEntity in
         // Ten21DbContext.OnModelCreating; EF Core no-ops the duplicate definition, so this
         // comment stands in place of repeating it here.
