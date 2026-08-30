@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Ten21.Business.Leases;
 using Ten21.Domain.Common;
+using Ten21.Domain.Exceptions;
 using Ten21.Infrastructure.Authorization;
 
 namespace Ten21.Api.Controllers;
@@ -39,9 +40,10 @@ public class LeasesController : ControllerBase
     [Authorize(Policy = Permissions.Lease.Read)]
     public async Task<IActionResult> GetLease(Guid propertyId, Guid id, CancellationToken cancellationToken)
     {
-        var lease = await _authorizationService.EnsureSameTenantAsync(
-            User, await _leaseService.FindAsync(propertyId, id, cancellationToken),
-            $"Lease '{id}' was not found on this property.", cancellationToken);
+        var notFoundMessage = $"Lease '{id}' was not found on this property.";
+        var lease = await _leaseService.FindAsync(propertyId, id, cancellationToken)
+            ?? throw new NotFoundException(notFoundMessage);
+        await _authorizationService.EnsureSameTenantAsync(User, lease, notFoundMessage, cancellationToken);
 
         return Ok(await _leaseService.BuildResponseAsync(propertyId, lease, cancellationToken));
     }
@@ -60,9 +62,10 @@ public class LeasesController : ControllerBase
     public async Task<IActionResult> UpdateLease(
         Guid propertyId, Guid id, [FromBody] UpsertLeaseRequest request, CancellationToken cancellationToken)
     {
-        var lease = await _authorizationService.EnsureSameTenantAsync(
-            User, await _leaseService.FindAsync(propertyId, id, cancellationToken),
-            $"Lease '{id}' was not found on this property.", cancellationToken);
+        var notFoundMessage = $"Lease '{id}' was not found on this property.";
+        var lease = await _leaseService.FindAsync(propertyId, id, cancellationToken)
+            ?? throw new NotFoundException(notFoundMessage);
+        await _authorizationService.EnsureSameTenantAsync(User, lease, notFoundMessage, cancellationToken);
 
         return Ok(await _leaseService.UpdateAsync(propertyId, lease, request, cancellationToken));
     }
@@ -72,9 +75,10 @@ public class LeasesController : ControllerBase
     public async Task<IActionResult> CreateMoveInCharge(
         Guid propertyId, Guid id, [FromBody] CreateMoveInChargeRequest request, CancellationToken cancellationToken)
     {
-        var lease = await _authorizationService.EnsureSameTenantAsync(
-            User, await _leaseService.FindAsync(propertyId, id, cancellationToken),
-            $"Lease '{id}' was not found on this property.", cancellationToken);
+        var notFoundMessage = $"Lease '{id}' was not found on this property.";
+        var lease = await _leaseService.FindAsync(propertyId, id, cancellationToken)
+            ?? throw new NotFoundException(notFoundMessage);
+        await _authorizationService.EnsureSameTenantAsync(User, lease, notFoundMessage, cancellationToken);
 
         return Ok(await _leaseService.CreateMoveInChargeAsync(propertyId, lease, request, cancellationToken));
     }
@@ -83,9 +87,10 @@ public class LeasesController : ControllerBase
     [Authorize(Policy = Permissions.Lease.Manage)]
     public async Task<IActionResult> DeleteLease(Guid propertyId, Guid id, CancellationToken cancellationToken)
     {
-        var lease = await _authorizationService.EnsureSameTenantAsync(
-            User, await _leaseService.FindAsync(propertyId, id, cancellationToken),
-            $"Lease '{id}' was not found on this property.", cancellationToken);
+        var notFoundMessage = $"Lease '{id}' was not found on this property.";
+        var lease = await _leaseService.FindAsync(propertyId, id, cancellationToken)
+            ?? throw new NotFoundException(notFoundMessage);
+        await _authorizationService.EnsureSameTenantAsync(User, lease, notFoundMessage, cancellationToken);
 
         await _leaseService.DeleteAsync(lease, cancellationToken);
         return NoContent();

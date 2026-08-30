@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Ten21.Business.Residents;
 using Ten21.Domain.Common;
+using Ten21.Domain.Exceptions;
 using Ten21.Infrastructure.Authorization;
 
 namespace Ten21.Api.Controllers;
@@ -39,9 +40,10 @@ public class ResidentsController : ControllerBase
     [Authorize(Policy = Permissions.Resident.Read)]
     public async Task<IActionResult> GetResident(Guid propertyId, Guid id, CancellationToken cancellationToken)
     {
-        var resident = await _authorizationService.EnsureSameTenantAsync(
-            User, await _residentService.FindAsync(propertyId, id, cancellationToken),
-            $"Resident '{id}' was not found on this property.", cancellationToken);
+        var notFoundMessage = $"Resident '{id}' was not found on this property.";
+        var resident = await _residentService.FindAsync(propertyId, id, cancellationToken)
+            ?? throw new NotFoundException(notFoundMessage);
+        await _authorizationService.EnsureSameTenantAsync(User, resident, notFoundMessage, cancellationToken);
 
         return Ok(ResidentService.BuildResponse(resident));
     }
@@ -60,9 +62,10 @@ public class ResidentsController : ControllerBase
     public async Task<IActionResult> UpdateResident(
         Guid propertyId, Guid id, [FromBody] UpsertResidentRequest request, CancellationToken cancellationToken)
     {
-        var resident = await _authorizationService.EnsureSameTenantAsync(
-            User, await _residentService.FindAsync(propertyId, id, cancellationToken),
-            $"Resident '{id}' was not found on this property.", cancellationToken);
+        var notFoundMessage = $"Resident '{id}' was not found on this property.";
+        var resident = await _residentService.FindAsync(propertyId, id, cancellationToken)
+            ?? throw new NotFoundException(notFoundMessage);
+        await _authorizationService.EnsureSameTenantAsync(User, resident, notFoundMessage, cancellationToken);
 
         return Ok(await _residentService.UpdateAsync(resident, request, cancellationToken));
     }
@@ -71,9 +74,10 @@ public class ResidentsController : ControllerBase
     [Authorize(Policy = Permissions.Resident.Manage)]
     public async Task<IActionResult> DeleteResident(Guid propertyId, Guid id, CancellationToken cancellationToken)
     {
-        var resident = await _authorizationService.EnsureSameTenantAsync(
-            User, await _residentService.FindAsync(propertyId, id, cancellationToken),
-            $"Resident '{id}' was not found on this property.", cancellationToken);
+        var notFoundMessage = $"Resident '{id}' was not found on this property.";
+        var resident = await _residentService.FindAsync(propertyId, id, cancellationToken)
+            ?? throw new NotFoundException(notFoundMessage);
+        await _authorizationService.EnsureSameTenantAsync(User, resident, notFoundMessage, cancellationToken);
 
         await _residentService.DeleteAsync(resident, cancellationToken);
         return NoContent();

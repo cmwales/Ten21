@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Ten21.Application.Abstractions;
 using Ten21.Business.Payments;
 using Ten21.Domain.Common;
+using Ten21.Domain.Exceptions;
 using Ten21.Infrastructure.Authorization;
 
 namespace Ten21.Api.Controllers;
@@ -47,9 +48,10 @@ public class PaymentsController : ControllerBase
     [Authorize(Policy = Permissions.Ledger.Read)]
     public async Task<IActionResult> GetReceipt(Guid propertyId, Guid id, CancellationToken cancellationToken)
     {
-        var payment = await _authorizationService.EnsureSameTenantAsync(
-            User, await _paymentService.FindAsync(propertyId, id, cancellationToken),
-            $"Payment '{id}' was not found on this property.", cancellationToken);
+        var notFoundMessage = $"Payment '{id}' was not found on this property.";
+        var payment = await _paymentService.FindAsync(propertyId, id, cancellationToken)
+            ?? throw new NotFoundException(notFoundMessage);
+        await _authorizationService.EnsureSameTenantAsync(User, payment, notFoundMessage, cancellationToken);
 
         var pdfData = await _paymentService.BuildReceiptDataAsync(payment, propertyId, cancellationToken);
         var pdfBytes = _pdfService.GeneratePaymentReceipt(pdfData);
@@ -60,9 +62,10 @@ public class PaymentsController : ControllerBase
     [Authorize(Policy = Permissions.Ledger.Read)]
     public async Task<IActionResult> GetPayment(Guid propertyId, Guid id, CancellationToken cancellationToken)
     {
-        var payment = await _authorizationService.EnsureSameTenantAsync(
-            User, await _paymentService.FindAsync(propertyId, id, cancellationToken),
-            $"Payment '{id}' was not found on this property.", cancellationToken);
+        var notFoundMessage = $"Payment '{id}' was not found on this property.";
+        var payment = await _paymentService.FindAsync(propertyId, id, cancellationToken)
+            ?? throw new NotFoundException(notFoundMessage);
+        await _authorizationService.EnsureSameTenantAsync(User, payment, notFoundMessage, cancellationToken);
 
         return Ok(await _paymentService.BuildResponseAsync(payment, cancellationToken));
     }
@@ -81,9 +84,10 @@ public class PaymentsController : ControllerBase
     public async Task<IActionResult> ReversePayment(
         Guid propertyId, Guid id, [FromBody] ReversePaymentRequest request, CancellationToken cancellationToken)
     {
-        var payment = await _authorizationService.EnsureSameTenantAsync(
-            User, await _paymentService.FindAsync(propertyId, id, cancellationToken),
-            $"Payment '{id}' was not found on this property.", cancellationToken);
+        var notFoundMessage = $"Payment '{id}' was not found on this property.";
+        var payment = await _paymentService.FindAsync(propertyId, id, cancellationToken)
+            ?? throw new NotFoundException(notFoundMessage);
+        await _authorizationService.EnsureSameTenantAsync(User, payment, notFoundMessage, cancellationToken);
 
         return Ok(await _paymentService.ReverseAsync(payment, request, cancellationToken));
     }
@@ -93,9 +97,10 @@ public class PaymentsController : ControllerBase
     public async Task<IActionResult> ReallocatePayment(
         Guid propertyId, Guid id, [FromBody] ReallocatePaymentRequest request, CancellationToken cancellationToken)
     {
-        var payment = await _authorizationService.EnsureSameTenantAsync(
-            User, await _paymentService.FindAsync(propertyId, id, cancellationToken),
-            $"Payment '{id}' was not found on this property.", cancellationToken);
+        var notFoundMessage = $"Payment '{id}' was not found on this property.";
+        var payment = await _paymentService.FindAsync(propertyId, id, cancellationToken)
+            ?? throw new NotFoundException(notFoundMessage);
+        await _authorizationService.EnsureSameTenantAsync(User, payment, notFoundMessage, cancellationToken);
 
         var response = await _paymentService.ReallocateAsync(payment, propertyId, request, cancellationToken);
         return CreatedAtAction(

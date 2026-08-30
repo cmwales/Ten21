@@ -11,36 +11,29 @@ public static class ResourceAuthorizationPolicies
 }
 
 /// <summary>
-/// Audit Refinement Sprint: the one-line call site controllers use to add the
+/// Audit Refinement Sprint: the call controllers make to add the
 /// SameTenantResourceAuthorizationHandler backstop on top of their existing (already-correct)
-/// PropertyId-scoped "find by id" queries. Folds the null-check and the resource-based
-/// authorization check into a single call so adopting it is a drop-in replacement for the
-/// `?? throw new NotFoundException(...)` pattern every nested-resource controller already
-/// uses. Throws NotFoundException either way -- deliberately not ForbiddenException, so a
-/// cross-tenant probe looks identical to a genuinely missing resource from the outside (see
-/// NotFoundException's own doc comment).
+/// PropertyId-scoped "find by id" queries. A guard clause, not a lookup -- callers resolve the
+/// entity themselves first (typically via `?? throw new NotFoundException(...)` against a
+/// Service's FindAsync), then pass the already-loaded, non-null entity here to independently
+/// re-verify its TenantId before using it further. Throws NotFoundException either way --
+/// deliberately not ForbiddenException, so a cross-tenant probe looks identical to a genuinely
+/// missing resource from the outside (see NotFoundException's own doc comment).
 /// </summary>
 public static class ResourceAuthorizationExtensions
 {
-    public static async Task<TEntity> EnsureSameTenantAsync<TEntity>(
+    public static async Task EnsureSameTenantAsync<TEntity>(
         this IAuthorizationService authorizationService,
         ClaimsPrincipal user,
-        TEntity? resource,
+        TEntity resource,
         string notFoundMessage,
         CancellationToken cancellationToken = default)
         where TEntity : class, ITenantScopedEntity
     {
-        if (resource is null)
-        {
-            throw new NotFoundException(notFoundMessage);
-        }
-
         var result = await authorizationService.AuthorizeAsync(user, resource, ResourceAuthorizationPolicies.SameTenant);
         if (!result.Succeeded)
         {
             throw new NotFoundException(notFoundMessage);
         }
-
-        return resource;
     }
 }

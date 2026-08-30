@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Ten21.Business.Refunds;
 using Ten21.Domain.Common;
+using Ten21.Domain.Exceptions;
 using Ten21.Infrastructure.Authorization;
 
 namespace Ten21.Api.Controllers;
@@ -34,9 +35,10 @@ public class RefundsController : ControllerBase
     [Authorize(Policy = Permissions.Ledger.Read)]
     public async Task<IActionResult> GetRefund(Guid propertyId, Guid id, CancellationToken cancellationToken)
     {
-        var refund = await _authorizationService.EnsureSameTenantAsync(
-            User, await _refundService.FindAsync(propertyId, id, cancellationToken),
-            $"Refund '{id}' was not found on this property.", cancellationToken);
+        var notFoundMessage = $"Refund '{id}' was not found on this property.";
+        var refund = await _refundService.FindAsync(propertyId, id, cancellationToken)
+            ?? throw new NotFoundException(notFoundMessage);
+        await _authorizationService.EnsureSameTenantAsync(User, refund, notFoundMessage, cancellationToken);
 
         return Ok(await _refundService.BuildResponseAsync(refund, cancellationToken));
     }

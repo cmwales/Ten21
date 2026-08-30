@@ -4,6 +4,7 @@ using Ten21.Business.Charges;
 using Ten21.Business.Statements;
 using Ten21.Domain.Common;
 using Ten21.Domain.Enums;
+using Ten21.Domain.Exceptions;
 using Ten21.Infrastructure.Authorization;
 
 namespace Ten21.Api.Controllers;
@@ -46,9 +47,10 @@ public class ChargesController : ControllerBase
     [Authorize(Policy = Permissions.Ledger.Read)]
     public async Task<IActionResult> GetCharge(Guid propertyId, Guid id, CancellationToken cancellationToken)
     {
-        var charge = await _authorizationService.EnsureSameTenantAsync(
-            User, await _chargeService.FindAsync(propertyId, id, cancellationToken),
-            $"Charge '{id}' was not found on this property.", cancellationToken);
+        var notFoundMessage = $"Charge '{id}' was not found on this property.";
+        var charge = await _chargeService.FindAsync(propertyId, id, cancellationToken)
+            ?? throw new NotFoundException(notFoundMessage);
+        await _authorizationService.EnsureSameTenantAsync(User, charge, notFoundMessage, cancellationToken);
 
         return Ok(await _chargeService.BuildResponseAsync(charge, cancellationToken));
     }
@@ -92,9 +94,10 @@ public class ChargesController : ControllerBase
     public async Task<IActionResult> UpdateCharge(
         Guid propertyId, Guid id, [FromBody] UpsertChargeRequest request, CancellationToken cancellationToken)
     {
-        var charge = await _authorizationService.EnsureSameTenantAsync(
-            User, await _chargeService.FindAsync(propertyId, id, cancellationToken),
-            $"Charge '{id}' was not found on this property.", cancellationToken);
+        var notFoundMessage = $"Charge '{id}' was not found on this property.";
+        var charge = await _chargeService.FindAsync(propertyId, id, cancellationToken)
+            ?? throw new NotFoundException(notFoundMessage);
+        await _authorizationService.EnsureSameTenantAsync(User, charge, notFoundMessage, cancellationToken);
 
         return Ok(await _chargeService.UpdateAsync(charge, request, cancellationToken));
     }
@@ -103,9 +106,10 @@ public class ChargesController : ControllerBase
     [Authorize(Policy = Permissions.Ledger.Write)]
     public async Task<IActionResult> DeleteCharge(Guid propertyId, Guid id, CancellationToken cancellationToken)
     {
-        var charge = await _authorizationService.EnsureSameTenantAsync(
-            User, await _chargeService.FindAsync(propertyId, id, cancellationToken),
-            $"Charge '{id}' was not found on this property.", cancellationToken);
+        var notFoundMessage = $"Charge '{id}' was not found on this property.";
+        var charge = await _chargeService.FindAsync(propertyId, id, cancellationToken)
+            ?? throw new NotFoundException(notFoundMessage);
+        await _authorizationService.EnsureSameTenantAsync(User, charge, notFoundMessage, cancellationToken);
 
         await _chargeService.DeleteAsync(charge, cancellationToken);
         return NoContent();
@@ -115,9 +119,10 @@ public class ChargesController : ControllerBase
     [Authorize(Policy = Permissions.Ledger.Write)]
     public async Task<IActionResult> VoidCharge(Guid propertyId, Guid id, CancellationToken cancellationToken)
     {
-        var charge = await _authorizationService.EnsureSameTenantAsync(
-            User, await _chargeService.FindAsync(propertyId, id, cancellationToken),
-            $"Charge '{id}' was not found on this property.", cancellationToken);
+        var notFoundMessage = $"Charge '{id}' was not found on this property.";
+        var charge = await _chargeService.FindAsync(propertyId, id, cancellationToken)
+            ?? throw new NotFoundException(notFoundMessage);
+        await _authorizationService.EnsureSameTenantAsync(User, charge, notFoundMessage, cancellationToken);
 
         return Ok(await _chargeService.VoidAsync(charge, cancellationToken));
     }
@@ -127,9 +132,10 @@ public class ChargesController : ControllerBase
     public async Task<IActionResult> CreateChargeAdjustment(
         Guid propertyId, Guid id, [FromBody] CreateChargeAdjustmentRequest request, CancellationToken cancellationToken)
     {
-        var charge = await _authorizationService.EnsureSameTenantAsync(
-            User, await _chargeService.FindAsync(propertyId, id, cancellationToken),
-            $"Charge '{id}' was not found on this property.", cancellationToken);
+        var notFoundMessage = $"Charge '{id}' was not found on this property.";
+        var charge = await _chargeService.FindAsync(propertyId, id, cancellationToken)
+            ?? throw new NotFoundException(notFoundMessage);
+        await _authorizationService.EnsureSameTenantAsync(User, charge, notFoundMessage, cancellationToken);
 
         var response = await _chargeService.CreateAdjustmentAsync(charge, request, cancellationToken);
 

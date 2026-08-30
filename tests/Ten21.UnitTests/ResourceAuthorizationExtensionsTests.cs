@@ -7,8 +7,9 @@ using Xunit;
 
 namespace Ten21.UnitTests;
 
-/// <summary>Audit Refinement Sprint: the one-line call site controllers use in place of
-/// `?? throw new NotFoundException(...)`.</summary>
+/// <summary>Audit Refinement Sprint: the guard clause call sites use immediately after
+/// resolving an entity via `?? throw new NotFoundException(...)`, to independently re-verify
+/// tenant ownership before the entity is used further.</summary>
 public class ResourceAuthorizationExtensionsTests
 {
     private sealed class FakeTenantScopedEntity : ITenantScopedEntity
@@ -19,17 +20,6 @@ public class ResourceAuthorizationExtensionsTests
     private static readonly ClaimsPrincipal AnyPrincipal = new(new ClaimsIdentity(authenticationType: "TestAuth"));
 
     [Fact]
-    public async Task ThrowsNotFoundException_WhenResourceIsNull()
-    {
-        var tenantContext = new TenantContext();
-        tenantContext.SetTenant(Guid.NewGuid());
-        var authorizationService = TestAuthorizationService.Create(tenantContext);
-
-        await Assert.ThrowsAsync<NotFoundException>(() =>
-            authorizationService.EnsureSameTenantAsync<FakeTenantScopedEntity>(AnyPrincipal, null, "not found"));
-    }
-
-    [Fact]
     public async Task ThrowsNotFoundException_WhenResourceBelongsToADifferentTenant()
     {
         var tenantContext = new TenantContext();
@@ -37,12 +27,13 @@ public class ResourceAuthorizationExtensionsTests
         var authorizationService = TestAuthorizationService.Create(tenantContext);
         var resource = new FakeTenantScopedEntity { TenantId = Guid.NewGuid() };
 
-        await Assert.ThrowsAsync<NotFoundException>(() =>
+        var exception = await Assert.ThrowsAsync<NotFoundException>(() =>
             authorizationService.EnsureSameTenantAsync(AnyPrincipal, resource, "not found"));
+        Assert.Equal("not found", exception.Message);
     }
 
     [Fact]
-    public async Task ReturnsTheResource_WhenItBelongsToTheActiveTenant()
+    public async Task CompletesWithoutThrowing_WhenResourceBelongsToTheActiveTenant()
     {
         var tenantId = Guid.NewGuid();
         var tenantContext = new TenantContext();
@@ -50,8 +41,6 @@ public class ResourceAuthorizationExtensionsTests
         var authorizationService = TestAuthorizationService.Create(tenantContext);
         var resource = new FakeTenantScopedEntity { TenantId = tenantId };
 
-        var result = await authorizationService.EnsureSameTenantAsync(AnyPrincipal, resource, "not found");
-
-        Assert.Same(resource, result);
+        await authorizationService.EnsureSameTenantAsync(AnyPrincipal, resource, "not found");
     }
 }

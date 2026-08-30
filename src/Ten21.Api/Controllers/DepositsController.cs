@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Ten21.Business.Deposits;
 using Ten21.Domain.Common;
+using Ten21.Domain.Exceptions;
 using Ten21.Infrastructure.Authorization;
 
 namespace Ten21.Api.Controllers;
@@ -39,9 +40,10 @@ public class DepositsController : ControllerBase
     [Authorize(Policy = Permissions.Ledger.Read)]
     public async Task<IActionResult> GetDeposit(Guid propertyId, Guid id, CancellationToken cancellationToken)
     {
-        var deposit = await _authorizationService.EnsureSameTenantAsync(
-            User, await _depositService.FindAsync(propertyId, id, cancellationToken),
-            $"Security deposit '{id}' was not found on this property.", cancellationToken);
+        var notFoundMessage = $"Security deposit '{id}' was not found on this property.";
+        var deposit = await _depositService.FindAsync(propertyId, id, cancellationToken)
+            ?? throw new NotFoundException(notFoundMessage);
+        await _authorizationService.EnsureSameTenantAsync(User, deposit, notFoundMessage, cancellationToken);
 
         return Ok(await _depositService.BuildResponseAsync(deposit, cancellationToken));
     }
@@ -60,9 +62,10 @@ public class DepositsController : ControllerBase
     public async Task<IActionResult> SettleDeposit(
         Guid propertyId, Guid id, [FromBody] SettleDepositRequest request, CancellationToken cancellationToken)
     {
-        var deposit = await _authorizationService.EnsureSameTenantAsync(
-            User, await _depositService.FindAsync(propertyId, id, cancellationToken),
-            $"Security deposit '{id}' was not found on this property.", cancellationToken);
+        var notFoundMessage = $"Security deposit '{id}' was not found on this property.";
+        var deposit = await _depositService.FindAsync(propertyId, id, cancellationToken)
+            ?? throw new NotFoundException(notFoundMessage);
+        await _authorizationService.EnsureSameTenantAsync(User, deposit, notFoundMessage, cancellationToken);
 
         return Ok(await _depositService.SettleDepositAsync(deposit, propertyId, request, cancellationToken));
     }
