@@ -1,7 +1,8 @@
 using Ten21.Domain.Enums;
 
-namespace Ten21.Api.Contracts.Residents;
+namespace Ten21.Business.Residents;
 
+/// <summary>Business-layer refactor: relocated from Ten21.Api.Contracts.Residents.</summary>
 public record EmergencyContactRequest(string Name, string PhoneNumber, string? Relationship);
 
 /// <summary>

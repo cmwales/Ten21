@@ -3,9 +3,9 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
-using Ten21.Api.Contracts.Residents;
 using Ten21.Api.Controllers;
 using Ten21.Application.Abstractions;
+using Ten21.Business.Residents;
 using Ten21.Domain.Common;
 using Ten21.Domain.Entities;
 using Ten21.Domain.Enums;
@@ -91,7 +91,8 @@ public class ResidentsControllerTests : IDisposable
         db.SaveChanges();
 
         var authorizationService = TestAuthorizationService.Create(tenantContext);
-        var controller = new ResidentsController(db, _sanitizer, userManager, roleManager, emailSender, authorizationService)
+        var residentService = new ResidentService(db, _sanitizer, userManager, roleManager, emailSender);
+        var controller = new ResidentsController(authorizationService, residentService)
         {
             ControllerContext = TestControllerContext.Create(),
         };
