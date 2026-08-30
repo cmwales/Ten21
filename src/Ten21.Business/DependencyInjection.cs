@@ -2,11 +2,14 @@ using Microsoft.Extensions.DependencyInjection;
 using Ten21.Business.Charges;
 using Ten21.Business.Credits;
 using Ten21.Business.Deposits;
+using Ten21.Business.Directory;
 using Ten21.Business.Documents;
 using Ten21.Business.Leases;
 using Ten21.Business.Payments;
 using Ten21.Business.Refunds;
 using Ten21.Business.Statements;
+using Ten21.Business.UnitGroups;
+using Ten21.Business.UnitTiers;
 using Ten21.Business.Workspace;
 
 namespace Ten21.Business;
@@ -35,6 +38,9 @@ public static class DependencyInjection
         services.AddScoped<WorkspaceSettingsService>();
         services.AddScoped<WorkspaceLedgerService>();
         services.AddScoped<DocumentService>();
+        services.AddScoped<UnitGroupService>();
+        services.AddScoped<UnitTierService>();
+        services.AddScoped<DirectoryService>();
         return services;
     }
 }

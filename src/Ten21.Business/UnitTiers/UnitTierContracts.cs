@@ -1,5 +1,6 @@
-namespace Ten21.Api.Contracts.UnitTiers;
+namespace Ten21.Business.UnitTiers;
 
+/// <summary>Business-layer refactor: relocated from Ten21.Api.Contracts.UnitTiers.</summary>
 public record UpsertUnitTierRequest(
     string TierName,
     decimal DefaultRent,

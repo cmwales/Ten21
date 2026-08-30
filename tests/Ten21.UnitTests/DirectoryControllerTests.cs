@@ -3,8 +3,8 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
-using Ten21.Api.Contracts.Directory;
 using Ten21.Api.Controllers;
+using Ten21.Business.Directory;
 using Ten21.Domain.Entities;
 using Ten21.Domain.Enums;
 using Ten21.Domain.Exceptions;
@@ -45,7 +45,7 @@ public class DirectoryControllerTests : IDisposable
         var db = new Ten21DbContext(options, tenantContext);
         db.Database.EnsureCreated();
 
-        var controller = new DirectoryController(db)
+        var controller = new DirectoryController(new DirectoryService(db))
         {
             ControllerContext = new ControllerContext
             {

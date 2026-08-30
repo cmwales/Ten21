@@ -1,8 +1,8 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
-using Ten21.Api.Contracts.UnitTiers;
 using Ten21.Api.Controllers;
+using Ten21.Business.UnitTiers;
 using Ten21.Domain.Entities;
 using Ten21.Domain.Enums;
 using Ten21.Domain.Exceptions;
@@ -41,7 +41,7 @@ public class UnitTiersControllerTests : IDisposable
         var db = new Ten21DbContext(options, tenantContext);
         db.Database.EnsureCreated();
 
-        return (db, new UnitTiersController(db, _sanitizer));
+        return (db, new UnitTiersController(new UnitTierService(db, _sanitizer)));
     }
 
     private static UpsertUnitTierRequest NewRequest() => new(
