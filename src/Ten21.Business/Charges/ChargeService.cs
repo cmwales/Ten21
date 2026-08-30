@@ -1,8 +1,10 @@
+using Microsoft.EntityFrameworkCore;
 using Ten21.Application.Abstractions;
 using Ten21.Domain.Common;
 using Ten21.Domain.Entities;
 using Ten21.Domain.Enums;
 using Ten21.Domain.Exceptions;
+using Ten21.Infrastructure.Persistence;
 
 namespace Ten21.Business.Charges;
 
@@ -14,29 +16,39 @@ namespace Ten21.Business.Charges;
 /// controller, an ASP.NET Core-specific concern deliberately not pulled into this layer.
 /// FindAsync exists so the controller has something to resolve+authorize in the first place.
 ///
+/// Owns the unit-of-work: holds Ten21DbContext directly for every trivial single-table
+/// read/stage (find/add/remove) and calls SaveChangesAsync exactly once per operation, after
+/// all of that operation's changes are staged -- see CLAUDE.md's data-access rules.
+/// ChargeRepository is only for the two genuinely batched/grouped queries; it never touches
+/// SaveChangesAsync.
+///
 /// No interface -- nothing else implements or mocks this; it's registered concrete in DI
 /// (see DependencyInjection.cs) and injected concrete into ChargesController.
 ///
-/// GetStatement/GetStatementPdf (which also touch Payments/Credits/Deposits/Refunds) are
-/// deliberately NOT part of this service yet -- that's a separate follow-up slice, not
-/// bundled into this one.
+/// GetStatement/GetStatementPdf (which also touch Payments/Credits/Deposits/Refunds) moved to
+/// StatementService instead -- a separate cross-cutting concern, not bundled into this one.
 /// </summary>
 public class ChargeService
 {
+    private readonly Ten21DbContext _dbContext;
     private readonly ChargeRepository _repository;
     private readonly IInputSanitizer _sanitizer;
 
-    public ChargeService(ChargeRepository repository, IInputSanitizer sanitizer)
+    public ChargeService(Ten21DbContext dbContext, ChargeRepository repository, IInputSanitizer sanitizer)
     {
+        _dbContext = dbContext;
         _repository = repository;
         _sanitizer = sanitizer;
     }
 
     public async Task<IReadOnlyList<ChargeResponse>> GetChargesAsync(Guid propertyId, CancellationToken cancellationToken)
     {
-        await _repository.EnsurePropertyExistsAsync(propertyId, cancellationToken);
+        await _dbContext.EnsurePropertyExistsAsync(propertyId, cancellationToken);
 
-        var charges = await _repository.ListByPropertyAsync(propertyId, cancellationToken);
+        var charges = await _dbContext.Charges.AsNoTracking()
+            .Where(c => c.PropertyId == propertyId)
+            .OrderByDescending(c => c.DueDate)
+            .ToListAsync(cancellationToken);
         var chargeIds = charges.Select(c => c.Id).ToList();
 
         var allocatedAmountsByChargeId = await _repository.GetAllocatedAmountsAsync(chargeIds, cancellationToken);
@@ -51,19 +63,20 @@ public class ChargeService
     }
 
     public Task<Charge?> FindAsync(Guid propertyId, Guid id, CancellationToken cancellationToken) =>
-        _repository.FindAsync(propertyId, id, cancellationToken);
+        _dbContext.Charges.FirstOrDefaultAsync(c => c.PropertyId == propertyId && c.Id == id, cancellationToken);
 
     public async Task<ChargeResponse> BuildResponseAsync(Charge charge, CancellationToken cancellationToken)
     {
         var allocatedAmount = await GetAllocatedAmountAsync(charge.Id, cancellationToken);
-        var adjustments = await _repository.ListAdjustmentsAsync(charge.Id, cancellationToken);
+        var adjustments = await _dbContext.ChargeAdjustments.AsNoTracking()
+            .Where(a => a.TargetChargeId == charge.Id)
+            .ToListAsync(cancellationToken);
         return BuildResponse(charge, allocatedAmount, adjustments);
     }
 
-    /// <summary>Synchronous overload for callers (e.g. ChargesController's statement builder,
-    /// which hasn't moved into this service yet) that already have the allocated amount and
-    /// adjustments in hand from a batched query and just need the same response-shaping rule
-    /// applied, without a second round-trip.</summary>
+    /// <summary>Synchronous overload for callers (e.g. StatementService) that already have
+    /// the allocated amount and adjustments in hand from a batched query and just need the
+    /// same response-shaping rule applied, without a second round-trip.</summary>
     public ChargeResponse BuildResponse(Charge charge, decimal allocatedAmount, IReadOnlyList<ChargeAdjustment> adjustments)
     {
         var netAdjustment = ChargeLedgerMath.NetAdjustment(adjustments);
@@ -95,7 +108,7 @@ public class ChargeService
 
     public async Task<ChargeResponse> CreateAsync(Guid propertyId, UpsertChargeRequest request, CancellationToken cancellationToken)
     {
-        await _repository.EnsurePropertyExistsAsync(propertyId, cancellationToken);
+        await _dbContext.EnsurePropertyExistsAsync(propertyId, cancellationToken);
         var fields = ValidateAndSanitize(request);
 
         var charge = new Charge
@@ -112,8 +125,8 @@ public class ChargeService
             CreatedAt = DateTimeOffset.UtcNow,
         };
 
-        _repository.Add(charge);
-        await _repository.SaveChangesAsync(cancellationToken);
+        _dbContext.Charges.Add(charge);
+        await _dbContext.SaveChangesAsync(cancellationToken);
 
         return BuildResponse(charge, 0m, []);
     }
@@ -137,7 +150,7 @@ public class ChargeService
         charge.Notes = fields.Notes;
         charge.AllocationPriority = Charge.DefaultAllocationPriorityFor(request.Category);
 
-        await _repository.SaveChangesAsync(cancellationToken);
+        await _dbContext.SaveChangesAsync(cancellationToken);
 
         return BuildResponse(charge, 0m, []);
     }
@@ -153,8 +166,8 @@ public class ChargeService
             "This charge already has payments applied and cannot be deleted. Post a credit adjustment instead.",
             cancellationToken);
 
-        _repository.Remove(charge);
-        await _repository.SaveChangesAsync(cancellationToken);
+        _dbContext.Charges.Remove(charge);
+        await _dbContext.SaveChangesAsync(cancellationToken);
     }
 
     /// <summary>US-35: marks a charge Voided instead of deleting it -- it stays visible on the
@@ -176,7 +189,7 @@ public class ChargeService
             cancellationToken);
 
         charge.Status = ChargeLifecycleStatus.Voided;
-        await _repository.SaveChangesAsync(cancellationToken);
+        await _dbContext.SaveChangesAsync(cancellationToken);
 
         return BuildResponse(charge, 0m, []);
     }
@@ -221,8 +234,8 @@ public class ChargeService
             Reason = reason,
             CreatedAt = DateTimeOffset.UtcNow,
         };
-        _repository.Add(adjustment);
-        await _repository.SaveChangesAsync(cancellationToken);
+        _dbContext.ChargeAdjustments.Add(adjustment);
+        await _dbContext.SaveChangesAsync(cancellationToken);
 
         return ToAdjustmentResponse(adjustment);
     }

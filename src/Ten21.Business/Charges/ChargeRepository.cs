@@ -5,12 +5,14 @@ using Ten21.Infrastructure.Persistence;
 namespace Ten21.Business.Charges;
 
 /// <summary>
-/// Business-layer refactor: the data-access piece of the Charges business logic, kept as its
-/// own class from ChargeService for readability (data access vs. business rules), not because
-/// anything else implements or swaps it out -- see this project's own csproj comment for why
-/// there's no interface here. Wraps the SAME Ten21DbContext instance ASP.NET Core's DI
-/// container already hands to everything else in the request (both this and Ten21DbContext
-/// are registered Scoped) -- not a second/parallel data source.
+/// Data-access rules (see CLAUDE.md): repositories may query the DbContext and stage
+/// changes, but never own SaveChangesAsync -- that belongs to the Service, which owns the
+/// unit-of-work boundary for the whole business operation. This repository is deliberately
+/// thin: it holds only the one query with real batching logic (three grouped queries merged
+/// into one dictionary); every trivial single-table find/add/remove that used to live here
+/// moved directly onto ChargeService's own Ten21DbContext reference, since a repository
+/// method that's just `_dbContext.Charges.Add(charge)` duplicates what DbSet already does
+/// with nothing added.
 /// </summary>
 public class ChargeRepository
 {
@@ -20,31 +22,6 @@ public class ChargeRepository
     {
         _dbContext = dbContext;
     }
-
-    public Task EnsurePropertyExistsAsync(Guid propertyId, CancellationToken cancellationToken) =>
-        _dbContext.EnsurePropertyExistsAsync(propertyId, cancellationToken);
-
-    public Task<Charge?> FindAsync(Guid propertyId, Guid chargeId, CancellationToken cancellationToken) =>
-        _dbContext.Charges.FirstOrDefaultAsync(c => c.PropertyId == propertyId && c.Id == chargeId, cancellationToken);
-
-    public Task<List<Charge>> ListByPropertyAsync(Guid propertyId, CancellationToken cancellationToken) =>
-        _dbContext.Charges.AsNoTracking()
-            .Where(c => c.PropertyId == propertyId)
-            .OrderByDescending(c => c.DueDate)
-            .ToListAsync(cancellationToken);
-
-    public Task<List<ChargeAdjustment>> ListAdjustmentsAsync(Guid chargeId, CancellationToken cancellationToken) =>
-        _dbContext.ChargeAdjustments.AsNoTracking()
-            .Where(a => a.TargetChargeId == chargeId)
-            .ToListAsync(cancellationToken);
-
-    public async Task<Dictionary<Guid, List<ChargeAdjustment>>> ListAdjustmentsByChargeIdsAsync(
-        IReadOnlyCollection<Guid> chargeIds, CancellationToken cancellationToken) =>
-        (await _dbContext.ChargeAdjustments.AsNoTracking()
-            .Where(a => chargeIds.Contains(a.TargetChargeId))
-            .ToListAsync(cancellationToken))
-            .GroupBy(a => a.TargetChargeId)
-            .ToDictionary(g => g.Key, g => g.ToList());
 
     /// <summary>Sums PaymentAllocation + CreditAllocation + DepositSettlementAllocation for
     /// each requested charge -- all three lock a charge and count toward its
@@ -75,11 +52,13 @@ public class ChargeRepository
             id => fromPayments.GetValueOrDefault(id, 0m) + fromCredits.GetValueOrDefault(id, 0m) + fromDeposits.GetValueOrDefault(id, 0m));
     }
 
-    public void Add(Charge charge) => _dbContext.Charges.Add(charge);
-
-    public void Add(ChargeAdjustment adjustment) => _dbContext.ChargeAdjustments.Add(adjustment);
-
-    public void Remove(Charge charge) => _dbContext.Charges.Remove(charge);
-
-    public Task SaveChangesAsync(CancellationToken cancellationToken) => _dbContext.SaveChangesAsync(cancellationToken);
+    /// <summary>Adjustments grouped by charge, for the batch GetCharges view -- a genuine
+    /// GroupBy/ToDictionary transform, not a bare DbSet passthrough.</summary>
+    public async Task<Dictionary<Guid, List<ChargeAdjustment>>> ListAdjustmentsByChargeIdsAsync(
+        IReadOnlyCollection<Guid> chargeIds, CancellationToken cancellationToken) =>
+        (await _dbContext.ChargeAdjustments.AsNoTracking()
+            .Where(a => chargeIds.Contains(a.TargetChargeId))
+            .ToListAsync(cancellationToken))
+            .GroupBy(a => a.TargetChargeId)
+            .ToDictionary(g => g.Key, g => g.ToList());
 }

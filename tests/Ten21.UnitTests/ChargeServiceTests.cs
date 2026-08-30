@@ -44,7 +44,7 @@ public class ChargeServiceTests : IDisposable
         var db = new Ten21DbContext(options, tenantContext);
         db.Database.EnsureCreated();
 
-        return (db, new ChargeService(new ChargeRepository(db), _sanitizer));
+        return (db, new ChargeService(db, new ChargeRepository(db), _sanitizer));
     }
 
     private static async Task<Property> SeedPropertyAsync(Ten21DbContext db)

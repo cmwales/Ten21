@@ -6,9 +6,10 @@ using Ten21.Infrastructure.Persistence;
 namespace Ten21.Business.Payments;
 
 /// <summary>
-/// Business-layer refactor: the data-access piece of the Payments business logic. See
-/// ChargeRepository's own comment for why there's no interface here, and why wrapping
-/// Ten21DbContext this way isn't a second/parallel data source.
+/// Data-access rules (see CLAUDE.md): repositories may query and stage changes but never own
+/// SaveChangesAsync -- see ChargeRepository's own comment for the full reasoning. Kept thin:
+/// only the queries that genuinely batch/combine multiple tables. Every trivial single-table
+/// find/add lives directly on PaymentService's own Ten21DbContext reference instead.
 /// </summary>
 public class PaymentRepository
 {
@@ -19,28 +20,6 @@ public class PaymentRepository
         _dbContext = dbContext;
     }
 
-    public Task EnsurePropertyExistsAsync(Guid propertyId, CancellationToken cancellationToken) =>
-        _dbContext.EnsurePropertyExistsAsync(propertyId, cancellationToken);
-
-    public Task<string> GetResidentNameAsync(Guid residentProfileId, CancellationToken cancellationToken) =>
-        _dbContext.GetResidentNameAsync(residentProfileId, cancellationToken);
-
-    public Task<ResidentProfile?> FindResidentAsync(Guid propertyId, Guid residentProfileId, CancellationToken cancellationToken) =>
-        _dbContext.ResidentProfiles
-            .FirstOrDefaultAsync(r => r.PropertyId == propertyId && r.Id == residentProfileId, cancellationToken);
-
-    /// <summary>Only ever called after the caller already resolved+authorized a payment
-    /// against this exact propertyId, so the property's existence is already guaranteed --
-    /// FirstAsync (not FirstOrDefaultAsync), same as the original controller code this was
-    /// extracted from.</summary>
-    public Task<Property> GetPropertyAsync(Guid propertyId, CancellationToken cancellationToken) =>
-        _dbContext.Properties.AsNoTracking().FirstAsync(p => p.Id == propertyId, cancellationToken);
-
-    public Task<PaymentTransaction?> FindAsync(Guid propertyId, Guid paymentId, CancellationToken cancellationToken) =>
-        _dbContext.PaymentTransactions
-            .Include(p => p.Allocations)
-            .FirstOrDefaultAsync(p => p.PropertyId == propertyId && p.Id == paymentId, cancellationToken);
-
     public Task<Dictionary<Guid, string>> GetChargeDescriptionsAsync(IEnumerable<Guid> chargeIds, CancellationToken cancellationToken)
     {
         var ids = chargeIds.Distinct().ToList();
@@ -49,30 +28,34 @@ public class PaymentRepository
             .ToDictionaryAsync(c => c.Id, c => c.Description, cancellationToken);
     }
 
-    public Task<List<Charge>> ListActiveChargesAsync(Guid propertyId, CancellationToken cancellationToken) =>
-        _dbContext.Charges
+    /// <summary>The three queries the statutory waterfall needs together: every Active charge
+    /// on the unit, plus every existing PaymentAllocation/ChargeAdjustment against those
+    /// charges (to work out what's still outstanding on each one before applying new money).
+    /// Bundled into one method because they're never fetched independently of each other.</summary>
+    public async Task<(List<Charge> ActiveCharges, List<PaymentAllocation> ExistingAllocations, List<ChargeAdjustment> ExistingAdjustments)>
+        GetWaterfallDataAsync(Guid propertyId, CancellationToken cancellationToken)
+    {
+        var activeCharges = await _dbContext.Charges
             .Where(c => c.PropertyId == propertyId && c.Status == ChargeLifecycleStatus.Active)
             .ToListAsync(cancellationToken);
+        var chargeIds = activeCharges.Select(c => c.Id).ToList();
 
-    public Task<List<PaymentAllocation>> ListAllocationsForChargesAsync(IReadOnlyCollection<Guid> chargeIds, CancellationToken cancellationToken) =>
-        _dbContext.PaymentAllocations
+        var existingAllocations = await _dbContext.PaymentAllocations
             .Where(a => chargeIds.Contains(a.ChargeId))
             .ToListAsync(cancellationToken);
-
-    public Task<List<ChargeAdjustment>> ListAdjustmentsForChargesAsync(IReadOnlyCollection<Guid> chargeIds, CancellationToken cancellationToken) =>
-        _dbContext.ChargeAdjustments
+        var existingAdjustments = await _dbContext.ChargeAdjustments
             .Where(a => chargeIds.Contains(a.TargetChargeId))
             .ToListAsync(cancellationToken);
 
-    public void Add(PaymentTransaction payment) => _dbContext.PaymentTransactions.Add(payment);
+        return (activeCharges, existingAllocations, existingAdjustments);
+    }
 
-    public void AddAllocations(IEnumerable<PaymentAllocation> allocations) => _dbContext.PaymentAllocations.AddRange(allocations);
-
-    /// <summary>Un-links (deletes) every PaymentAllocation this payment produced and every
-    /// CreditAllocation later drawn FROM its retained credit -- both count toward a charge's
-    /// AllocatedAmount identically (see ChargeRepository.GetAllocatedAmountsAsync), so removing
-    /// both naturally restores every affected charge's computed PaymentStatus without touching
-    /// the Charge rows themselves.</summary>
+    /// <summary>Un-links (deletes, via RemoveRange staged for the caller's SaveChangesAsync)
+    /// every PaymentAllocation this payment produced and every CreditAllocation later drawn
+    /// FROM its retained credit -- both count toward a charge's AllocatedAmount identically,
+    /// so removing both naturally restores every affected charge's computed PaymentStatus
+    /// without touching the Charge rows themselves. Two related cleanup queries bundled as
+    /// one unit, not independently reused elsewhere.</summary>
     public async Task RemoveAllocationsAsync(Guid paymentId, CancellationToken cancellationToken)
     {
         var paymentAllocations = await _dbContext.PaymentAllocations
@@ -85,6 +68,4 @@ public class PaymentRepository
             .ToListAsync(cancellationToken);
         _dbContext.CreditAllocations.RemoveRange(creditAllocations);
     }
-
-    public Task SaveChangesAsync(CancellationToken cancellationToken) => _dbContext.SaveChangesAsync(cancellationToken);
 }

@@ -1,34 +1,42 @@
+using Microsoft.EntityFrameworkCore;
 using Ten21.Application.Abstractions;
 using Ten21.Domain.Common;
 using Ten21.Domain.Entities;
 using Ten21.Domain.Enums;
 using Ten21.Domain.Exceptions;
+using Ten21.Infrastructure.Persistence;
 
 namespace Ten21.Business.Payments;
 
 /// <summary>Business-layer refactor: extracted from PaymentsController -- see
 /// ChargeService's own comment for the resource-authorization split this depends on (the
 /// controller resolves+authorizes via IAuthorizationService.EnsureSameTenantAsync and hands
-/// the entity in). No interface -- same reasoning as ChargeService.</summary>
+/// the entity in), and for why this owns Ten21DbContext directly for trivial single-table
+/// work and the single SaveChangesAsync call per operation. No interface -- same reasoning as
+/// ChargeService.</summary>
 public class PaymentService
 {
+    private readonly Ten21DbContext _dbContext;
     private readonly PaymentRepository _repository;
     private readonly IInputSanitizer _sanitizer;
 
-    public PaymentService(PaymentRepository repository, IInputSanitizer sanitizer)
+    public PaymentService(Ten21DbContext dbContext, PaymentRepository repository, IInputSanitizer sanitizer)
     {
+        _dbContext = dbContext;
         _repository = repository;
         _sanitizer = sanitizer;
     }
 
     public Task<PaymentTransaction?> FindAsync(Guid propertyId, Guid id, CancellationToken cancellationToken) =>
-        _repository.FindAsync(propertyId, id, cancellationToken);
+        _dbContext.PaymentTransactions
+            .Include(p => p.Allocations)
+            .FirstOrDefaultAsync(p => p.PropertyId == propertyId && p.Id == id, cancellationToken);
 
     public async Task<PaymentTransactionResponse> BuildResponseAsync(PaymentTransaction payment, CancellationToken cancellationToken)
     {
         var chargeDescriptionsById = await _repository.GetChargeDescriptionsAsync(
             payment.Allocations.Select(a => a.ChargeId), cancellationToken);
-        var residentName = await _repository.GetResidentNameAsync(payment.ResidentProfileId, cancellationToken);
+        var residentName = await _dbContext.GetResidentNameAsync(payment.ResidentProfileId, cancellationToken);
         return ToResponse(payment, residentName, chargeDescriptionsById);
     }
 
@@ -40,7 +48,7 @@ public class PaymentService
     public async Task<PaymentReceiptPdfData> BuildReceiptDataAsync(
         PaymentTransaction payment, Guid propertyId, CancellationToken cancellationToken)
     {
-        var property = await _repository.GetPropertyAsync(propertyId, cancellationToken);
+        var property = await _dbContext.Properties.AsNoTracking().FirstAsync(p => p.Id == propertyId, cancellationToken);
         var response = await BuildResponseAsync(payment, cancellationToken);
 
         return new PaymentReceiptPdfData(
@@ -61,14 +69,16 @@ public class PaymentService
     /// first within the same priority. Any amount left over once every outstanding charge is
     /// satisfied (an overpayment) is deliberately left unallocated: it still counts toward the
     /// unit's Balance via PaymentTransaction.AmountPaid, it just isn't tied to any one charge.
+    /// One SaveChangesAsync commits the payment and its allocations together.
     /// </summary>
     public async Task<PaymentTransactionResponse> LogPaymentAsync(
         Guid propertyId, LogPaymentRequest request, CancellationToken cancellationToken)
     {
-        await _repository.EnsurePropertyExistsAsync(propertyId, cancellationToken);
+        await _dbContext.EnsurePropertyExistsAsync(propertyId, cancellationToken);
         var fields = ValidateAndSanitize(request);
 
-        var resident = await _repository.FindResidentAsync(propertyId, request.ResidentProfileId, cancellationToken)
+        var resident = await _dbContext.ResidentProfiles
+            .FirstOrDefaultAsync(r => r.PropertyId == propertyId && r.Id == request.ResidentProfileId, cancellationToken)
             ?? throw new NotFoundException($"Resident '{request.ResidentProfileId}' was not found on this property.");
 
         var payment = new PaymentTransaction
@@ -83,17 +93,17 @@ public class PaymentService
             Notes = fields.Notes,
             CreatedAt = DateTimeOffset.UtcNow,
         };
-        _repository.Add(payment);
+        _dbContext.PaymentTransactions.Add(payment);
 
         var allocations = await BuildWaterfallAllocationsAsync(propertyId, payment.Id, request.AmountPaid, cancellationToken);
-        _repository.AddAllocations(allocations);
+        _dbContext.PaymentAllocations.AddRange(allocations);
         payment.Allocations = allocations;
         // US-37: whatever the waterfall couldn't apply to any charge becomes this payment's
         // own retained credit balance, drawn down later via CreditAllocation or paid out via
         // RefundTransaction -- see PaymentTransaction.UnallocatedAmount's own comment.
         payment.UnallocatedAmount = request.AmountPaid - allocations.Sum(a => a.AllocatedAmount);
 
-        await _repository.SaveChangesAsync(cancellationToken);
+        await _dbContext.SaveChangesAsync(cancellationToken);
 
         var chargeDescriptionsById = await _repository.GetChargeDescriptionsAsync(
             allocations.Select(a => a.ChargeId), cancellationToken);
@@ -107,7 +117,8 @@ public class PaymentService
     /// since those charges' AllocatedAmount is always computed live from the surviving rows)
     /// and any CreditAllocation rows sourced from it (the money it was "holding as credit"
     /// never really existed either), then zeroes its own UnallocatedAmount. The row itself is
-    /// never deleted -- see PaymentTransaction's own class comment on why.
+    /// never deleted -- see PaymentTransaction's own class comment on why. One
+    /// SaveChangesAsync commits the un-link and the status flip together.
     /// </summary>
     public async Task<PaymentTransactionResponse> ReverseAsync(
         PaymentTransaction payment, ReversePaymentRequest request, CancellationToken cancellationToken)
@@ -121,9 +132,9 @@ public class PaymentService
         payment.UnallocatedAmount = 0m;
         payment.Allocations.Clear();
 
-        await _repository.SaveChangesAsync(cancellationToken);
+        await _dbContext.SaveChangesAsync(cancellationToken);
 
-        var residentName = await _repository.GetResidentNameAsync(payment.ResidentProfileId, cancellationToken);
+        var residentName = await _dbContext.GetResidentNameAsync(payment.ResidentProfileId, cancellationToken);
         return ToResponse(payment, residentName, []);
     }
 
@@ -133,7 +144,9 @@ public class PaymentService
     /// ReverseAsync above, then atomically creates a brand-new PaymentTransaction under the
     /// correct property/resident and runs the statutory waterfall against it, same as a fresh
     /// LogPaymentAsync. Both rows end up cross-referencing each other: the original via
-    /// ReallocatedToId + ReversalReason, the new one via its own Notes.
+    /// ReallocatedToId + ReversalReason, the new one via its own Notes. One SaveChangesAsync
+    /// commits the reversal and the new payment together -- either both happen or neither
+    /// does.
     /// </summary>
     public async Task<PaymentTransactionResponse> ReallocateAsync(
         PaymentTransaction payment, Guid propertyId, ReallocatePaymentRequest request, CancellationToken cancellationToken)
@@ -150,8 +163,9 @@ public class PaymentService
             });
         }
 
-        await _repository.EnsurePropertyExistsAsync(request.TargetPropertyId, cancellationToken);
-        var targetResident = await _repository.FindResidentAsync(request.TargetPropertyId, request.TargetResidentProfileId, cancellationToken)
+        await _dbContext.EnsurePropertyExistsAsync(request.TargetPropertyId, cancellationToken);
+        var targetResident = await _dbContext.ResidentProfiles
+            .FirstOrDefaultAsync(r => r.PropertyId == request.TargetPropertyId && r.Id == request.TargetResidentProfileId, cancellationToken)
             ?? throw new NotFoundException($"Resident '{request.TargetResidentProfileId}' was not found on the target property.");
 
         await _repository.RemoveAllocationsAsync(payment.Id, cancellationToken);
@@ -168,11 +182,11 @@ public class PaymentService
             Notes = $"Reallocated from payment {payment.Id} originally posted to property {propertyId}. {reason}",
             CreatedAt = DateTimeOffset.UtcNow,
         };
-        _repository.Add(newPayment);
+        _dbContext.PaymentTransactions.Add(newPayment);
 
         var newAllocations = await BuildWaterfallAllocationsAsync(
             request.TargetPropertyId, newPayment.Id, payment.AmountPaid, cancellationToken);
-        _repository.AddAllocations(newAllocations);
+        _dbContext.PaymentAllocations.AddRange(newAllocations);
         newPayment.Allocations = newAllocations;
         newPayment.UnallocatedAmount = payment.AmountPaid - newAllocations.Sum(a => a.AllocatedAmount);
 
@@ -182,7 +196,7 @@ public class PaymentService
         payment.UnallocatedAmount = 0m;
         payment.Allocations.Clear();
 
-        await _repository.SaveChangesAsync(cancellationToken);
+        await _dbContext.SaveChangesAsync(cancellationToken);
 
         var chargeDescriptionsById = await _repository.GetChargeDescriptionsAsync(
             newAllocations.Select(a => a.ChargeId), cancellationToken);
@@ -208,11 +222,8 @@ public class PaymentService
     private async Task<List<PaymentAllocation>> BuildWaterfallAllocationsAsync(
         Guid propertyId, Guid paymentTransactionId, decimal amountToAllocate, CancellationToken cancellationToken)
     {
-        var activeCharges = await _repository.ListActiveChargesAsync(propertyId, cancellationToken);
-        var chargeIds = activeCharges.Select(c => c.Id).ToList();
-
-        var existingAllocations = await _repository.ListAllocationsForChargesAsync(chargeIds, cancellationToken);
-        var existingAdjustments = await _repository.ListAdjustmentsForChargesAsync(chargeIds, cancellationToken);
+        var (activeCharges, existingAllocations, existingAdjustments) =
+            await _repository.GetWaterfallDataAsync(propertyId, cancellationToken);
 
         var orderedCharges = ChargeLedgerMath.OrderByStatutoryPriority(activeCharges);
 

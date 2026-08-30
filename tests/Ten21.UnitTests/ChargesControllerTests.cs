@@ -49,7 +49,7 @@ public class ChargesControllerTests : IDisposable
         db.Database.EnsureCreated();
 
         var authorizationService = TestAuthorizationService.Create(tenantContext);
-        var chargeService = new ChargeService(new ChargeRepository(db), _sanitizer);
+        var chargeService = new ChargeService(db, new ChargeRepository(db), _sanitizer);
         var statementService = new StatementService(new StatementRepository(db), chargeService, _pdfService);
         var controller = new ChargesController(authorizationService, chargeService, statementService)
         {

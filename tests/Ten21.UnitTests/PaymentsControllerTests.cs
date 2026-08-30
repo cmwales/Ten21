@@ -51,13 +51,13 @@ public class PaymentsControllerTests : IDisposable
         db.Database.EnsureCreated();
 
         var authorizationService = TestAuthorizationService.Create(tenantContext);
-        var chargeService = new ChargeService(new ChargeRepository(db), _sanitizer);
+        var chargeService = new ChargeService(db, new ChargeRepository(db), _sanitizer);
         var statementService = new StatementService(new StatementRepository(db), chargeService, _pdfService);
         var charges = new ChargesController(authorizationService, chargeService, statementService)
         {
             ControllerContext = TestControllerContext.Create(),
         };
-        var paymentService = new PaymentService(new PaymentRepository(db), _sanitizer);
+        var paymentService = new PaymentService(db, new PaymentRepository(db), _sanitizer);
         var payments = new PaymentsController(_pdfService, authorizationService, paymentService)
         {
             ControllerContext = TestControllerContext.Create(),

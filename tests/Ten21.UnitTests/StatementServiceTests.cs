@@ -48,11 +48,11 @@ public class StatementServiceTests : IDisposable
         var db = new Ten21DbContext(options, tenantContext);
         db.Database.EnsureCreated();
 
-        var chargeService = new ChargeService(new ChargeRepository(db), _sanitizer);
+        var chargeService = new ChargeService(db, new ChargeRepository(db), _sanitizer);
         return (
             db,
             chargeService,
-            new PaymentService(new PaymentRepository(db), _sanitizer),
+            new PaymentService(db, new PaymentRepository(db), _sanitizer),
             new StatementService(new StatementRepository(db), chargeService, _pdfService));
     }
 
