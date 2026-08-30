@@ -14,9 +14,9 @@
 ## 2. Multi-Tenant Data Isolation & Data Protection
 
 - Tenant Isolation: Single shared database protected at the ORM layer by mandatory EF Core `HasQueryFilter(e => e.TenantId == _currentTenantId)` and database-level Row-Level Security (RLS).
-- Payment Data Isolation (Zero Raw Financial Data Policy):
+- Payment Data Isolation (Zero Raw Financial Data Policy) -- **the non-negotiable target design for live payment processing, which is Phase 2+ scope; V1 has no processor integration at all**. `PaymentTransaction` today records manually-entered payments received outside the app (cash, check, Zelle, Venmo, direct deposit -- see `TenderType`) with zero raw or tokenized card/bank data of any kind, since there's no live payment collection surface yet:
   - No raw bank account numbers, routing numbers, or credit card details are ever transmitted to or stored on self-hosted application servers or databases.
-  - Payment Tokenization: All ACH and financial payment instrument collection is delegated to an external payment processor SDK (e.g., Stripe/Plaid). Only public token references (e.g., `pm_1N9x...`) are retained in the database.
+  - Payment Tokenization (Phase 2, not yet built): once live ACH/card collection ships, it must be delegated entirely to an external payment processor SDK (e.g., Stripe/Plaid), retaining only public token references (e.g., `pm_1N9x...`) in the database -- never raw instrument data, even transiently.
 - Sensitive PII Protection (Self-Hosted): Non-payment sensitive PII (e.g., SSNs, Tax IDs) is encrypted at the application layer using ASP.NET Core Data Protection API with self-hosted certificate or file key persistence.
 
 ## 3. Web Application Security & OWASP Hardening

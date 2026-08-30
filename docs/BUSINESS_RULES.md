@@ -2,8 +2,9 @@
 
 ## 1. Role & Occupancy Domain Governance
 
-- Deed Owner Privileges: Financial ledger statements, official HOA election ballots, and ARC alteration requests are strictly reserved for `Property Owner` accounts.
-- Tenant Delegation: A `Property Owner` may delegate `Tenant` access for their unit, granting the occupant rights to submit work orders and view community notices while preserving owner-only ledger and voting confidentiality.
+- Deed Owner Privileges (HOA context): Official HOA election ballots and ARC alteration requests are strictly reserved for `Property Owner` accounts. Financial ledger confidentiality is more nuanced -- see the note below.
+- Ledger Access, Reconciled with Sprint 6 (US-31): the original design reserved ledger statements for `Property Owner` alone, framed as owner confidentiality FROM PMC staff in a true HOA-governance context. This phase's V1 Landlord MVP has no separate Property Owner actively using the app day-to-day, and posting/managing charges is a `Property Manager` job (`Permissions.Ledger.Read`/`Ledger.Write` -- see `RolePermissions.cs`'s own comment on this exact reconciliation) -- so `RolePermissions.Bundles` deliberately also grants `Property Manager` full ledger access today. Worth reconfirming and re-tightening if/when a true HOA board-governed tenant needs the original owner-only confidentiality boundary enforced.
+- Tenant Delegation: A `Property Owner` may delegate `Tenant` access for their unit, granting the occupant rights to submit work orders and view community notices while preserving Tenant's own hard block from ledger and voting access (`Permissions.Ledger.*`/`Permissions.Voting.*` are never in the `Tenant` role's claim bundle).
 - Zero-Touch Automated Onboarding: Instant self-service registration provisions a new HOA tenant record, sets up baseline roles, and issues administrator credentials without manual staff intervention.
 
 ## 2. Property Management Company (PMC) Portfolio Rules
