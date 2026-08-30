@@ -1,10 +1,10 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
-using Ten21.Api.Contracts.Credits;
 using Ten21.Api.Controllers;
 using Ten21.Application.Abstractions;
 using Ten21.Business.Charges;
+using Ten21.Business.Credits;
 using Ten21.Business.Payments;
 using Ten21.Business.Statements;
 using Ten21.Domain.Entities;
@@ -64,7 +64,8 @@ public class CreditsControllerTests : IDisposable
         {
             ControllerContext = TestControllerContext.Create(),
         };
-        return (db, charges, payments, new CreditsController(db));
+        var creditService = new CreditService(db, new CreditRepository(db));
+        return (db, charges, payments, new CreditsController(creditService));
     }
 
     private static async Task<Property> SeedPropertyAsync(Ten21DbContext db)

@@ -1,20 +1,19 @@
-using Ten21.Api.Contracts.Credits;
 using Ten21.Application.Ledger;
 using Ten21.Domain.Enums;
 
-namespace Ten21.Api.Contracts.Deposits;
+namespace Ten21.Business.Deposits;
 
-/// <summary>US-39: collects a new security deposit at move-in. ResidentProfileId is optional
-/// -- per the sprint's "Dual-Anchor Attribution" rule, if a manager doesn't specify a
-/// roommate, the server auto-defaults to the Primary Resident on the unit's active lease
-/// (Lease.ResidentId), and only throws a ValidationException if there's no active lease to
-/// default from.</summary>
+/// <summary>Business-layer refactor: relocated from Ten21.Api.Contracts.Deposits so
+/// DepositService can accept/return these directly.
+///
+/// US-39: collects a new security deposit at move-in. ResidentProfileId is optional -- per
+/// the sprint's "Dual-Anchor Attribution" rule, if a manager doesn't specify a roommate, the
+/// server auto-defaults to the Primary Resident on the unit's active lease (Lease.ResidentId),
+/// and only throws a ValidationException if there's no active lease to default from.</summary>
 public record CollectDepositRequest(
     decimal Amount,
     DateOnly CollectedDate,
     Guid? ResidentProfileId);
-
-// SecurityDepositResponse moved to Ten21.Application.Ledger -- see that file's own comment.
 
 /// <summary>US-39: one line of "Settle Deposit"'s application against a charge -- the
 /// deposit-money equivalent of CreditAllocationResponse. See

@@ -1,11 +1,11 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
-using Ten21.Api.Contracts.Deposits;
 using Ten21.Api.Controllers;
 using Ten21.Application.Abstractions;
 using Ten21.Application.Ledger;
 using Ten21.Business.Charges;
+using Ten21.Business.Deposits;
 using Ten21.Business.Statements;
 using Ten21.Domain.Entities;
 using Ten21.Domain.Enums;
@@ -57,7 +57,8 @@ public class DepositsControllerTests : IDisposable
         {
             ControllerContext = TestControllerContext.Create(),
         };
-        var deposits = new DepositsController(db, _sanitizer, authorizationService)
+        var depositService = new DepositService(db, new DepositRepository(db), _sanitizer);
+        var deposits = new DepositsController(authorizationService, depositService)
         {
             ControllerContext = TestControllerContext.Create(),
         };

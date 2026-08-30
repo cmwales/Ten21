@@ -1,6 +1,9 @@
 using Microsoft.Extensions.DependencyInjection;
 using Ten21.Business.Charges;
+using Ten21.Business.Credits;
+using Ten21.Business.Deposits;
 using Ten21.Business.Payments;
+using Ten21.Business.Refunds;
 using Ten21.Business.Statements;
 
 namespace Ten21.Business;
@@ -20,6 +23,11 @@ public static class DependencyInjection
         services.AddScoped<PaymentService>();
         services.AddScoped<StatementRepository>();
         services.AddScoped<StatementService>();
+        services.AddScoped<CreditRepository>();
+        services.AddScoped<CreditService>();
+        services.AddScoped<RefundService>();
+        services.AddScoped<DepositRepository>();
+        services.AddScoped<DepositService>();
         return services;
     }
 }

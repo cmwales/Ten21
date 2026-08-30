@@ -1,12 +1,12 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
-using Ten21.Api.Contracts.Credits;
 using Ten21.Api.Controllers;
 using Ten21.Application.Abstractions;
 using Ten21.Application.Ledger;
 using Ten21.Business.Charges;
 using Ten21.Business.Payments;
+using Ten21.Business.Refunds;
 using Ten21.Business.Statements;
 using Ten21.Domain.Entities;
 using Ten21.Domain.Enums;
@@ -62,7 +62,8 @@ public class RefundsControllerTests : IDisposable
         {
             ControllerContext = TestControllerContext.Create(),
         };
-        var refunds = new RefundsController(db, _sanitizer, authorizationService)
+        var refundService = new RefundService(db, _sanitizer);
+        var refunds = new RefundsController(authorizationService, refundService)
         {
             ControllerContext = TestControllerContext.Create(),
         };
