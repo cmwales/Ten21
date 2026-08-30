@@ -55,5 +55,8 @@ public class Property : ITenantScopedEntity, IAuditableEntity, ISoftDelete
     public bool AllowTenantDirectory { get; set; }
 
     public DateTimeOffset CreatedAt { get; set; }
+    public Guid? CreatedByUserId { get; set; }
+    public DateTimeOffset? UpdatedAt { get; set; }
+    public Guid? UpdatedByUserId { get; set; }
     public bool IsDeleted { get; set; }
 }

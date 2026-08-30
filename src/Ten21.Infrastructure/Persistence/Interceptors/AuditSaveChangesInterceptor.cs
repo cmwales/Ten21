@@ -82,9 +82,24 @@ public class AuditSaveChangesInterceptor : SaveChangesInterceptor
                 }
             }
 
-            if (entry.Entity is not IAuditableEntity)
+            if (entry.Entity is not IAuditableEntity auditable)
             {
                 continue;
+            }
+
+            // Must run before BuildAuditLog snapshots CurrentValues below, so the stamp
+            // itself is captured in the audit row's own NewValuesJson too. Setting a
+            // property here (mid-SavingChanges, before SQL generation) is picked up by EF
+            // Core's change tracker like any other mutation -- same proven pattern as the
+            // IsDeleted = true stamp above.
+            if (entry.State == EntityState.Added)
+            {
+                auditable.CreatedByUserId = _tenantContext.UserId;
+            }
+            else if (entry.State == EntityState.Modified)
+            {
+                auditable.UpdatedAt = DateTimeOffset.UtcNow;
+                auditable.UpdatedByUserId = _tenantContext.UserId;
             }
 
             if (entry.State is EntityState.Added or EntityState.Modified or EntityState.Deleted)

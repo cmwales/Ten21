@@ -170,6 +170,74 @@ public class AuditSaveChangesInterceptorTests : IDisposable
     }
 
     [Fact]
+    public async Task Insert_StampsCreatedByUserId_AndLeavesUpdatedFieldsNull()
+    {
+        var tenantId = Guid.NewGuid();
+        var userId = Guid.NewGuid();
+        var (db, _) = CreateContext(tenantId, userId);
+
+        var property = NewProperty();
+        db.Properties.Add(property);
+        await db.SaveChangesAsync();
+
+        var saved = await db.Properties.SingleAsync(p => p.Id == property.Id);
+        Assert.Equal(userId, saved.CreatedByUserId);
+        Assert.Null(saved.UpdatedAt);
+        Assert.Null(saved.UpdatedByUserId);
+    }
+
+    [Fact]
+    public async Task Update_StampsUpdatedAtAndUpdatedByUserId_AndLeavesCreatedByUserIdUnchanged()
+    {
+        // Two separate DbContext/TenantContext pairs sharing the same Sqlite connection --
+        // TenantContext.SetUser is one-shot per scope (mirrors one real HTTP request each),
+        // so simulating a different editor requires a second "request" against the same
+        // underlying database, not a second SetUser call on the same instance.
+        var tenantId = Guid.NewGuid();
+        var creatorId = Guid.NewGuid();
+        var (db, _) = CreateContext(tenantId, creatorId);
+
+        var property = NewProperty();
+        db.Properties.Add(property);
+        await db.SaveChangesAsync();
+
+        var editorId = Guid.NewGuid();
+        var (editorDb, _) = CreateContext(tenantId, editorId);
+        var tracked = await editorDb.Properties.SingleAsync(p => p.Id == property.Id);
+        tracked.City = "Orem";
+        await editorDb.SaveChangesAsync();
+
+        var saved = await editorDb.Properties.SingleAsync(p => p.Id == property.Id);
+        Assert.Equal(creatorId, saved.CreatedByUserId);
+        Assert.Equal(editorId, saved.UpdatedByUserId);
+        Assert.NotNull(saved.UpdatedAt);
+    }
+
+    /// <summary>The soft-delete conversion (Deleted -> Modified) happens before the audit
+    /// stamping runs, so a "delete" should stamp UpdatedAt/UpdatedByUserId exactly like any
+    /// other update -- it IS one, at the database level.</summary>
+    [Fact]
+    public async Task SoftDelete_StampsUpdatedAtAndUpdatedByUserId()
+    {
+        var tenantId = Guid.NewGuid();
+        var (db, _) = CreateContext(tenantId, Guid.NewGuid());
+
+        var property = NewProperty();
+        db.Properties.Add(property);
+        await db.SaveChangesAsync();
+
+        var deleterId = Guid.NewGuid();
+        var (deleterDb, _) = CreateContext(tenantId, deleterId);
+        var tracked = await deleterDb.Properties.SingleAsync(p => p.Id == property.Id);
+        deleterDb.Properties.Remove(tracked);
+        await deleterDb.SaveChangesAsync();
+
+        var raw = await deleterDb.Properties.IgnoreQueryFilters().SingleAsync(p => p.Id == property.Id);
+        Assert.Equal(deleterId, raw.UpdatedByUserId);
+        Assert.NotNull(raw.UpdatedAt);
+    }
+
+    [Fact]
     public async Task NonAuditableEntity_DoesNotGenerateAuditRows()
     {
         // Tenant/Organization implement neither IAuditableEntity nor ISoftDelete --

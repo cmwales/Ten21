@@ -22,4 +22,7 @@ public class WorkspaceSettings : ITenantScopedEntity, IAuditableEntity
     public bool EnableCommunityDirectory { get; set; } = true;
 
     public DateTimeOffset CreatedAt { get; set; }
+    public Guid? CreatedByUserId { get; set; }
+    public DateTimeOffset? UpdatedAt { get; set; }
+    public Guid? UpdatedByUserId { get; set; }
 }

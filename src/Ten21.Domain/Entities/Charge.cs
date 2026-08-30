@@ -55,6 +55,9 @@ public class Charge : ITenantScopedEntity, IAuditableEntity, ISoftDelete
     public ChargeLifecycleStatus Status { get; set; } = ChargeLifecycleStatus.Active;
 
     public DateTimeOffset CreatedAt { get; set; }
+    public Guid? CreatedByUserId { get; set; }
+    public DateTimeOffset? UpdatedAt { get; set; }
+    public Guid? UpdatedByUserId { get; set; }
     public bool IsDeleted { get; set; }
 
     /// <summary>US-34's statutory waterfall order: Late Fees/Interest, then Legal, then Base

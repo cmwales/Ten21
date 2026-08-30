@@ -33,4 +33,7 @@ public class SecurityDeposit : ITenantScopedEntity, IAuditableEntity
     public SecurityDepositStatus Status { get; set; } = SecurityDepositStatus.Held;
 
     public DateTimeOffset CreatedAt { get; set; }
+    public Guid? CreatedByUserId { get; set; }
+    public DateTimeOffset? UpdatedAt { get; set; }
+    public Guid? UpdatedByUserId { get; set; }
 }

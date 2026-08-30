@@ -19,5 +19,8 @@ public class UnitTier : ITenantScopedEntity, IAuditableEntity, ISoftDelete
     public string? AccountingCode { get; set; }
     public string? Description { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
+    public Guid? CreatedByUserId { get; set; }
+    public DateTimeOffset? UpdatedAt { get; set; }
+    public Guid? UpdatedByUserId { get; set; }
     public bool IsDeleted { get; set; }
 }

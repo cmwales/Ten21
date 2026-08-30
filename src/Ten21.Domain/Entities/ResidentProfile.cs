@@ -45,5 +45,8 @@ public class ResidentProfile : ITenantScopedEntity, IAuditableEntity, ISoftDelet
     public ICollection<EmergencyContact> EmergencyContacts { get; set; } = new List<EmergencyContact>();
 
     public DateTimeOffset CreatedAt { get; set; }
+    public Guid? CreatedByUserId { get; set; }
+    public DateTimeOffset? UpdatedAt { get; set; }
+    public Guid? UpdatedByUserId { get; set; }
     public bool IsDeleted { get; set; }
 }
