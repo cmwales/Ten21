@@ -1,7 +1,9 @@
 using Ten21.Domain.Enums;
 
-namespace Ten21.Api.Contracts.Leases;
+namespace Ten21.Business.Leases;
 
+/// <summary>Business-layer refactor: relocated from Ten21.Api.Contracts.Leases so
+/// LeaseService can accept/return these directly.</summary>
 public record LeaseRecurringChargeRequest(string ChargeName, decimal Amount, string? AccountingCode);
 
 public record LeaseRecurringChargeResponse(Guid Id, string ChargeName, decimal Amount, string? AccountingCode);
@@ -22,10 +24,9 @@ public record UpsertLeaseRequest(
 
 /// <summary>TotalMonthlyDues is computed at read time (MonthlyBaseRent + Sum(RecurringCharges)),
 /// never stored -- see Lease's own class comment. EffectiveStatus/IsExpiringSoon are US-32
-/// additions, also computed at read time rather than a background job (see
-/// LeasesController.ComputeEffectiveStatus's own comment) -- Status stays the raw stored
-/// value so existing US-30 callers reading it see no behavior change. The move-out notice
-/// that feeds EffectiveStatus/IsExpiringSoon lives on Property now, not here -- see
+/// additions, also computed at read time rather than a background job -- Status stays the raw
+/// stored value so existing US-30 callers reading it see no behavior change. The move-out
+/// notice that feeds EffectiveStatus/IsExpiringSoon lives on Property now, not here -- see
 /// PropertyResponse.MoveOutNoticeDate -- so it isn't duplicated onto every lease row.</summary>
 public record LeaseResponse(
     Guid Id,

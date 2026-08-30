@@ -1,9 +1,9 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
-using Ten21.Api.Contracts.Leases;
 using Ten21.Api.Controllers;
 using Ten21.Business.Charges;
+using Ten21.Business.Leases;
 using Ten21.Domain.Entities;
 using Ten21.Domain.Enums;
 using Ten21.Domain.Exceptions;
@@ -43,7 +43,9 @@ public class LeasesControllerTests : IDisposable
         db.Database.EnsureCreated();
 
         var authorizationService = TestAuthorizationService.Create(tenantContext);
-        var controller = new LeasesController(db, _sanitizer, authorizationService)
+        var chargeService = new ChargeService(db, new ChargeRepository(db), _sanitizer);
+        var leaseService = new LeaseService(db, chargeService, _sanitizer);
+        var controller = new LeasesController(authorizationService, leaseService)
         {
             ControllerContext = TestControllerContext.Create(),
         };
