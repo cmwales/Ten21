@@ -8,8 +8,8 @@ using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Ten21.Api.Contracts.Organization;
 using Ten21.Api.Controllers;
+using Ten21.Business.Organizations;
 using Ten21.Domain.Common;
 using Ten21.Domain.Entities;
 using Ten21.Domain.Exceptions;
@@ -155,15 +155,15 @@ public class OrganizationControllerTests : IDisposable
             })
             .Build();
 
-        var controller = new OrganizationController(
+        var organizationService = new OrganizationService(
             db,
             roleManager,
             new JwtTokenService(jwtConfig),
             new RefreshTokenService(db),
             tenantContext,
             tenantStampOverride,
-            _sanitizer,
-            new FakeWebHostEnvironment())
+            _sanitizer);
+        var controller = new OrganizationController(organizationService, new FakeWebHostEnvironment())
         {
             ControllerContext = new ControllerContext
             {
