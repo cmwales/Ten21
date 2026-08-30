@@ -2,9 +2,9 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
-using Ten21.Api.Contracts.Properties;
 using Ten21.Api.Controllers;
 using Ten21.Application.Abstractions;
+using Ten21.Business.Properties;
 using Ten21.Domain.Entities;
 using Ten21.Domain.Enums;
 using Ten21.Domain.Exceptions;
@@ -49,7 +49,8 @@ public class PropertiesControllerTests : IDisposable
         var db = new Ten21DbContext(options, tenantContext);
         db.Database.EnsureCreated();
 
-        return (db, new PropertiesController(db, _sanitizer, _importParser, hardDeleteOverride));
+        var propertyService = new PropertyService(db, _sanitizer, _importParser, hardDeleteOverride);
+        return (db, new PropertiesController(propertyService));
     }
 
     private static UpsertPropertyRequest NewRequest(string? unitIdentifier = null) => new(

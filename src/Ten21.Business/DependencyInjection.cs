@@ -7,6 +7,7 @@ using Ten21.Business.Documents;
 using Ten21.Business.Leases;
 using Ten21.Business.Organizations;
 using Ten21.Business.Payments;
+using Ten21.Business.Properties;
 using Ten21.Business.Refunds;
 using Ten21.Business.Residents;
 using Ten21.Business.Statements;
@@ -45,6 +46,7 @@ public static class DependencyInjection
         services.AddScoped<DirectoryService>();
         services.AddScoped<OrganizationService>();
         services.AddScoped<ResidentService>();
+        services.AddScoped<PropertyService>();
         return services;
     }
 }
