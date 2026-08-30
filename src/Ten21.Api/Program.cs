@@ -7,6 +7,7 @@ using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
 using Ten21.Api.ExceptionHandling;
 using Ten21.Api.Filters;
+using Ten21.Business;
 using Ten21.Domain.Common;
 using Ten21.Infrastructure;
 using Ten21.Infrastructure.Authorization;
@@ -41,6 +42,7 @@ builder.Services.AddControllers(options => options.Filters.Add<ApiResponseWrappi
     .AddJsonOptions(options => options.JsonSerializerOptions.Converters.Add(Ten21JsonOptions.CreateEnumConverter()));
 
 builder.Services.AddInfrastructure(builder.Configuration);
+builder.Services.AddBusiness(); // business-layer refactor: ChargeService/ChargeRepository
 builder.Services.AddObjectStorage(builder.Configuration); // US-06
 builder.Services.AddBotDefense(); // US-18
 builder.Services.AddEmail(builder.Configuration); // US-16

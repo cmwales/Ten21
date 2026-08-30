@@ -1,0 +1,34 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>Ten21.Business</RootNamespace>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\Ten21.Domain\Ten21.Domain.csproj" />
+    <ProjectReference Include="..\Ten21.Application\Ten21.Application.csproj" />
+    <ProjectReference Include="..\Ten21.Infrastructure\Ten21.Infrastructure.csproj" />
+  </ItemGroup>
+
+  <!--
+    The actual business layer: one concrete service class per domain area (ChargeService,
+    etc), each depending on a concrete repository class (ChargeRepository, etc) and whatever
+    Application interfaces it genuinely needs (IInputSanitizer has a real second
+    implementation concern worth abstracting; a plain data-access wrapper around one shared
+    Ten21DbContext does not). No interface per class here; see each file's own comment for
+    why an interface isn't buying anything for a single-implementation seam nothing else
+    swaps out. Everything is still wired through DI (DependencyInjection.cs), never new'd up
+    by a caller.
+
+    Referencing Infrastructure directly (for Ten21DbContext) is why this can't be part of
+    Ten21.Application: Infrastructure already depends on Application (to implement its
+    interfaces), so Application depending back on Infrastructure would be circular. This
+    project sits after both in the chain instead: Domain, then Application, then
+    Infrastructure, then Business, then Api.
+  -->
+
+</Project>

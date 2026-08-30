@@ -1,55 +1,15 @@
 using Ten21.Api.Contracts.Credits;
 using Ten21.Api.Contracts.Deposits;
+using Ten21.Business.Charges;
 using Ten21.Domain.Enums;
 
 namespace Ten21.Api.Contracts.Charges;
 
-/// <summary>Renamed/extended from UpsertManualChargeRequest (Sprint 7). AllocationPriority
-/// is never client-supplied -- it's always derived server-side from Category via
-/// Charge.DefaultAllocationPriorityFor (see that method's own comment on why there's no
-/// override yet).</summary>
-public record UpsertChargeRequest(
-    string Description,
-    decimal Amount,
-    DateOnly DueDate,
-    string? AccountingCode,
-    ChargeCategory Category,
-    string? Notes = null);
-
-/// <summary>AllocatedAmount/PaymentStatus/IsLocked are computed at read time from
-/// PaymentAllocation + ChargeAdjustment rows, never stored on Charge itself -- see Charge's
-/// own class comment.</summary>
-public record ChargeResponse(
-    Guid Id,
-    Guid PropertyId,
-    string Description,
-    decimal Amount,
-    DateOnly DueDate,
-    string? AccountingCode,
-    ChargeCategory Category,
-    ChargeLifecycleStatus Status,
-    decimal AllocatedAmount,
-    decimal OutstandingAmount,
-    ChargePaymentStatus PaymentStatus,
-    bool IsLocked,
-    string? Notes);
-
-public record ChargeAdjustmentResponse(
-    Guid Id,
-    AdjustmentType AdjustmentType,
-    decimal Amount,
-    string Reason,
-    DateTimeOffset CreatedAt);
-
-/// <summary>US-35: the ONLY way to change what's owed on a locked charge (one with a payment
-/// already allocated) -- Reason is mandatory because this is a financial correction, not a
-/// convenience edit; unlike UpdateCharge/DeleteCharge/VoidCharge, this works on locked charges
-/// on purpose (that's the whole point of ChargeAdjustment existing) and also works on unlocked
-/// ones (e.g. a goodwill credit that shouldn't touch the charge's own stored Amount).</summary>
-public record CreateChargeAdjustmentRequest(
-    AdjustmentType AdjustmentType,
-    decimal Amount,
-    string Reason);
+// UpsertChargeRequest/ChargeResponse/ChargeAdjustmentResponse/CreateChargeAdjustmentRequest
+// moved to Ten21.Application.Charges (business-layer refactor) -- they're referenced here via
+// the using above wherever the statement-building records below need them (e.g.
+// ChargeStatementItemResponse.Charge). Everything below is still API-only: it belongs to
+// GetStatement/GetStatementPdf, which haven't moved into the Application layer yet.
 
 /// <summary>US-33: one charge row on the unit statement, with its adjustments nested
 /// directly beneath it (per the acceptance criteria's "adjustments render indented beneath

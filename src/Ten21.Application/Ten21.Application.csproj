@@ -17,6 +17,11 @@
     (ITenantContext, and later: use-case interfaces, DTOs) that Infrastructure implements
     and Api composes. This is the layer boundary that keeps "swap Postgres for something
     else" or "swap S3 for R2" from ever touching business rules.
+
+    Concrete business-logic services (ChargeService, etc.) live in Ten21.Business instead of
+    here: they genuinely need Ten21DbContext, and Infrastructure already depends on this
+    project (to implement its interfaces), so this project can't depend back on
+    Infrastructure without a cycle. See Ten21.Business.csproj's own comment.
   -->
 
 </Project>

@@ -5,6 +5,7 @@ using Ten21.Api.Contracts.Charges;
 using Ten21.Api.Contracts.Deposits;
 using Ten21.Api.Controllers;
 using Ten21.Application.Abstractions;
+using Ten21.Business.Charges;
 using Ten21.Domain.Entities;
 using Ten21.Domain.Enums;
 using Ten21.Domain.Exceptions;
@@ -49,7 +50,8 @@ public class DepositsControllerTests : IDisposable
         db.Database.EnsureCreated();
 
         var authorizationService = TestAuthorizationService.Create(tenantContext);
-        var charges = new ChargesController(db, _sanitizer, _pdfService, authorizationService)
+        var chargeService = new ChargeService(new ChargeRepository(db), _sanitizer);
+        var charges = new ChargesController(db, _pdfService, authorizationService, chargeService)
         {
             ControllerContext = TestControllerContext.Create(),
         };

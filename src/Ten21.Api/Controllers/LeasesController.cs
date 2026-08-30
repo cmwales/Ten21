@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Ten21.Api.Contracts.Charges;
 using Ten21.Api.Contracts.Leases;
 using Ten21.Application.Abstractions;
+using Ten21.Business.Charges;
 using Ten21.Domain.Common;
 using Ten21.Domain.Entities;
 using Ten21.Domain.Enums;

@@ -10,13 +10,16 @@
 
   <ItemGroup>
     <!--
-      Only a reference to Infrastructure is needed. ProjectReference is transitive, so
-      Application and Domain types are available here too. Api never needs its own direct
-      reference to Domain; if it starts reaching past Infrastructure/Application into
-      Domain directly for something, that's usually a sign logic leaked into a controller
-      that belongs in Application instead.
+      Two references, both needed: Infrastructure (transitively pulls in Application and
+      Domain too) for the DbContext/Identity/auth plumbing controllers still touch directly,
+      and Business (the actual business-logic layer, added during the Clean Architecture
+      refactor) for the extracted service classes like ChargeService. Api never needs its
+      own direct reference to Domain; if it starts reaching past these into Domain directly
+      for something, that's usually a sign logic leaked into a controller that belongs in
+      Business instead.
     -->
     <ProjectReference Include="..\..\src\Ten21.Infrastructure\Ten21.Infrastructure.csproj" />
+    <ProjectReference Include="..\Ten21.Business\Ten21.Business.csproj" />
   </ItemGroup>
 
   <ItemGroup>
