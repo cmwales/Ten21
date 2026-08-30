@@ -2,10 +2,12 @@ using Microsoft.Extensions.DependencyInjection;
 using Ten21.Business.Charges;
 using Ten21.Business.Credits;
 using Ten21.Business.Deposits;
+using Ten21.Business.Documents;
 using Ten21.Business.Leases;
 using Ten21.Business.Payments;
 using Ten21.Business.Refunds;
 using Ten21.Business.Statements;
+using Ten21.Business.Workspace;
 
 namespace Ten21.Business;
 
@@ -30,6 +32,9 @@ public static class DependencyInjection
         services.AddScoped<DepositRepository>();
         services.AddScoped<DepositService>();
         services.AddScoped<LeaseService>();
+        services.AddScoped<WorkspaceSettingsService>();
+        services.AddScoped<WorkspaceLedgerService>();
+        services.AddScoped<DocumentService>();
         return services;
     }
 }

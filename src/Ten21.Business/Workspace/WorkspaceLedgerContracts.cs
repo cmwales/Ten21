@@ -1,10 +1,11 @@
-namespace Ten21.Api.Contracts.Workspace;
+namespace Ten21.Business.Workspace;
 
-/// <summary>US-36: one property's row in the workspace-wide ledger rollup. Balance uses the
-/// same formula as UnitStatementResponse (see that record's own comment) -- this is a pure
+/// <summary>Business-layer refactor: relocated from Ten21.Api.Contracts.Workspace.
+///
+/// US-36: one property's row in the workspace-wide ledger rollup. Balance uses the same
+/// formula as UnitStatementResponse (see that record's own comment) -- this is a pure
 /// reporting aggregation over the same Charge/PaymentTransaction/ChargeAdjustment rows, no new
-/// tables, per the Founder's own framing of this story ("doesn't need extra tables, we just
-/// need to be able to create that report").</summary>
+/// tables.</summary>
 public record PropertyLedgerSummaryResponse(
     Guid PropertyId,
     string PropertyName,

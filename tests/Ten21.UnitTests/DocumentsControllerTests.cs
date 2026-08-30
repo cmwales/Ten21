@@ -3,9 +3,9 @@ using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
-using Ten21.Api.Contracts.Documents;
 using Ten21.Api.Controllers;
 using Ten21.Application.Abstractions;
+using Ten21.Business.Documents;
 using Ten21.Domain.Common;
 using Ten21.Domain.Entities;
 using Ten21.Domain.Enums;
@@ -71,7 +71,7 @@ public class DocumentsControllerTests : IDisposable
         _dbContext = new Ten21DbContext(options, _tenantContext);
         _dbContext.Database.EnsureCreated();
 
-        _sut = new DocumentsController(new NeverCalledStorageService(), _dbContext, _tenantContext)
+        _sut = new DocumentsController(new DocumentService(new NeverCalledStorageService(), _dbContext, _tenantContext))
         {
             ControllerContext = new ControllerContext
             {
@@ -141,7 +141,7 @@ public class DocumentsControllerTests : IDisposable
         await _dbContext.SaveChangesAsync();
 
         var storageService = new FakeStorageService();
-        var sut = new DocumentsController(storageService, _dbContext, _tenantContext)
+        var sut = new DocumentsController(new DocumentService(storageService, _dbContext, _tenantContext))
         {
             ControllerContext = _sut.ControllerContext,
         };

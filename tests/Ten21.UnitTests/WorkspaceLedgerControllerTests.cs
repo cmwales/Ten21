@@ -1,8 +1,8 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
-using Ten21.Api.Contracts.Workspace;
 using Ten21.Api.Controllers;
+using Ten21.Business.Workspace;
 using Ten21.Domain.Entities;
 using Ten21.Domain.Enums;
 using Ten21.Infrastructure.Persistence;
@@ -40,7 +40,7 @@ public class WorkspaceLedgerControllerTests : IDisposable
         var db = new Ten21DbContext(options, tenantContext);
         db.Database.EnsureCreated();
 
-        return (db, new WorkspaceLedgerController(db));
+        return (db, new WorkspaceLedgerController(new WorkspaceLedgerService(db)));
     }
 
     private static async Task<Property> SeedPropertyAsync(Ten21DbContext db, string name, string? unitIdentifier = null)

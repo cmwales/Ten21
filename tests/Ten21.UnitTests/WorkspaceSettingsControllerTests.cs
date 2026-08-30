@@ -1,8 +1,8 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
-using Ten21.Api.Contracts.Workspace;
 using Ten21.Api.Controllers;
+using Ten21.Business.Workspace;
 using Ten21.Infrastructure.Persistence;
 using Ten21.Infrastructure.Persistence.Interceptors;
 using Xunit;
@@ -37,7 +37,7 @@ public class WorkspaceSettingsControllerTests : IDisposable
         var db = new Ten21DbContext(options, tenantContext);
         db.Database.EnsureCreated();
 
-        return (db, new WorkspaceSettingsController(db));
+        return (db, new WorkspaceSettingsController(new WorkspaceSettingsService(db)));
     }
 
     [Fact]
