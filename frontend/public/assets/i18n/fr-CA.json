@@ -472,7 +472,8 @@
     "welcome": "Content de vous revoir",
     "role": "Rôle",
     "tenant": "Propriété",
-    "organization": "Organisation"
+    "organization": "Organisation",
+    "communityDirectory": "Répertoire Communautaire"
   },
   "ledger": {
     "title": "Grand Livre Financier",
@@ -559,6 +560,20 @@
     "empty": "Aucun voisin n'a encore choisi de figurer dans le répertoire.",
     "disabled": "Le répertoire communautaire n'est pas disponible pour votre propriété pour le moment.",
     "loadError": "Une erreur s'est produite lors du chargement du répertoire."
+  },
+  "directoryAdmin": {
+    "title": "Répertoire Communautaire",
+    "subtitle": "Tout le monde qui apparaît actuellement dans le répertoire communautaire, pour l'ensemble de l'espace de travail.",
+    "empty": "Personne n'apparaît actuellement dans le répertoire.",
+    "workspaceDisabled": "Le répertoire communautaire est désactivé pour l'ensemble de l'espace de travail (Paramètres d'administration). Ces entrées apparaîtraient s'il était activé.",
+    "loadError": "Une erreur s'est produite lors du chargement du répertoire.",
+    "columns": {
+      "name": "Nom",
+      "email": "Courriel",
+      "phone": "Téléphone",
+      "address": "Adresse de la Propriété",
+      "unit": "Unité"
+    }
   },
   "admin": {
     "settings": {

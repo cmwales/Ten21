@@ -1,0 +1,53 @@
+<div class="flex min-h-screen flex-col bg-slate-navy">
+  <app-header />
+
+  <main class="flex flex-1 justify-center px-4 py-8">
+    <div class="w-full max-w-5xl">
+      <h1 class="text-2xl font-bold text-white">{{ 'directoryAdmin.title' | translate }}</h1>
+      <p class="mt-1 text-sm text-white/70">{{ 'directoryAdmin.subtitle' | translate }}</p>
+
+      @if (!workspaceDirectoryEnabled()) {
+        <div class="mt-6 rounded-md bg-amber px-4 py-3 text-sm font-medium text-slate-navy">
+          {{ 'directoryAdmin.workspaceDisabled' | translate }}
+        </div>
+      }
+
+      @if (errorKey()) {
+        <div role="alert" class="mt-6 rounded-md border border-rose bg-rose/10 px-4 py-3 text-sm font-medium text-rose">
+          {{ errorKey()! | translate }}
+        </div>
+      } @else if (loading()) {
+        <p class="mt-6 text-sm text-white">{{ 'common.loading' | translate }}</p>
+      } @else if (entries().length === 0) {
+        <p class="mt-6 rounded-xl bg-surface-card p-4 text-sm text-slate-navy-light shadow-xl">
+          {{ 'directoryAdmin.empty' | translate }}
+        </p>
+      } @else {
+        <div class="mt-6 overflow-x-auto rounded-xl bg-surface-card shadow-xl">
+          <table class="w-full min-w-[800px] border-collapse text-left text-sm">
+            <thead>
+              <tr class="border-b border-slate-navy/10 text-xs font-semibold uppercase text-slate-navy-light">
+                <th class="px-4 py-3">{{ 'directoryAdmin.columns.name' | translate }}</th>
+                <th class="px-4 py-3">{{ 'directoryAdmin.columns.email' | translate }}</th>
+                <th class="px-4 py-3">{{ 'directoryAdmin.columns.phone' | translate }}</th>
+                <th class="px-4 py-3">{{ 'directoryAdmin.columns.address' | translate }}</th>
+                <th class="px-4 py-3">{{ 'directoryAdmin.columns.unit' | translate }}</th>
+              </tr>
+            </thead>
+            <tbody>
+              @for (entry of entries(); track (entry.email ?? '') + (entry.phoneNumber ?? '') + entry.propertyAddress + (entry.unitIdentifier ?? '')) {
+                <tr class="border-b border-slate-navy/5 last:border-0">
+                  <td class="px-4 py-3 font-medium text-slate-navy">{{ entry.firstName }} {{ entry.lastName }}</td>
+                  <td class="px-4 py-3 text-slate-navy-light">{{ entry.email || '—' }}</td>
+                  <td class="px-4 py-3 text-slate-navy-light">{{ entry.phoneNumber || '—' }}</td>
+                  <td class="px-4 py-3 text-slate-navy-light">{{ entry.propertyAddress }}</td>
+                  <td class="px-4 py-3 text-slate-navy-light">{{ entry.unitIdentifier || '—' }}</td>
+                </tr>
+              }
+            </tbody>
+          </table>
+        </div>
+      }
+    </div>
+  </main>
+</div>

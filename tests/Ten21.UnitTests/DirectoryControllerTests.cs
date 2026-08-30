@@ -254,4 +254,91 @@ public class DirectoryControllerTests : IDisposable
         var entries = Assert.IsAssignableFrom<IEnumerable<DirectoryEntryResponse>>(Assert.IsType<OkObjectResult>(result).Value);
         Assert.Single(entries);
     }
+
+    [Fact]
+    public async Task GetDirectoryAdmin_ReturnsEntry_WhenBothPropertyAndResidentOptIn()
+    {
+        var tenantId = Guid.NewGuid();
+        var (db, controller) = CreateController(tenantId, Guid.NewGuid());
+
+        var property = NewProperty(tenantId, "100 Main St", allowTenantDirectory: true, unitIdentifier: "Suite A");
+        db.Properties.Add(property);
+        var resident = NewResident(tenantId, property.Id, userId: null, showInDirectory: true);
+        resident.Email = "jamie@example.com";
+        resident.PhoneNumber = "555-0100";
+        db.ResidentProfiles.Add(resident);
+        await db.SaveChangesAsync();
+
+        var result = await controller.GetDirectoryAdmin(CancellationToken.None);
+
+        var response = Assert.IsType<DirectoryAdminResponse>(Assert.IsType<OkObjectResult>(result).Value);
+        Assert.True(response.WorkspaceDirectoryEnabled);
+        var entry = Assert.Single(response.Entries);
+        Assert.Equal("Jamie", entry.FirstName);
+        Assert.Equal("jamie@example.com", entry.Email);
+        Assert.Equal("555-0100", entry.PhoneNumber);
+        Assert.Equal("Suite A", entry.UnitIdentifier);
+        Assert.Equal("100 Main St, Provo, UT 84601", entry.PropertyAddress);
+    }
+
+    [Fact]
+    public async Task GetDirectoryAdmin_ExcludesEntry_WhenPropertyDoesNotAllowDirectory()
+    {
+        var tenantId = Guid.NewGuid();
+        var (db, controller) = CreateController(tenantId, Guid.NewGuid());
+
+        var property = NewProperty(tenantId, "100 Main St", allowTenantDirectory: false);
+        db.Properties.Add(property);
+        db.ResidentProfiles.Add(NewResident(tenantId, property.Id, userId: null, showInDirectory: true));
+        await db.SaveChangesAsync();
+
+        var result = await controller.GetDirectoryAdmin(CancellationToken.None);
+
+        var response = Assert.IsType<DirectoryAdminResponse>(Assert.IsType<OkObjectResult>(result).Value);
+        Assert.Empty(response.Entries);
+    }
+
+    [Fact]
+    public async Task GetDirectoryAdmin_ExcludesEntry_WhenResidentOptedOut()
+    {
+        var tenantId = Guid.NewGuid();
+        var (db, controller) = CreateController(tenantId, Guid.NewGuid());
+
+        var property = NewProperty(tenantId, "100 Main St", allowTenantDirectory: true);
+        db.Properties.Add(property);
+        db.ResidentProfiles.Add(NewResident(tenantId, property.Id, userId: null, showInDirectory: false));
+        await db.SaveChangesAsync();
+
+        var result = await controller.GetDirectoryAdmin(CancellationToken.None);
+
+        var response = Assert.IsType<DirectoryAdminResponse>(Assert.IsType<OkObjectResult>(result).Value);
+        Assert.Empty(response.Entries);
+    }
+
+    /// <summary>Unlike GetDirectory, GetDirectoryAdmin never throws when the workspace toggle
+    /// is off -- a PM needs to see what WOULD show while deciding whether to enable it.</summary>
+    [Fact]
+    public async Task GetDirectoryAdmin_StillReturnsEntries_WhenWorkspaceDirectoryIsDisabled()
+    {
+        var tenantId = Guid.NewGuid();
+        var (db, controller) = CreateController(tenantId, Guid.NewGuid());
+
+        var property = NewProperty(tenantId, "100 Main St", allowTenantDirectory: true);
+        db.Properties.Add(property);
+        db.ResidentProfiles.Add(NewResident(tenantId, property.Id, userId: null, showInDirectory: true));
+        db.WorkspaceSettings.Add(new WorkspaceSettings
+        {
+            Id = Guid.NewGuid(),
+            TenantId = tenantId,
+            EnableCommunityDirectory = false,
+            CreatedAt = DateTimeOffset.UtcNow,
+        });
+        await db.SaveChangesAsync();
+
+        var result = await controller.GetDirectoryAdmin(CancellationToken.None);
+
+        var response = Assert.IsType<DirectoryAdminResponse>(Assert.IsType<OkObjectResult>(result).Value);
+        Assert.False(response.WorkspaceDirectoryEnabled);
+        Assert.Single(response.Entries);
+    }
 }

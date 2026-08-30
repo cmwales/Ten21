@@ -22,5 +22,16 @@
         }
       </dl>
     }
+
+    @if (canViewDirectoryAdmin()) {
+      <div class="mt-6">
+        <a
+          routerLink="/admin/directory"
+          class="tap-target inline-flex items-center rounded-md bg-surface-card px-4 py-3 font-semibold text-slate-navy shadow-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
+        >
+          {{ 'dashboard.communityDirectory' | translate }}
+        </a>
+      </div>
+    }
   </main>
 </div>

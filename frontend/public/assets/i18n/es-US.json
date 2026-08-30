@@ -472,7 +472,8 @@
     "welcome": "Bienvenido de nuevo",
     "role": "Rol",
     "tenant": "Propiedad",
-    "organization": "Organización"
+    "organization": "Organización",
+    "communityDirectory": "Directorio Comunitario"
   },
   "ledger": {
     "title": "Libro Contable Financiero",
@@ -559,6 +560,20 @@
     "empty": "Aún ningún vecino ha optado por aparecer en el directorio.",
     "disabled": "El directorio comunitario no está disponible para su propiedad en este momento.",
     "loadError": "Algo salió mal al cargar el directorio."
+  },
+  "directoryAdmin": {
+    "title": "Directorio Comunitario",
+    "subtitle": "Todos los que aparecen actualmente en el directorio comunitario, en todo el espacio de trabajo.",
+    "empty": "Nadie aparece actualmente en el directorio.",
+    "workspaceDisabled": "El directorio comunitario está desactivado en todo el espacio de trabajo (Configuración del Administrador). Estas entradas aparecerían si estuviera activado.",
+    "loadError": "Algo salió mal al cargar el directorio.",
+    "columns": {
+      "name": "Nombre",
+      "email": "Correo electrónico",
+      "phone": "Teléfono",
+      "address": "Dirección de la Propiedad",
+      "unit": "Unidad"
+    }
   },
   "admin": {
     "settings": {

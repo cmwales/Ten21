@@ -141,6 +141,25 @@ export const routes: Routes = [
     loadComponent: () => import('./pages/directory/directory').then((m) => m.Directory),
   },
   {
+    // PM-facing verification view of the same directory (Permissions.Resident.Read instead
+    // of Directory.Read) -- only PropertyManager has that grant (SuperAdmin via
+    // Permissions.All), so every other role is denied here too.
+    path: 'admin/directory',
+    canActivate: [
+      authGuard,
+      denyRolesGuard([
+        RoleNames.BoardMember,
+        RoleNames.PropertyOwner,
+        RoleNames.Tenant,
+        RoleNames.Vendor,
+        RoleNames.CommitteeMember,
+        RoleNames.OnSiteStaff,
+        RoleNames.Accountant,
+      ]),
+    ],
+    loadComponent: () => import('./pages/directory-admin/directory-admin').then((m) => m.DirectoryAdmin),
+  },
+  {
     // Refinement Sprint (Directive 4): workspace-wide admin toggles. Matches
     // Permissions.Workspace.SettingsRead/Write's grant list (PropertyManager, BoardMember,
     // SuperAdmin) -- everyone else is denied at the UI layer too, mirroring the API's policy.

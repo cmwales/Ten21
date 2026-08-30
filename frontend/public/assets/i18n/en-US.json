@@ -472,7 +472,8 @@
     "welcome": "Welcome back",
     "role": "Role",
     "tenant": "Property",
-    "organization": "Organization"
+    "organization": "Organization",
+    "communityDirectory": "Community Directory"
   },
   "ledger": {
     "title": "Financial Ledger",
@@ -559,6 +560,20 @@
     "empty": "No neighbors have opted into the directory yet.",
     "disabled": "The community directory isn't available for your property right now.",
     "loadError": "Something went wrong loading the directory."
+  },
+  "directoryAdmin": {
+    "title": "Community Directory",
+    "subtitle": "Everyone currently visible in the community directory, workspace-wide.",
+    "empty": "Nobody is currently showing up in the directory.",
+    "workspaceDisabled": "The community directory is turned off workspace-wide (Admin Settings). These entries would show up if it were enabled.",
+    "loadError": "Something went wrong loading the directory.",
+    "columns": {
+      "name": "Name",
+      "email": "Email",
+      "phone": "Phone",
+      "address": "Property Address",
+      "unit": "Unit"
+    }
   },
   "admin": {
     "settings": {

@@ -105,4 +105,48 @@ public class DirectoryController : ControllerBase
 
         return Ok(entries);
     }
+
+    /// <summary>
+    /// PM-facing verification view: "what is currently showing up in the community
+    /// directory" across the whole workspace, not scoped to any one caller's occupancy or
+    /// address group. Gated by Permissions.Resident.Read (PropertyManager/SuperAdmin only)
+    /// rather than Directory.Read -- this is a management/audit action, not the Tenant-facing
+    /// directory itself, so it deliberately returns Email/PhoneNumber (see
+    /// DirectoryAdminEntryResponse's own comment) and never throws when the workspace toggle
+    /// is off, so a PM can still see what WOULD show if they turned it on.
+    /// </summary>
+    [HttpGet("admin")]
+    [Authorize(Policy = Permissions.Resident.Read)]
+    public async Task<IActionResult> GetDirectoryAdmin(CancellationToken cancellationToken)
+    {
+        var workspaceDirectoryEnabled = await _dbContext.WorkspaceSettings
+            .Select(s => (bool?)s.EnableCommunityDirectory)
+            .FirstOrDefaultAsync(cancellationToken) ?? true;
+
+        // Ordering directly on the constructed DirectoryAdminEntryResponse record doesn't
+        // translate (EF Core can't push an OrderBy through a client record's property back
+        // into SQL) -- project to an anonymous type with plain members first, order that,
+        // then map to the record as a final in-memory-free Select.
+        var entries = await _dbContext.ResidentProfiles
+            .Where(r => r.ShowInDirectory)
+            .Join(
+                _dbContext.Properties.Where(p => p.AllowTenantDirectory),
+                resident => resident.PropertyId,
+                property => property.Id,
+                (resident, property) => new
+                {
+                    resident.FirstName,
+                    resident.LastName,
+                    resident.Email,
+                    resident.PhoneNumber,
+                    PropertyAddress = property.StreetAddress1 + ", " + property.City + ", " + property.State + " " + property.PostalCode,
+                    property.UnitIdentifier,
+                })
+            .OrderBy(e => e.LastName).ThenBy(e => e.FirstName)
+            .Select(e => new DirectoryAdminEntryResponse(
+                e.FirstName, e.LastName, e.Email, e.PhoneNumber, e.PropertyAddress, e.UnitIdentifier))
+            .ToListAsync(cancellationToken);
+
+        return Ok(new DirectoryAdminResponse(workspaceDirectoryEnabled, entries));
+    }
 }
