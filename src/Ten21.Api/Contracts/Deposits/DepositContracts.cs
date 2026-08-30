@@ -1,4 +1,5 @@
 using Ten21.Api.Contracts.Credits;
+using Ten21.Application.Ledger;
 using Ten21.Domain.Enums;
 
 namespace Ten21.Api.Contracts.Deposits;
@@ -13,15 +14,7 @@ public record CollectDepositRequest(
     DateOnly CollectedDate,
     Guid? ResidentProfileId);
 
-public record SecurityDepositResponse(
-    Guid Id,
-    Guid PropertyId,
-    Guid ResidentProfileId,
-    string ResidentName,
-    decimal OriginalAmount,
-    decimal AmountHeld,
-    DateOnly CollectedDate,
-    SecurityDepositStatus Status);
+// SecurityDepositResponse moved to Ten21.Application.Ledger -- see that file's own comment.
 
 /// <summary>US-39: one line of "Settle Deposit"'s application against a charge -- the
 /// deposit-money equivalent of CreditAllocationResponse. See

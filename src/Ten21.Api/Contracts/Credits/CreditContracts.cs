@@ -1,4 +1,5 @@
-using Ten21.Api.Contracts.Charges;
+using Ten21.Application.Ledger;
+using Ten21.Business.Statements;
 using Ten21.Domain.Enums;
 
 namespace Ten21.Api.Contracts.Credits;
@@ -25,14 +26,4 @@ public record RefundCreditBalanceRequest(
     RefundTenderType TenderType,
     string? ReferenceNumber);
 
-public record RefundTransactionResponse(
-    Guid Id,
-    Guid ResidentProfileId,
-    string ResidentName,
-    Guid PropertyId,
-    decimal Amount,
-    DateOnly RefundDate,
-    RefundTenderType TenderType,
-    string? ReferenceNumber,
-    RefundReason Reason,
-    DateTimeOffset CreatedAt);
+// RefundTransactionResponse moved to Ten21.Application.Ledger -- see that file's own comment.

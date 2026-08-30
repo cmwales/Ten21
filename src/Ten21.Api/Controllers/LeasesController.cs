@@ -1,7 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using Ten21.Api.Contracts.Charges;
 using Ten21.Api.Contracts.Leases;
 using Ten21.Application.Abstractions;
 using Ten21.Business.Charges;

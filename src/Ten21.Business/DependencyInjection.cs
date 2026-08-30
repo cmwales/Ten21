@@ -1,12 +1,14 @@
 using Microsoft.Extensions.DependencyInjection;
 using Ten21.Business.Charges;
+using Ten21.Business.Payments;
+using Ten21.Business.Statements;
 
 namespace Ten21.Business;
 
 /// <summary>
 /// Business-layer refactor: registers this project's concrete service/repository classes.
-/// Both are registered Scoped, matching Ten21DbContext's own lifetime -- one instance per
-/// HTTP request, same as every other Scoped dependency in this app.
+/// All registered Scoped, matching Ten21DbContext's own lifetime -- one instance per HTTP
+/// request, same as every other Scoped dependency in this app.
 /// </summary>
 public static class DependencyInjection
 {
@@ -14,6 +16,10 @@ public static class DependencyInjection
     {
         services.AddScoped<ChargeRepository>();
         services.AddScoped<ChargeService>();
+        services.AddScoped<PaymentRepository>();
+        services.AddScoped<PaymentService>();
+        services.AddScoped<StatementRepository>();
+        services.AddScoped<StatementService>();
         return services;
     }
 }

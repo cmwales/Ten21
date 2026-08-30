@@ -1,10 +1,10 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
-using Ten21.Api.Contracts.Charges;
 using Ten21.Api.Controllers;
 using Ten21.Application.Abstractions;
 using Ten21.Business.Charges;
+using Ten21.Business.Statements;
 using Ten21.Domain.Entities;
 using Ten21.Domain.Enums;
 using Ten21.Domain.Exceptions;
@@ -50,7 +50,8 @@ public class ChargesControllerTests : IDisposable
 
         var authorizationService = TestAuthorizationService.Create(tenantContext);
         var chargeService = new ChargeService(new ChargeRepository(db), _sanitizer);
-        var controller = new ChargesController(db, _pdfService, authorizationService, chargeService)
+        var statementService = new StatementService(new StatementRepository(db), chargeService, _pdfService);
+        var controller = new ChargesController(authorizationService, chargeService, statementService)
         {
             ControllerContext = TestControllerContext.Create(),
         };

@@ -2,7 +2,6 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Ten21.Api.Contracts.Leases;
-using Ten21.Api.Contracts.Charges;
 using Ten21.Api.Controllers;
 using Ten21.Business.Charges;
 using Ten21.Domain.Entities;
