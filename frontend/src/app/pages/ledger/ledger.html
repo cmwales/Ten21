@@ -3,7 +3,17 @@
 
   <main class="flex flex-1 justify-center px-4 py-8">
     <div class="w-full max-w-4xl">
-      <h1 class="text-2xl font-bold text-white">{{ 'ledger.title' | translate }}</h1>
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <h1 class="text-2xl font-bold text-white">{{ 'ledger.title' | translate }}</h1>
+        <button
+          type="button"
+          (click)="runBillingCycle()"
+          [disabled]="runningCycle()"
+          class="tap-target rounded-md bg-emerald px-4 py-2 text-sm font-semibold text-white disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
+        >
+          {{ (runningCycle() ? 'ledger.runCycleRunning' : 'ledger.runCycleButton') | translate }}
+        </button>
+      </div>
 
       @if (errorKey()) {
         <div role="alert" class="mt-6 rounded-md border border-rose bg-rose/10 px-4 py-3 text-sm font-medium text-rose">

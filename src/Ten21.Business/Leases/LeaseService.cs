@@ -72,8 +72,6 @@ public class LeaseService
             ResidentId = request.ResidentId,
             StartDate = request.StartDate,
             EndDate = request.EndDate,
-            MonthlyBaseRent = request.MonthlyBaseRent,
-            DueDayOfMonth = request.DueDayOfMonth,
             Status = request.Status,
             CreatedAt = DateTimeOffset.UtcNow,
         };
@@ -97,8 +95,6 @@ public class LeaseService
         lease.ResidentId = request.ResidentId;
         lease.StartDate = request.StartDate;
         lease.EndDate = request.EndDate;
-        lease.MonthlyBaseRent = request.MonthlyBaseRent;
-        lease.DueDayOfMonth = request.DueDayOfMonth;
         lease.Status = request.Status;
 
         // Managed directly via the DbSet, not resident.RecurringCharges navigation mutation --
@@ -138,7 +134,9 @@ public class LeaseService
             });
         }
 
-        var (description, amount) = ComputeProration(lease, request.MoveInDate);
+        var baseRentTemplate = lease.RecurringCharges.FirstOrDefault(c => c.Category == ChargeCategory.BaseRent)
+            ?? throw new DomainException($"Lease '{lease.Id}' has no Category = BaseRent recurring charge.");
+        var (description, amount) = ComputeProration(baseRentTemplate, request.MoveInDate);
 
         var charge = new Charge
         {
@@ -197,8 +195,20 @@ public class LeaseService
             Id = Guid.NewGuid(),
             LeaseId = leaseId,
             ChargeName = _sanitizer.Sanitize(c.ChargeName)!,
+            Category = c.Category,
             Amount = c.Amount,
             AccountingCode = NullIfBlank(_sanitizer.Sanitize(c.AccountingCode)),
+            Description = NullIfBlank(_sanitizer.Sanitize(c.Description)),
+            RecurrencePattern = c.RecurrencePattern,
+            RecurrenceInterval = c.RecurrenceInterval,
+            DueDayOfMonth = c.DueDayOfMonth,
+            TargetDayOfWeek = c.TargetDayOfWeek,
+            SecondaryDueDay = c.SecondaryDueDay,
+            EndStrategy = c.EndStrategy,
+            EffectiveStartDate = c.EffectiveStartDate,
+            EffectiveEndDate = c.EffectiveEndDate,
+            ProrationStrategy = c.ProrationStrategy,
+            IsPaused = c.IsPaused,
             CreatedAt = DateTimeOffset.UtcNow,
         }).ToList();
 
@@ -211,36 +221,82 @@ public class LeaseService
             errors[nameof(request.EndDate)] = ["End date must be after the start date."];
         }
 
-        if (request.MonthlyBaseRent < 0)
+        var baseRentCount = request.RecurringCharges.Count(c => c.Category == ChargeCategory.BaseRent);
+        if (baseRentCount != 1)
         {
-            errors[nameof(request.MonthlyBaseRent)] = ["Monthly base rent cannot be negative."];
-        }
-
-        if (request.DueDayOfMonth is < 1 or > 28)
-        {
-            errors[nameof(request.DueDayOfMonth)] = ["Due day of month must be between 1 and 28."];
+            errors[nameof(request.RecurringCharges)] =
+                ["Exactly one recurring charge with Category = BaseRent is required."];
         }
 
         for (var i = 0; i < request.RecurringCharges.Count; i++)
         {
             var charge = request.RecurringCharges[i];
+            var prefix = $"RecurringCharges[{i}]";
+
             if (string.IsNullOrWhiteSpace(charge.ChargeName))
             {
-                errors[$"RecurringCharges[{i}].ChargeName"] = ["Charge name is required."];
+                errors[$"{prefix}.ChargeName"] = ["Charge name is required."];
             }
             else if (charge.ChargeName.Length > 100)
             {
-                errors[$"RecurringCharges[{i}].ChargeName"] = ["Charge name must be 100 characters or fewer."];
+                errors[$"{prefix}.ChargeName"] = ["Charge name must be 100 characters or fewer."];
             }
 
             if (charge.Amount < 0)
             {
-                errors[$"RecurringCharges[{i}].Amount"] = ["Charge amount cannot be negative."];
+                errors[$"{prefix}.Amount"] = ["Charge amount cannot be negative."];
             }
 
             if (charge.AccountingCode is { Length: > 50 })
             {
-                errors[$"RecurringCharges[{i}].AccountingCode"] = ["Accounting code must be 50 characters or fewer."];
+                errors[$"{prefix}.AccountingCode"] = ["Accounting code must be 50 characters or fewer."];
+            }
+
+            if (charge.Description is { Length: > 200 })
+            {
+                errors[$"{prefix}.Description"] = ["Description must be 200 characters or fewer."];
+            }
+
+            if (charge.EffectiveEndDate is { } end && end < charge.EffectiveStartDate)
+            {
+                errors[$"{prefix}.EffectiveEndDate"] = ["Effective end date must be on or after the effective start date."];
+            }
+
+            switch (charge.RecurrencePattern)
+            {
+                case RecurrencePattern.Monthly:
+                    if (charge.DueDayOfMonth is not (>= 1 and <= 31))
+                    {
+                        errors[$"{prefix}.DueDayOfMonth"] = ["Due day of month (1-31) is required for a Monthly charge."];
+                    }
+                    break;
+                case RecurrencePattern.SemiMonthly:
+                    if (charge.DueDayOfMonth is not (>= 1 and <= 31))
+                    {
+                        errors[$"{prefix}.DueDayOfMonth"] = ["Due day of month (1-31) is required for a SemiMonthly charge."];
+                    }
+                    if (charge.SecondaryDueDay is not (>= 1 and <= 31))
+                    {
+                        errors[$"{prefix}.SecondaryDueDay"] = ["Secondary due day (1-31) is required for a SemiMonthly charge."];
+                    }
+                    break;
+                case RecurrencePattern.Weekly:
+                case RecurrencePattern.BiWeekly:
+                    if (charge.TargetDayOfWeek is null)
+                    {
+                        errors[$"{prefix}.TargetDayOfWeek"] = ["Target day of week is required for a Weekly/BiWeekly charge."];
+                    }
+                    break;
+            }
+
+            if (charge.RecurrenceInterval < 1)
+            {
+                errors[$"{prefix}.RecurrenceInterval"] = ["Recurrence interval must be at least 1."];
+            }
+
+            if (charge.EndStrategy == EndStrategy.FixedDate && charge.EffectiveEndDate is null)
+            {
+                errors[$"{prefix}.EffectiveEndDate"] = ["Effective end date is required when EndStrategy is FixedDate."];
             }
         }
 
@@ -254,21 +310,25 @@ public class LeaseService
         string.IsNullOrWhiteSpace(value) ? null : value;
 
     /// <summary>
-    /// The daily rate is MonthlyBaseRent / days-in-the-move-in-month -- a common, simple
-    /// landlord convention. The billed PERIOD itself can still cross into the next calendar
-    /// month (e.g. a due day of 5 with an Aug 25 move-in bills through Sep 4), matching the
-    /// acceptance criteria's "prior to standard monthly billing anchor start" wording rather
-    /// than a plain calendar-month cutoff.
+    /// The daily rate is the BaseRent template's Amount / days-in-the-move-in-month -- a
+    /// common, simple landlord convention. The billed PERIOD itself can still cross into
+    /// the next calendar month (e.g. a due day of 5 with an Aug 25 move-in bills through
+    /// Sep 4), matching the acceptance criteria's "prior to standard monthly billing
+    /// anchor start" wording rather than a plain calendar-month cutoff. Uses the same
+    /// runtime day-clamping as RecurrenceSchedule (a due day of 31 in a 30-day month
+    /// resolves to the 30th) so this stays consistent with the generation engine.
     /// </summary>
-    private static (string Description, decimal Amount) ComputeProration(Lease lease, DateOnly moveInDate)
+    private static (string Description, decimal Amount) ComputeProration(LeaseRecurringCharge baseRentTemplate, DateOnly moveInDate)
     {
-        var billingStart = moveInDate.Day < lease.DueDayOfMonth
-            ? new DateOnly(moveInDate.Year, moveInDate.Month, lease.DueDayOfMonth)
-            : new DateOnly(moveInDate.Year, moveInDate.Month, lease.DueDayOfMonth).AddMonths(1);
+        var dueDay = baseRentTemplate.DueDayOfMonth ?? 1;
+        var clampedDueDay = Math.Min(dueDay, DateTime.DaysInMonth(moveInDate.Year, moveInDate.Month));
+        var billingStart = moveInDate.Day < clampedDueDay
+            ? new DateOnly(moveInDate.Year, moveInDate.Month, clampedDueDay)
+            : new DateOnly(moveInDate.Year, moveInDate.Month, clampedDueDay).AddMonths(1);
 
         var daysInPeriod = billingStart.DayNumber - moveInDate.DayNumber;
         var daysInMoveInMonth = DateTime.DaysInMonth(moveInDate.Year, moveInDate.Month);
-        var dailyRate = lease.MonthlyBaseRent / daysInMoveInMonth;
+        var dailyRate = baseRentTemplate.Amount / daysInMoveInMonth;
         var amount = Math.Round(dailyRate * daysInPeriod, 2);
 
         var periodEnd = billingStart.AddDays(-1);
@@ -319,18 +379,42 @@ public class LeaseService
         var today = DateOnly.FromDateTime(DateTimeOffset.UtcNow.DateTime);
         var effectiveStatus = ComputeEffectiveStatus(lease, today, propertyMoveOutNoticeDate);
 
+        // Simplification noted on LeaseResponse itself: sums each currently-active
+        // template's per-occurrence Amount as-is, not normalized to a true monthly
+        // equivalent for non-Monthly patterns.
+        var activeCharges = charges.Where(c => IsCurrentlyActive(c, lease, today)).ToList();
+
         return new LeaseResponse(
             lease.Id,
             lease.PropertyId,
             lease.ResidentId,
             lease.StartDate,
             lease.EndDate,
-            lease.MonthlyBaseRent,
-            lease.DueDayOfMonth,
             lease.Status,
-            lease.MonthlyBaseRent + charges.Sum(c => c.Amount),
-            charges.Select(c => new LeaseRecurringChargeResponse(c.Id, c.ChargeName, c.Amount, c.AccountingCode)).ToList(),
+            activeCharges.Sum(c => c.Amount),
+            charges.Select(c => new LeaseRecurringChargeResponse(
+                c.Id, c.ChargeName, c.Category, c.Amount, c.RecurrencePattern, c.RecurrenceInterval,
+                c.DueDayOfMonth, c.TargetDayOfWeek, c.SecondaryDueDay, c.EndStrategy, c.EffectiveStartDate,
+                c.EffectiveEndDate, c.ProrationStrategy, c.IsPaused, c.AccountingCode, c.Description)).ToList(),
             effectiveStatus,
             ComputeIsExpiringSoon(lease, today, effectiveStatus));
+    }
+
+    private static bool IsCurrentlyActive(LeaseRecurringCharge charge, Lease lease, DateOnly today)
+    {
+        if (charge.IsPaused || charge.EffectiveStartDate > today)
+        {
+            return false;
+        }
+
+        var effectiveEndDate = charge.EndStrategy switch
+        {
+            EndStrategy.Indefinite => (DateOnly?)null,
+            EndStrategy.FixedDate => charge.EffectiveEndDate,
+            EndStrategy.LeaseAligned => lease.EndDate,
+            _ => throw new ArgumentOutOfRangeException(nameof(charge.EndStrategy)),
+        };
+
+        return effectiveEndDate is null || effectiveEndDate >= today;
     }
 }

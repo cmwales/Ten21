@@ -35,6 +35,13 @@ public class Charge : ITenantScopedEntity, IAuditableEntity, ISoftDelete
     /// the charge's required title/label shown throughout the UI.</summary>
     public string? Notes { get; set; }
 
+    /// <summary>US-44 (Sprint 9): set only for a charge BillingCycleService generated from a
+    /// LeaseRecurringCharge template; null for manually-posted/one-off charges (fines,
+    /// pro-rated move-in charges). Paired with DueDate, this is the idempotency key
+    /// generation checks before posting -- a retried cycle never double-bills the same
+    /// template for the same period.</summary>
+    public Guid? SourceRecurringChargeId { get; set; }
+
     public ChargeCategory Category { get; set; }
 
     /// <summary>1 (highest) - 10 (lowest). Defaults from Category via

@@ -29,17 +29,53 @@ describe('LeaseDrawer', () => {
     emergencyContacts: [],
   };
 
+  const baseRentCharge = {
+    id: 'charge-base-rent',
+    chargeName: 'Base Rent',
+    category: 'BaseRent' as const,
+    amount: 1450,
+    recurrencePattern: 'Monthly' as const,
+    recurrenceInterval: 1,
+    dueDayOfMonth: 1,
+    targetDayOfWeek: null,
+    secondaryDueDay: null,
+    endStrategy: 'LeaseAligned' as const,
+    effectiveStartDate: '2026-09-01',
+    effectiveEndDate: null,
+    prorationStrategy: 'FullAmount' as const,
+    isPaused: false,
+    accountingCode: null,
+    description: null,
+  };
+
+  const petRentCharge = {
+    id: 'charge-1',
+    chargeName: 'Pet Rent',
+    category: 'AddOn' as const,
+    amount: 50,
+    recurrencePattern: 'Monthly' as const,
+    recurrenceInterval: 1,
+    dueDayOfMonth: 1,
+    targetDayOfWeek: null,
+    secondaryDueDay: null,
+    endStrategy: 'LeaseAligned' as const,
+    effectiveStartDate: '2026-09-01',
+    effectiveEndDate: null,
+    prorationStrategy: 'FullAmount' as const,
+    isPaused: false,
+    accountingCode: 'GL-4030',
+    description: null,
+  };
+
   const lease: LeaseResponse = {
     id: 'lease-1',
     propertyId: 'prop-1',
     residentId: 'resident-1',
     startDate: '2026-09-01',
     endDate: '2027-08-31',
-    monthlyBaseRent: 1450,
-    dueDayOfMonth: 1,
     status: 'FixedTerm',
     totalMonthlyDues: 1500,
-    recurringCharges: [{ id: 'charge-1', chargeName: 'Pet Rent', amount: 50, accountingCode: 'GL-4030' }],
+    recurringCharges: [baseRentCharge, petRentCharge],
     effectiveStatus: 'FixedTerm',
     isExpiringSoon: false,
   };
@@ -125,13 +161,13 @@ describe('LeaseDrawer', () => {
     const component = createComponent();
     open(component);
 
-    component['startAdd']();
+    component['startAdd'](); // auto-adds the pinned Base Rent row (US-44)
     component['form'].patchValue({
       residentId: 'resident-1',
       startDate: '2026-09-01',
       endDate: '2027-08-31',
-      monthlyBaseRent: 1450,
     });
+    component['form'].controls.recurringCharges.at(0).patchValue({ amount: 1450 });
 
     component['save']();
 
@@ -139,7 +175,8 @@ describe('LeaseDrawer', () => {
     expect(req.request.method).toBe('POST');
     expect(req.request.body.residentId).toBe('resident-1');
     expect(req.request.body.status).toBe('FixedTerm');
-    expect(req.request.body.recurringCharges).toEqual([]);
+    expect(req.request.body.recurringCharges).toHaveLength(1);
+    expect(req.request.body.recurringCharges[0]).toMatchObject({ chargeName: 'Base Rent', category: 'BaseRent', amount: 1450 });
     req.flush({ success: true, data: lease, message: null, statusCode: 201, traceId: 't1' } satisfies ApiResponse<LeaseResponse>);
 
     const reload = httpMock.expectOne('/api/properties/prop-1/leases');
@@ -156,14 +193,17 @@ describe('LeaseDrawer', () => {
     component['startEdit'](lease);
 
     expect(component['form'].controls.residentId.value).toBe('resident-1');
-    expect(component['form'].controls.recurringCharges.length).toBe(1);
-    expect(component['form'].controls.recurringCharges.at(0).controls.chargeName.value).toBe('Pet Rent');
+    // Base Rent is always sorted to index 0, regardless of the server's own row order.
+    expect(component['form'].controls.recurringCharges.length).toBe(2);
+    expect(component['form'].controls.recurringCharges.at(0).controls.chargeName.value).toBe('Base Rent');
+    expect(component['form'].controls.recurringCharges.at(1).controls.chargeName.value).toBe('Pet Rent');
 
     component['save']();
 
     const req = httpMock.expectOne('/api/properties/prop-1/leases/lease-1');
     expect(req.request.method).toBe('PUT');
-    expect(req.request.body.recurringCharges).toEqual([{ chargeName: 'Pet Rent', amount: 50, accountingCode: 'GL-4030' }]);
+    expect(req.request.body.recurringCharges).toHaveLength(2);
+    expect(req.request.body.recurringCharges[1]).toMatchObject({ chargeName: 'Pet Rent', amount: 50, accountingCode: 'GL-4030' });
     req.flush({ success: true, data: lease, message: null, statusCode: 200, traceId: 't1' } satisfies ApiResponse<LeaseResponse>);
 
     const reload = httpMock.expectOne('/api/properties/prop-1/leases');
@@ -172,22 +212,32 @@ describe('LeaseDrawer', () => {
     expect(toastService.show).toHaveBeenCalledWith('leases.drawer.savedToast');
   });
 
-  it('recomputeTotal() sums MonthlyBaseRent and every recurring charge amount live', () => {
+  it('recomputeTotal() sums Base Rent and every add-on recurring charge amount live', () => {
     const component = createComponent();
     open(component);
-    component['startAdd']();
+    component['startAdd'](); // pinned Base Rent row at index 0
 
-    component['form'].patchValue({ monthlyBaseRent: 1450 });
+    component['form'].controls.recurringCharges.at(0).patchValue({ amount: 1450 });
     component['recomputeTotal']();
     expect(component['liveTotalMonthlyDues']()).toBe(1450);
 
     component['addRecurringChargeRow']();
-    component['form'].controls.recurringCharges.at(0).patchValue({ amount: 50 });
+    component['form'].controls.recurringCharges.at(1).patchValue({ amount: 50 });
     component['recomputeTotal']();
     expect(component['liveTotalMonthlyDues']()).toBe(1500);
 
-    component['removeRecurringChargeRow'](0);
+    component['removeRecurringChargeRow'](1);
     expect(component['liveTotalMonthlyDues']()).toBe(1450);
+  });
+
+  it('removeRecurringChargeRow() refuses to remove the pinned Base Rent row at index 0', () => {
+    const component = createComponent();
+    open(component);
+    component['startAdd']();
+
+    component['removeRecurringChargeRow'](0);
+
+    expect(component['form'].controls.recurringCharges.length).toBe(1);
   });
 
   it('does not submit an invalid form', () => {

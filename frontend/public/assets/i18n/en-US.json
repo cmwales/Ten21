@@ -353,7 +353,46 @@
       "totalMonthlyDues": "Total Monthly Dues",
       "cancel": "Cancel",
       "save": "Save",
-      "saving": "Saving…"
+      "saving": "Saving…",
+      "category": "Category",
+      "recurrencePattern": "Recurrence",
+      "recurrenceInterval": "Every",
+      "targetDayOfWeek": "Day of Week",
+      "secondaryDueDay": "Second Due Day",
+      "endStrategy": "Ends",
+      "effectiveStartDate": "Effective From",
+      "effectiveEndDate": "Effective Until",
+      "prorationStrategy": "First Period Proration",
+      "isPaused": "Paused (suppresses generation)",
+      "description": "Description (optional)",
+      "baseRentHeading": "Base Rent"
+    },
+    "recurrencePatterns": {
+      "Daily": "Daily",
+      "Weekly": "Weekly",
+      "BiWeekly": "Bi-Weekly",
+      "SemiMonthly": "Semi-Monthly",
+      "Monthly": "Monthly",
+      "Custom": "Custom"
+    },
+    "endStrategies": {
+      "Indefinite": "Indefinitely",
+      "FixedDate": "On a Fixed Date",
+      "LeaseAligned": "With the Lease"
+    },
+    "prorationStrategies": {
+      "FullAmount": "Charge Full Amount",
+      "ZeroFirstMonth": "Skip First Period",
+      "ProRateByDays": "Pro-Rate by Days"
+    },
+    "daysOfWeek": {
+      "Sunday": "Sunday",
+      "Monday": "Monday",
+      "Tuesday": "Tuesday",
+      "Wednesday": "Wednesday",
+      "Thursday": "Thursday",
+      "Friday": "Friday",
+      "Saturday": "Saturday"
     }
   },
   "charges": {
@@ -508,7 +547,11 @@
         "CreditAdjustment": "Credit",
         "DebitAdjustment": "Debit"
       }
-    }
+    },
+    "runCycleButton": "Run Billing Cycle",
+    "runCycleRunning": "Running…",
+    "runCycleSuccessToast": "Billing cycle complete.",
+    "runCycleErrorToast": "Billing cycle failed. Please try again."
   },
   "deposits": {
     "title": "Security Deposits",

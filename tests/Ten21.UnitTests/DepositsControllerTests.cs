@@ -110,8 +110,6 @@ public class DepositsControllerTests : IDisposable
             ResidentId = residentId,
             StartDate = new DateOnly(2026, 1, 1),
             EndDate = new DateOnly(2026, 12, 31),
-            MonthlyBaseRent = 1000m,
-            DueDayOfMonth = 1,
             Status = LeaseStatus.FixedTerm,
             CreatedAt = DateTimeOffset.UtcNow,
         });

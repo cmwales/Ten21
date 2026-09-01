@@ -353,7 +353,46 @@
       "totalMonthlyDues": "Total des Frais Mensuels",
       "cancel": "Annuler",
       "save": "Enregistrer",
-      "saving": "Enregistrement…"
+      "saving": "Enregistrement…",
+      "category": "Catégorie",
+      "recurrencePattern": "Récurrence",
+      "recurrenceInterval": "Tous les",
+      "targetDayOfWeek": "Jour de la Semaine",
+      "secondaryDueDay": "Deuxième Jour d'Échéance",
+      "endStrategy": "Se Termine",
+      "effectiveStartDate": "Effectif à Partir de",
+      "effectiveEndDate": "Effectif Jusqu'à",
+      "prorationStrategy": "Proratisation de la Première Période",
+      "isPaused": "En Pause (suspend la génération)",
+      "description": "Description (facultatif)",
+      "baseRentHeading": "Loyer de Base"
+    },
+    "recurrencePatterns": {
+      "Daily": "Quotidien",
+      "Weekly": "Hebdomadaire",
+      "BiWeekly": "Aux Deux Semaines",
+      "SemiMonthly": "Bimensuel",
+      "Monthly": "Mensuel",
+      "Custom": "Personnalisé"
+    },
+    "endStrategies": {
+      "Indefinite": "Indéfiniment",
+      "FixedDate": "À une Date Fixe",
+      "LeaseAligned": "Avec le Bail"
+    },
+    "prorationStrategies": {
+      "FullAmount": "Facturer le Montant Complet",
+      "ZeroFirstMonth": "Ignorer la Première Période",
+      "ProRateByDays": "Proratiser par Jours"
+    },
+    "daysOfWeek": {
+      "Sunday": "Dimanche",
+      "Monday": "Lundi",
+      "Tuesday": "Mardi",
+      "Wednesday": "Mercredi",
+      "Thursday": "Jeudi",
+      "Friday": "Vendredi",
+      "Saturday": "Samedi"
     }
   },
   "charges": {
@@ -508,7 +547,11 @@
         "CreditAdjustment": "Crédit",
         "DebitAdjustment": "Débit"
       }
-    }
+    },
+    "runCycleButton": "Exécuter le Cycle de Facturation",
+    "runCycleRunning": "Exécution…",
+    "runCycleSuccessToast": "Cycle de facturation terminé.",
+    "runCycleErrorToast": "Échec du cycle de facturation. Veuillez réessayer."
   },
   "deposits": {
     "title": "Dépôts de Garantie",

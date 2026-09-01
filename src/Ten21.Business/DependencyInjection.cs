@@ -1,5 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
 using Ten21.Business.Auth;
+using Ten21.Business.Billing;
 using Ten21.Business.Charges;
 using Ten21.Business.Credits;
 using Ten21.Business.Deposits;
@@ -39,6 +40,7 @@ public static class DependencyInjection
         services.AddScoped<DepositRepository>();
         services.AddScoped<DepositService>();
         services.AddScoped<LeaseService>();
+        services.AddScoped<BillingCycleService>();
         services.AddScoped<WorkspaceSettingsService>();
         services.AddScoped<WorkspaceLedgerService>();
         services.AddScoped<DocumentService>();

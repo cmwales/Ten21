@@ -15,8 +15,6 @@ public class LeaseConfiguration : IEntityTypeConfiguration<Lease>
         builder.Property(l => l.ResidentId).IsRequired();
         builder.Property(l => l.StartDate).IsRequired();
         builder.Property(l => l.EndDate).IsRequired();
-        builder.Property(l => l.MonthlyBaseRent).IsRequired().HasColumnType("decimal(18,2)");
-        builder.Property(l => l.DueDayOfMonth).IsRequired();
         builder.Property(l => l.Status).IsRequired().HasConversion<string>().HasMaxLength(20);
         builder.Property(l => l.CreatedAt).IsRequired();
 

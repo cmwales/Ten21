@@ -34,6 +34,14 @@ public class ChargeConfiguration : IEntityTypeConfiguration<Charge>
 
         builder.HasIndex(c => c.PropertyId);
 
+        // US-44: DB-level idempotency backstop for BillingCycleService's generation --
+        // application code already checks for an existing charge before inserting, but a
+        // unique index closes the race a check-then-insert alone can't (same layered-defense
+        // habit as the EF query filter + resource-based auth handler elsewhere in this
+        // codebase). NULLs (every manually-posted charge) are unaffected -- Postgres treats
+        // each NULL as distinct in a unique index.
+        builder.HasIndex(c => new { c.SourceRecurringChargeId, c.DueDate }).IsUnique();
+
         // TenantId index is also added generically for every ITenantScopedEntity in
         // Ten21DbContext.OnModelCreating.
     }

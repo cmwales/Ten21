@@ -88,13 +88,46 @@ public class LeasesControllerTests : IDisposable
         return resident;
     }
 
-    private static UpsertLeaseRequest NewRequest(Guid residentId, IReadOnlyList<LeaseRecurringChargeRequest>? charges = null) => new(
-        ResidentId: residentId,
-        StartDate: new DateOnly(2026, 9, 1),
-        EndDate: new DateOnly(2027, 8, 31),
-        MonthlyBaseRent: 1450m,
-        DueDayOfMonth: 1,
-        RecurringCharges: charges ?? []);
+    private static readonly DateOnly DefaultStartDate = new(2026, 9, 1);
+
+    private static LeaseRecurringChargeRequest BaseRentCharge(
+        decimal amount = 1450m, int dueDayOfMonth = 1, DateOnly? effectiveStartDate = null) => new(
+        ChargeName: "Base Rent",
+        Category: ChargeCategory.BaseRent,
+        Amount: amount,
+        RecurrencePattern: RecurrencePattern.Monthly,
+        EndStrategy: EndStrategy.LeaseAligned,
+        EffectiveStartDate: effectiveStartDate ?? DefaultStartDate,
+        ProrationStrategy: ProrationStrategy.FullAmount,
+        DueDayOfMonth: dueDayOfMonth);
+
+    private static LeaseRecurringChargeRequest AddOnCharge(
+        string name, decimal amount, string? accountingCode = null, DateOnly? effectiveStartDate = null) => new(
+        ChargeName: name,
+        Category: ChargeCategory.AddOn,
+        Amount: amount,
+        RecurrencePattern: RecurrencePattern.Monthly,
+        EndStrategy: EndStrategy.LeaseAligned,
+        EffectiveStartDate: effectiveStartDate ?? DefaultStartDate,
+        ProrationStrategy: ProrationStrategy.FullAmount,
+        AccountingCode: accountingCode,
+        DueDayOfMonth: 1);
+
+    private static UpsertLeaseRequest NewRequest(
+        Guid residentId,
+        IReadOnlyList<LeaseRecurringChargeRequest>? addOnCharges = null,
+        DateOnly? startDate = null,
+        DateOnly? endDate = null,
+        int dueDayOfMonth = 1,
+        decimal monthlyBaseRent = 1450m)
+    {
+        var resolvedStart = startDate ?? DefaultStartDate;
+        return new UpsertLeaseRequest(
+            ResidentId: residentId,
+            StartDate: resolvedStart,
+            EndDate: endDate ?? new DateOnly(2027, 8, 31),
+            RecurringCharges: [BaseRentCharge(monthlyBaseRent, dueDayOfMonth, resolvedStart), .. addOnCharges ?? []]);
+    }
 
     [Fact]
     public async Task CreateLease_Persists_AndComputesTotalMonthlyDues()
@@ -102,7 +135,7 @@ public class LeasesControllerTests : IDisposable
         var (db, controller) = CreateController(Guid.NewGuid());
         var property = await SeedPropertyAsync(db);
         var resident = await SeedResidentAsync(db, property.Id);
-        var request = NewRequest(resident.Id, [new LeaseRecurringChargeRequest("Pet Rent", 50m, "GL-4030")]);
+        var request = NewRequest(resident.Id, [AddOnCharge("Pet Rent", 50m, "GL-4030")]);
 
         var result = await controller.CreateLease(property.Id, request, CancellationToken.None);
 
@@ -110,7 +143,7 @@ public class LeasesControllerTests : IDisposable
         var response = Assert.IsType<LeaseResponse>(created.Value);
         Assert.Equal(1500m, response.TotalMonthlyDues);
         Assert.Equal(LeaseStatus.FixedTerm, response.Status);
-        Assert.Single(response.RecurringCharges);
+        Assert.Equal(2, response.RecurringCharges.Count); // Base Rent + Pet Rent
         Assert.Equal(1, await db.Leases.CountAsync());
     }
 
@@ -140,16 +173,32 @@ public class LeasesControllerTests : IDisposable
 
     [Theory]
     [InlineData(0)]
-    [InlineData(29)]
+    [InlineData(32)]
     public async Task CreateLease_ThrowsValidationException_WhenDueDayOfMonthIsOutOfRange(int dueDay)
+    {
+        // US-44: the old 1-28 cap is gone -- 1-31 is now valid (short months clamp at
+        // execution time instead), so only 0 and 32+ are actually out of range.
+        var (db, controller) = CreateController(Guid.NewGuid());
+        var property = await SeedPropertyAsync(db);
+        var resident = await SeedResidentAsync(db, property.Id);
+        var request = NewRequest(resident.Id, dueDayOfMonth: dueDay);
+
+        await Assert.ThrowsAsync<ValidationException>(() => controller.CreateLease(
+            property.Id, request, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task CreateLease_Allows31AsDueDayOfMonth_NoLongerCappedAt28()
     {
         var (db, controller) = CreateController(Guid.NewGuid());
         var property = await SeedPropertyAsync(db);
         var resident = await SeedResidentAsync(db, property.Id);
-        var request = NewRequest(resident.Id) with { DueDayOfMonth = dueDay };
+        var request = NewRequest(resident.Id, dueDayOfMonth: 31);
 
-        await Assert.ThrowsAsync<ValidationException>(() => controller.CreateLease(
-            property.Id, request, CancellationToken.None));
+        var result = await controller.CreateLease(property.Id, request, CancellationToken.None);
+
+        var response = Assert.IsType<LeaseResponse>(Assert.IsType<CreatedAtActionResult>(result).Value);
+        Assert.Equal(31, response.RecurringCharges.Single(c => c.Category == ChargeCategory.BaseRent).DueDayOfMonth);
     }
 
     [Fact]
@@ -159,20 +208,20 @@ public class LeasesControllerTests : IDisposable
         var property = await SeedPropertyAsync(db);
         var resident = await SeedResidentAsync(db, property.Id);
         var created = await controller.CreateLease(
-            property.Id, NewRequest(resident.Id, [new LeaseRecurringChargeRequest("Pet Rent", 50m, null)]), CancellationToken.None);
+            property.Id, NewRequest(resident.Id, [AddOnCharge("Pet Rent", 50m)]), CancellationToken.None);
         var leaseId = Assert.IsType<LeaseResponse>(Assert.IsType<CreatedAtActionResult>(created).Value).Id;
 
         var updateRequest = NewRequest(resident.Id, [
-            new LeaseRecurringChargeRequest("Parking #12", 75m, "GL-4030"),
-            new LeaseRecurringChargeRequest("Fixed Utility Rub", 40m, null),
+            AddOnCharge("Parking #12", 75m, "GL-4030"),
+            AddOnCharge("Fixed Utility Rub", 40m),
         ]);
         var result = await controller.UpdateLease(property.Id, leaseId, updateRequest, CancellationToken.None);
 
         var response = Assert.IsType<LeaseResponse>(Assert.IsType<OkObjectResult>(result).Value);
-        Assert.Equal(2, response.RecurringCharges.Count);
+        Assert.Equal(3, response.RecurringCharges.Count); // Base Rent + Parking + Utility
         Assert.DoesNotContain(response.RecurringCharges, c => c.ChargeName == "Pet Rent");
         Assert.Equal(1450m + 75m + 40m, response.TotalMonthlyDues);
-        Assert.Equal(2, await db.LeaseRecurringCharges.CountAsync());
+        Assert.Equal(3, await db.LeaseRecurringCharges.CountAsync());
     }
 
     [Fact]
@@ -231,7 +280,7 @@ public class LeasesControllerTests : IDisposable
         var property = await SeedPropertyAsync(db);
         var resident = await SeedResidentAsync(db, property.Id);
         // DueDayOfMonth 1 -> moving in Aug 25 bills through Aug 31 (7 days of 31).
-        var request = NewRequest(resident.Id) with { StartDate = new DateOnly(2026, 8, 1), DueDayOfMonth = 1 };
+        var request = NewRequest(resident.Id, startDate: new DateOnly(2026, 8, 1), dueDayOfMonth: 1);
         var created = await controller.CreateLease(property.Id, request, CancellationToken.None);
         var leaseId = Assert.IsType<LeaseResponse>(Assert.IsType<CreatedAtActionResult>(created).Value).Id;
 
@@ -254,7 +303,7 @@ public class LeasesControllerTests : IDisposable
         var property = await SeedPropertyAsync(db);
         var resident = await SeedResidentAsync(db, property.Id);
         // DueDayOfMonth 5 -> moving in Aug 25 bills through Sep 4 (11 days), not just to Aug 31.
-        var request = NewRequest(resident.Id) with { StartDate = new DateOnly(2026, 8, 1), DueDayOfMonth = 5 };
+        var request = NewRequest(resident.Id, startDate: new DateOnly(2026, 8, 1), dueDayOfMonth: 5);
         var created = await controller.CreateLease(property.Id, request, CancellationToken.None);
         var leaseId = Assert.IsType<LeaseResponse>(Assert.IsType<CreatedAtActionResult>(created).Value).Id;
 
