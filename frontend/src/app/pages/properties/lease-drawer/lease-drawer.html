@@ -196,14 +196,200 @@
         <!-- US-44: row 0 is always Category = BaseRent, pinned and non-removable -- every
              lease needs exactly one (enforced server-side too). Rendered as its own section
              so it still reads as "the rent," even though it's the same template shape as
-             every add-on underneath. -->
+             every add-on underneath.
+
+             The Base Rent block and the add-on @for loop below intentionally duplicate this
+             field markup rather than sharing it via ng-template/ngTemplateOutlet -- that
+             indirection was tried first and silently dropped every @for-driven <option> list
+             positioned after the first nested @if inside the shared ng-template (Angular
+             22's control-flow compiler combined with ngTemplateOutlet context passing;
+             endStrategies/prorationStrategies were confirmed non-empty on the component
+             instance via a live debug log, so the data was never the problem -- the template
+             just wasn't rendering it). Plain duplicated @if/@for blocks, the same construct
+             already used correctly elsewhere in this exact template, avoids the bug
+             entirely. -->
         <div class="flex flex-col gap-2 rounded-md border border-slate-navy/10 p-3" formArrayName="recurringCharges">
           @if (form.controls.recurringCharges.at(0); as baseRent) {
             <div class="flex flex-col gap-2" [formGroupName]="0">
               <h3 class="text-sm font-semibold text-slate-navy">{{ 'leases.form.baseRentHeading' | translate }}</h3>
-              <ng-container
-                *ngTemplateOutlet="chargeFields; context: { charge: baseRent, index: 0, removable: false }"
-              ></ng-container>
+
+              <input
+                type="text"
+                formControlName="chargeName"
+                [placeholder]="'leases.form.chargeName' | translate"
+                class="tap-target w-full rounded-md border border-slate-navy/20 px-3 py-2 text-slate-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
+              />
+
+              <div class="grid grid-cols-2 gap-2">
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  formControlName="amount"
+                  (input)="recomputeTotal()"
+                  [placeholder]="'leases.form.chargeAmount' | translate"
+                  class="tap-target w-full rounded-md border border-slate-navy/20 px-3 py-2 text-slate-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
+                />
+                <input
+                  type="text"
+                  formControlName="accountingCode"
+                  [placeholder]="'leases.form.chargeAccountingCode' | translate"
+                  class="tap-target w-full rounded-md border border-slate-navy/20 px-3 py-2 text-slate-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
+                />
+              </div>
+
+              <input
+                type="text"
+                formControlName="description"
+                [placeholder]="'leases.form.description' | translate"
+                class="tap-target w-full rounded-md border border-slate-navy/20 px-3 py-2 text-slate-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
+              />
+
+              <div class="grid grid-cols-2 gap-2">
+                <div class="flex flex-col gap-1.5">
+                  <label for="recurrencePattern-0" class="text-xs font-medium text-slate-navy-light">
+                    {{ 'leases.form.recurrencePattern' | translate }}
+                  </label>
+                  <select
+                    id="recurrencePattern-0"
+                    formControlName="recurrencePattern"
+                    class="tap-target w-full rounded-md border border-slate-navy/20 px-3 py-2 text-slate-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
+                  >
+                    @for (pattern of recurrencePatterns; track pattern) {
+                      <option [value]="pattern">{{ 'leases.recurrencePatterns.' + pattern | translate }}</option>
+                    }
+                  </select>
+                </div>
+                <div class="flex flex-col gap-1.5">
+                  <label for="recurrenceInterval-0" class="text-xs font-medium text-slate-navy-light">
+                    {{ 'leases.form.recurrenceInterval' | translate }}
+                  </label>
+                  <input
+                    id="recurrenceInterval-0"
+                    type="number"
+                    min="1"
+                    formControlName="recurrenceInterval"
+                    class="tap-target w-full rounded-md border border-slate-navy/20 px-3 py-2 text-slate-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
+                  />
+                </div>
+              </div>
+
+              @if (baseRent.controls.recurrencePattern.value === 'Monthly' || baseRent.controls.recurrencePattern.value === 'SemiMonthly') {
+                <div class="grid grid-cols-2 gap-2">
+                  <div class="flex flex-col gap-1.5">
+                    <label for="dueDayOfMonth-0" class="text-xs font-medium text-slate-navy-light">
+                      {{ 'leases.form.dueDayOfMonth' | translate }}
+                    </label>
+                    <input
+                      id="dueDayOfMonth-0"
+                      type="number"
+                      min="1"
+                      max="31"
+                      formControlName="dueDayOfMonth"
+                      class="tap-target w-full rounded-md border border-slate-navy/20 px-3 py-2 text-slate-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
+                    />
+                  </div>
+                  @if (baseRent.controls.recurrencePattern.value === 'SemiMonthly') {
+                    <div class="flex flex-col gap-1.5">
+                      <label for="secondaryDueDay-0" class="text-xs font-medium text-slate-navy-light">
+                        {{ 'leases.form.secondaryDueDay' | translate }}
+                      </label>
+                      <input
+                        id="secondaryDueDay-0"
+                        type="number"
+                        min="1"
+                        max="31"
+                        formControlName="secondaryDueDay"
+                        class="tap-target w-full rounded-md border border-slate-navy/20 px-3 py-2 text-slate-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
+                      />
+                    </div>
+                  }
+                </div>
+              }
+
+              @if (baseRent.controls.recurrencePattern.value === 'Weekly' || baseRent.controls.recurrencePattern.value === 'BiWeekly') {
+                <div class="flex flex-col gap-1.5">
+                  <label for="targetDayOfWeek-0" class="text-xs font-medium text-slate-navy-light">
+                    {{ 'leases.form.targetDayOfWeek' | translate }}
+                  </label>
+                  <select
+                    id="targetDayOfWeek-0"
+                    formControlName="targetDayOfWeek"
+                    class="tap-target w-full rounded-md border border-slate-navy/20 px-3 py-2 text-slate-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
+                  >
+                    <option [ngValue]="null" disabled>{{ 'leases.form.targetDayOfWeek' | translate }}</option>
+                    <option [ngValue]="0">{{ 'leases.daysOfWeek.Sunday' | translate }}</option>
+                    <option [ngValue]="1">{{ 'leases.daysOfWeek.Monday' | translate }}</option>
+                    <option [ngValue]="2">{{ 'leases.daysOfWeek.Tuesday' | translate }}</option>
+                    <option [ngValue]="3">{{ 'leases.daysOfWeek.Wednesday' | translate }}</option>
+                    <option [ngValue]="4">{{ 'leases.daysOfWeek.Thursday' | translate }}</option>
+                    <option [ngValue]="5">{{ 'leases.daysOfWeek.Friday' | translate }}</option>
+                    <option [ngValue]="6">{{ 'leases.daysOfWeek.Saturday' | translate }}</option>
+                  </select>
+                </div>
+              }
+
+              <div class="grid grid-cols-2 gap-2">
+                <div class="flex flex-col gap-1.5">
+                  <label for="effectiveStartDate-0" class="text-xs font-medium text-slate-navy-light">
+                    {{ 'leases.form.effectiveStartDate' | translate }}
+                  </label>
+                  <input
+                    id="effectiveStartDate-0"
+                    type="date"
+                    formControlName="effectiveStartDate"
+                    class="tap-target w-full rounded-md border border-slate-navy/20 px-3 py-2 text-slate-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
+                  />
+                </div>
+                <div class="flex flex-col gap-1.5">
+                  <label for="endStrategy-0" class="text-xs font-medium text-slate-navy-light">
+                    {{ 'leases.form.endStrategy' | translate }}
+                  </label>
+                  <select
+                    id="endStrategy-0"
+                    formControlName="endStrategy"
+                    class="tap-target w-full rounded-md border border-slate-navy/20 px-3 py-2 text-slate-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
+                  >
+                    @for (strategy of endStrategies; track strategy) {
+                      <option [value]="strategy">{{ 'leases.endStrategies.' + strategy | translate }}</option>
+                    }
+                  </select>
+                </div>
+              </div>
+
+              @if (baseRent.controls.endStrategy.value === 'FixedDate') {
+                <div class="flex flex-col gap-1.5">
+                  <label for="effectiveEndDate-0" class="text-xs font-medium text-slate-navy-light">
+                    {{ 'leases.form.effectiveEndDate' | translate }}
+                  </label>
+                  <input
+                    id="effectiveEndDate-0"
+                    type="date"
+                    formControlName="effectiveEndDate"
+                    class="tap-target w-full rounded-md border border-slate-navy/20 px-3 py-2 text-slate-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
+                  />
+                </div>
+              }
+
+              <div class="flex flex-col gap-1.5">
+                <label for="prorationStrategy-0" class="text-xs font-medium text-slate-navy-light">
+                  {{ 'leases.form.prorationStrategy' | translate }}
+                </label>
+                <select
+                  id="prorationStrategy-0"
+                  formControlName="prorationStrategy"
+                  class="tap-target w-full rounded-md border border-slate-navy/20 px-3 py-2 text-slate-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
+                >
+                  @for (strategy of prorationStrategies; track strategy) {
+                    <option [value]="strategy">{{ 'leases.prorationStrategies.' + strategy | translate }}</option>
+                  }
+                </select>
+              </div>
+
+              <label class="flex items-center gap-2 text-sm text-slate-navy">
+                <input type="checkbox" formControlName="isPaused" class="tap-target h-5 w-5 rounded border-slate-navy/20" />
+                {{ 'leases.form.isPaused' | translate }}
+              </label>
             </div>
           }
         </div>
@@ -236,211 +422,203 @@
                     {{ 'leases.drawer.remove' | translate }}
                   </button>
                 </div>
-                <ng-container
-                  *ngTemplateOutlet="chargeFields; context: { charge: charge, index: $index, removable: true }"
-                ></ng-container>
+
+                <input
+                  type="text"
+                  formControlName="chargeName"
+                  [placeholder]="'leases.form.chargeName' | translate"
+                  class="tap-target w-full rounded-md border border-slate-navy/20 px-3 py-2 text-slate-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
+                />
+
+                <div class="flex flex-col gap-1.5">
+                  <label [attr.for]="'category-' + $index" class="text-xs font-medium text-slate-navy-light">
+                    {{ 'leases.form.category' | translate }}
+                  </label>
+                  <select
+                    [id]="'category-' + $index"
+                    formControlName="category"
+                    class="tap-target w-full rounded-md border border-slate-navy/20 px-3 py-2 text-slate-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
+                  >
+                    @for (category of addOnCategories; track category) {
+                      <option [value]="category">{{ 'charges.categories.' + category | translate }}</option>
+                    }
+                  </select>
+                </div>
+
+                <div class="grid grid-cols-2 gap-2">
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    formControlName="amount"
+                    (input)="recomputeTotal()"
+                    [placeholder]="'leases.form.chargeAmount' | translate"
+                    class="tap-target w-full rounded-md border border-slate-navy/20 px-3 py-2 text-slate-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
+                  />
+                  <input
+                    type="text"
+                    formControlName="accountingCode"
+                    [placeholder]="'leases.form.chargeAccountingCode' | translate"
+                    class="tap-target w-full rounded-md border border-slate-navy/20 px-3 py-2 text-slate-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
+                  />
+                </div>
+
+                <input
+                  type="text"
+                  formControlName="description"
+                  [placeholder]="'leases.form.description' | translate"
+                  class="tap-target w-full rounded-md border border-slate-navy/20 px-3 py-2 text-slate-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
+                />
+
+                <div class="grid grid-cols-2 gap-2">
+                  <div class="flex flex-col gap-1.5">
+                    <label [attr.for]="'recurrencePattern-' + $index" class="text-xs font-medium text-slate-navy-light">
+                      {{ 'leases.form.recurrencePattern' | translate }}
+                    </label>
+                    <select
+                      [id]="'recurrencePattern-' + $index"
+                      formControlName="recurrencePattern"
+                      class="tap-target w-full rounded-md border border-slate-navy/20 px-3 py-2 text-slate-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
+                    >
+                      @for (pattern of recurrencePatterns; track pattern) {
+                        <option [value]="pattern">{{ 'leases.recurrencePatterns.' + pattern | translate }}</option>
+                      }
+                    </select>
+                  </div>
+                  <div class="flex flex-col gap-1.5">
+                    <label [attr.for]="'recurrenceInterval-' + $index" class="text-xs font-medium text-slate-navy-light">
+                      {{ 'leases.form.recurrenceInterval' | translate }}
+                    </label>
+                    <input
+                      [id]="'recurrenceInterval-' + $index"
+                      type="number"
+                      min="1"
+                      formControlName="recurrenceInterval"
+                      class="tap-target w-full rounded-md border border-slate-navy/20 px-3 py-2 text-slate-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
+                    />
+                  </div>
+                </div>
+
+                @if (charge.controls.recurrencePattern.value === 'Monthly' || charge.controls.recurrencePattern.value === 'SemiMonthly') {
+                  <div class="grid grid-cols-2 gap-2">
+                    <div class="flex flex-col gap-1.5">
+                      <label [attr.for]="'dueDayOfMonth-' + $index" class="text-xs font-medium text-slate-navy-light">
+                        {{ 'leases.form.dueDayOfMonth' | translate }}
+                      </label>
+                      <input
+                        [id]="'dueDayOfMonth-' + $index"
+                        type="number"
+                        min="1"
+                        max="31"
+                        formControlName="dueDayOfMonth"
+                        class="tap-target w-full rounded-md border border-slate-navy/20 px-3 py-2 text-slate-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
+                      />
+                    </div>
+                    @if (charge.controls.recurrencePattern.value === 'SemiMonthly') {
+                      <div class="flex flex-col gap-1.5">
+                        <label [attr.for]="'secondaryDueDay-' + $index" class="text-xs font-medium text-slate-navy-light">
+                          {{ 'leases.form.secondaryDueDay' | translate }}
+                        </label>
+                        <input
+                          [id]="'secondaryDueDay-' + $index"
+                          type="number"
+                          min="1"
+                          max="31"
+                          formControlName="secondaryDueDay"
+                          class="tap-target w-full rounded-md border border-slate-navy/20 px-3 py-2 text-slate-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
+                        />
+                      </div>
+                    }
+                  </div>
+                }
+
+                @if (charge.controls.recurrencePattern.value === 'Weekly' || charge.controls.recurrencePattern.value === 'BiWeekly') {
+                  <div class="flex flex-col gap-1.5">
+                    <label [attr.for]="'targetDayOfWeek-' + $index" class="text-xs font-medium text-slate-navy-light">
+                      {{ 'leases.form.targetDayOfWeek' | translate }}
+                    </label>
+                    <select
+                      [id]="'targetDayOfWeek-' + $index"
+                      formControlName="targetDayOfWeek"
+                      class="tap-target w-full rounded-md border border-slate-navy/20 px-3 py-2 text-slate-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
+                    >
+                      <option [ngValue]="null" disabled>{{ 'leases.form.targetDayOfWeek' | translate }}</option>
+                      <option [ngValue]="0">{{ 'leases.daysOfWeek.Sunday' | translate }}</option>
+                      <option [ngValue]="1">{{ 'leases.daysOfWeek.Monday' | translate }}</option>
+                      <option [ngValue]="2">{{ 'leases.daysOfWeek.Tuesday' | translate }}</option>
+                      <option [ngValue]="3">{{ 'leases.daysOfWeek.Wednesday' | translate }}</option>
+                      <option [ngValue]="4">{{ 'leases.daysOfWeek.Thursday' | translate }}</option>
+                      <option [ngValue]="5">{{ 'leases.daysOfWeek.Friday' | translate }}</option>
+                      <option [ngValue]="6">{{ 'leases.daysOfWeek.Saturday' | translate }}</option>
+                    </select>
+                  </div>
+                }
+
+                <div class="grid grid-cols-2 gap-2">
+                  <div class="flex flex-col gap-1.5">
+                    <label [attr.for]="'effectiveStartDate-' + $index" class="text-xs font-medium text-slate-navy-light">
+                      {{ 'leases.form.effectiveStartDate' | translate }}
+                    </label>
+                    <input
+                      [id]="'effectiveStartDate-' + $index"
+                      type="date"
+                      formControlName="effectiveStartDate"
+                      class="tap-target w-full rounded-md border border-slate-navy/20 px-3 py-2 text-slate-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
+                    />
+                  </div>
+                  <div class="flex flex-col gap-1.5">
+                    <label [attr.for]="'endStrategy-' + $index" class="text-xs font-medium text-slate-navy-light">
+                      {{ 'leases.form.endStrategy' | translate }}
+                    </label>
+                    <select
+                      [id]="'endStrategy-' + $index"
+                      formControlName="endStrategy"
+                      class="tap-target w-full rounded-md border border-slate-navy/20 px-3 py-2 text-slate-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
+                    >
+                      @for (strategy of endStrategies; track strategy) {
+                        <option [value]="strategy">{{ 'leases.endStrategies.' + strategy | translate }}</option>
+                      }
+                    </select>
+                  </div>
+                </div>
+
+                @if (charge.controls.endStrategy.value === 'FixedDate') {
+                  <div class="flex flex-col gap-1.5">
+                    <label [attr.for]="'effectiveEndDate-' + $index" class="text-xs font-medium text-slate-navy-light">
+                      {{ 'leases.form.effectiveEndDate' | translate }}
+                    </label>
+                    <input
+                      [id]="'effectiveEndDate-' + $index"
+                      type="date"
+                      formControlName="effectiveEndDate"
+                      class="tap-target w-full rounded-md border border-slate-navy/20 px-3 py-2 text-slate-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
+                    />
+                  </div>
+                }
+
+                <div class="flex flex-col gap-1.5">
+                  <label [attr.for]="'prorationStrategy-' + $index" class="text-xs font-medium text-slate-navy-light">
+                    {{ 'leases.form.prorationStrategy' | translate }}
+                  </label>
+                  <select
+                    [id]="'prorationStrategy-' + $index"
+                    formControlName="prorationStrategy"
+                    class="tap-target w-full rounded-md border border-slate-navy/20 px-3 py-2 text-slate-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
+                  >
+                    @for (strategy of prorationStrategies; track strategy) {
+                      <option [value]="strategy">{{ 'leases.prorationStrategies.' + strategy | translate }}</option>
+                    }
+                  </select>
+                </div>
+
+                <label class="flex items-center gap-2 text-sm text-slate-navy">
+                  <input type="checkbox" formControlName="isPaused" class="tap-target h-5 w-5 rounded border-slate-navy/20" />
+                  {{ 'leases.form.isPaused' | translate }}
+                </label>
               </div>
             }
           }
         </div>
-
-        <!-- Shared field layout for both the pinned Base Rent row and every add-on row. -->
-        <ng-template #chargeFields let-charge="charge" let-index="index" let-removable="removable">
-          <input
-            type="text"
-            formControlName="chargeName"
-            [placeholder]="'leases.form.chargeName' | translate"
-            class="tap-target w-full rounded-md border border-slate-navy/20 px-3 py-2 text-slate-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
-          />
-
-          @if (removable) {
-            <div class="flex flex-col gap-1.5">
-              <label [attr.for]="'category-' + index" class="text-xs font-medium text-slate-navy-light">
-                {{ 'leases.form.category' | translate }}
-              </label>
-              <select
-                [id]="'category-' + index"
-                formControlName="category"
-                class="tap-target w-full rounded-md border border-slate-navy/20 px-3 py-2 text-slate-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
-              >
-                @for (category of addOnCategories; track category) {
-                  <option [value]="category">{{ 'charges.categories.' + category | translate }}</option>
-                }
-              </select>
-            </div>
-          }
-
-          <div class="grid grid-cols-2 gap-2">
-            <input
-              type="number"
-              min="0"
-              step="0.01"
-              formControlName="amount"
-              (input)="recomputeTotal()"
-              [placeholder]="'leases.form.chargeAmount' | translate"
-              class="tap-target w-full rounded-md border border-slate-navy/20 px-3 py-2 text-slate-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
-            />
-            <input
-              type="text"
-              formControlName="accountingCode"
-              [placeholder]="'leases.form.chargeAccountingCode' | translate"
-              class="tap-target w-full rounded-md border border-slate-navy/20 px-3 py-2 text-slate-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
-            />
-          </div>
-
-          <input
-            type="text"
-            formControlName="description"
-            [placeholder]="'leases.form.description' | translate"
-            class="tap-target w-full rounded-md border border-slate-navy/20 px-3 py-2 text-slate-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
-          />
-
-          <div class="grid grid-cols-2 gap-2">
-            <div class="flex flex-col gap-1.5">
-              <label [attr.for]="'recurrencePattern-' + index" class="text-xs font-medium text-slate-navy-light">
-                {{ 'leases.form.recurrencePattern' | translate }}
-              </label>
-              <select
-                [id]="'recurrencePattern-' + index"
-                formControlName="recurrencePattern"
-                class="tap-target w-full rounded-md border border-slate-navy/20 px-3 py-2 text-slate-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
-              >
-                @for (pattern of recurrencePatterns; track pattern) {
-                  <option [value]="pattern">{{ 'leases.recurrencePatterns.' + pattern | translate }}</option>
-                }
-              </select>
-            </div>
-            <div class="flex flex-col gap-1.5">
-              <label [attr.for]="'recurrenceInterval-' + index" class="text-xs font-medium text-slate-navy-light">
-                {{ 'leases.form.recurrenceInterval' | translate }}
-              </label>
-              <input
-                [id]="'recurrenceInterval-' + index"
-                type="number"
-                min="1"
-                formControlName="recurrenceInterval"
-                class="tap-target w-full rounded-md border border-slate-navy/20 px-3 py-2 text-slate-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
-              />
-            </div>
-          </div>
-
-          @if (charge.controls.recurrencePattern.value === 'Monthly' || charge.controls.recurrencePattern.value === 'SemiMonthly') {
-            <div class="grid grid-cols-2 gap-2">
-              <div class="flex flex-col gap-1.5">
-                <label [attr.for]="'dueDayOfMonth-' + index" class="text-xs font-medium text-slate-navy-light">
-                  {{ 'leases.form.dueDayOfMonth' | translate }}
-                </label>
-                <input
-                  [id]="'dueDayOfMonth-' + index"
-                  type="number"
-                  min="1"
-                  max="31"
-                  formControlName="dueDayOfMonth"
-                  class="tap-target w-full rounded-md border border-slate-navy/20 px-3 py-2 text-slate-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
-                />
-              </div>
-              @if (charge.controls.recurrencePattern.value === 'SemiMonthly') {
-                <div class="flex flex-col gap-1.5">
-                  <label [attr.for]="'secondaryDueDay-' + index" class="text-xs font-medium text-slate-navy-light">
-                    {{ 'leases.form.secondaryDueDay' | translate }}
-                  </label>
-                  <input
-                    [id]="'secondaryDueDay-' + index"
-                    type="number"
-                    min="1"
-                    max="31"
-                    formControlName="secondaryDueDay"
-                    class="tap-target w-full rounded-md border border-slate-navy/20 px-3 py-2 text-slate-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
-                  />
-                </div>
-              }
-            </div>
-          }
-
-          @if (charge.controls.recurrencePattern.value === 'Weekly' || charge.controls.recurrencePattern.value === 'BiWeekly') {
-            <div class="flex flex-col gap-1.5">
-              <label [attr.for]="'targetDayOfWeek-' + index" class="text-xs font-medium text-slate-navy-light">
-                {{ 'leases.form.targetDayOfWeek' | translate }}
-              </label>
-              <select
-                [id]="'targetDayOfWeek-' + index"
-                formControlName="targetDayOfWeek"
-                class="tap-target w-full rounded-md border border-slate-navy/20 px-3 py-2 text-slate-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
-              >
-                <option [ngValue]="null" disabled>{{ 'leases.form.targetDayOfWeek' | translate }}</option>
-                <option [ngValue]="0">{{ 'leases.daysOfWeek.Sunday' | translate }}</option>
-                <option [ngValue]="1">{{ 'leases.daysOfWeek.Monday' | translate }}</option>
-                <option [ngValue]="2">{{ 'leases.daysOfWeek.Tuesday' | translate }}</option>
-                <option [ngValue]="3">{{ 'leases.daysOfWeek.Wednesday' | translate }}</option>
-                <option [ngValue]="4">{{ 'leases.daysOfWeek.Thursday' | translate }}</option>
-                <option [ngValue]="5">{{ 'leases.daysOfWeek.Friday' | translate }}</option>
-                <option [ngValue]="6">{{ 'leases.daysOfWeek.Saturday' | translate }}</option>
-              </select>
-            </div>
-          }
-
-          <div class="grid grid-cols-2 gap-2">
-            <div class="flex flex-col gap-1.5">
-              <label [attr.for]="'effectiveStartDate-' + index" class="text-xs font-medium text-slate-navy-light">
-                {{ 'leases.form.effectiveStartDate' | translate }}
-              </label>
-              <input
-                [id]="'effectiveStartDate-' + index"
-                type="date"
-                formControlName="effectiveStartDate"
-                class="tap-target w-full rounded-md border border-slate-navy/20 px-3 py-2 text-slate-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
-              />
-            </div>
-            <div class="flex flex-col gap-1.5">
-              <label [attr.for]="'endStrategy-' + index" class="text-xs font-medium text-slate-navy-light">
-                {{ 'leases.form.endStrategy' | translate }}
-              </label>
-              <select
-                [id]="'endStrategy-' + index"
-                formControlName="endStrategy"
-                class="tap-target w-full rounded-md border border-slate-navy/20 px-3 py-2 text-slate-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
-              >
-                @for (strategy of endStrategies; track strategy) {
-                  <option [value]="strategy">{{ 'leases.endStrategies.' + strategy | translate }}</option>
-                }
-              </select>
-            </div>
-          </div>
-
-          @if (charge.controls.endStrategy.value === 'FixedDate') {
-            <div class="flex flex-col gap-1.5">
-              <label [attr.for]="'effectiveEndDate-' + index" class="text-xs font-medium text-slate-navy-light">
-                {{ 'leases.form.effectiveEndDate' | translate }}
-              </label>
-              <input
-                [id]="'effectiveEndDate-' + index"
-                type="date"
-                formControlName="effectiveEndDate"
-                class="tap-target w-full rounded-md border border-slate-navy/20 px-3 py-2 text-slate-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
-              />
-            </div>
-          }
-
-          <div class="flex flex-col gap-1.5">
-            <label [attr.for]="'prorationStrategy-' + index" class="text-xs font-medium text-slate-navy-light">
-              {{ 'leases.form.prorationStrategy' | translate }}
-            </label>
-            <select
-              [id]="'prorationStrategy-' + index"
-              formControlName="prorationStrategy"
-              class="tap-target w-full rounded-md border border-slate-navy/20 px-3 py-2 text-slate-navy focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-emerald"
-            >
-              @for (strategy of prorationStrategies; track strategy) {
-                <option [value]="strategy">{{ 'leases.prorationStrategies.' + strategy | translate }}</option>
-              }
-            </select>
-          </div>
-
-          <label class="flex items-center gap-2 text-sm text-slate-navy">
-            <input type="checkbox" formControlName="isPaused" class="tap-target h-5 w-5 rounded border-slate-navy/20" />
-            {{ 'leases.form.isPaused' | translate }}
-          </label>
-        </ng-template>
 
         <div class="rounded-md bg-slate-navy/5 px-4 py-3">
           <p class="text-sm font-semibold text-slate-navy">

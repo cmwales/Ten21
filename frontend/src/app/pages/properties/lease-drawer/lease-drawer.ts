@@ -1,4 +1,4 @@
-import { CurrencyPipe, NgTemplateOutlet } from '@angular/common';
+import { CurrencyPipe } from '@angular/common';
 import { Component, inject, input, signal } from '@angular/core';
 import { FormArray, FormBuilder, FormGroup, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { TranslatePipe } from '@ngx-translate/core';
@@ -63,7 +63,7 @@ interface LeaseFormControls {
  */
 @Component({
   selector: 'app-lease-drawer',
-  imports: [ReactiveFormsModule, FormsModule, TranslatePipe, CurrencyPipe, NgTemplateOutlet],
+  imports: [ReactiveFormsModule, FormsModule, TranslatePipe, CurrencyPipe],
   templateUrl: './lease-drawer.html',
 })
 export class LeaseDrawer extends ModalBase {
