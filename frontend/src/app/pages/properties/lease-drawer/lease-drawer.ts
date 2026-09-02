@@ -2,6 +2,12 @@ import { CurrencyPipe } from '@angular/common';
 import { Component, inject, input, signal } from '@angular/core';
 import { FormArray, FormBuilder, FormGroup, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 import { TranslatePipe } from '@ngx-translate/core';
+import {
+  LateFeePolicyRequest,
+  LateFeePolicyResponse,
+  LateFeePolicyTypeValue,
+  LateFeePolicyTypes,
+} from '../../../core/models/billing.models';
 import { ChargeCategories, ChargeCategoryValue } from '../../../core/models/charge.models';
 import {
   EndStrategies,
@@ -39,6 +45,15 @@ interface RecurringChargeControls {
   isPaused: import('@angular/forms').FormControl<boolean>;
   accountingCode: import('@angular/forms').FormControl<string | null>;
   description: import('@angular/forms').FormControl<string | null>;
+}
+
+interface LateFeePolicyControls {
+  gracePeriodDays: import('@angular/forms').FormControl<number>;
+  policyType: import('@angular/forms').FormControl<LateFeePolicyTypeValue>;
+  baseAmount: import('@angular/forms').FormControl<number | null>;
+  percentageRate: import('@angular/forms').FormControl<number | null>;
+  dailyAccrualRate: import('@angular/forms').FormControl<number | null>;
+  maxFeeCap: import('@angular/forms').FormControl<number | null>;
 }
 
 interface LeaseFormControls {
@@ -89,6 +104,14 @@ export class LeaseDrawer extends ModalBase {
   protected readonly moveInChargeLeaseId = signal<string | null>(null);
   protected readonly moveInDate = signal('');
   protected readonly creatingMoveInCharge = signal(false);
+
+  /** US-45: which lease's late fee policy editor is open, if any -- inline, same toggle
+   * pattern as the move-in-charge form above. */
+  protected readonly lateFeePolicyLeaseId = signal<string | null>(null);
+  protected readonly lateFeePolicyTypes = Object.values(LateFeePolicyTypes);
+  protected readonly loadingLateFeePolicy = signal(false);
+  protected readonly savingLateFeePolicy = signal(false);
+  protected lateFeePolicyForm: FormGroup<LateFeePolicyControls> = this.buildLateFeePolicyForm();
 
   /** Post-Sprint-6 fix: property-level move-out notice -- see PropertyResponse's own doc
    * comment for why this moved off Lease. Loaded/saved alongside the lease list, not
@@ -317,6 +340,70 @@ export class LeaseDrawer extends ModalBase {
    * charges," same meaning it had before US-44 unified base rent into recurringCharges. */
   protected addOnCount(lease: LeaseResponse): number {
     return lease.recurringCharges.filter((c) => c.category !== ChargeCategories.BaseRent).length;
+  }
+
+  protected startLateFeePolicy(lease: LeaseResponse): void {
+    this.lateFeePolicyLeaseId.set(lease.id);
+    this.loadingLateFeePolicy.set(true);
+    this.lateFeePolicyForm = this.buildLateFeePolicyForm();
+    this.leaseService.getLateFeePolicy(this.propertyId(), lease.id).subscribe({
+      next: (policy) => {
+        this.loadingLateFeePolicy.set(false);
+        if (policy) {
+          this.lateFeePolicyForm.patchValue(policy);
+        }
+      },
+      error: () => {
+        this.loadingLateFeePolicy.set(false);
+        this.toastService.show('leases.drawer.errorToast');
+      },
+    });
+  }
+
+  protected cancelLateFeePolicy(): void {
+    this.lateFeePolicyLeaseId.set(null);
+  }
+
+  protected saveLateFeePolicy(lease: LeaseResponse): void {
+    if (this.savingLateFeePolicy() || this.lateFeePolicyForm.invalid) {
+      this.lateFeePolicyForm.markAllAsTouched();
+      return;
+    }
+
+    this.savingLateFeePolicy.set(true);
+    const request: LateFeePolicyRequest = this.lateFeePolicyForm.getRawValue();
+    this.leaseService.upsertLateFeePolicy(this.propertyId(), lease.id, request).subscribe({
+      next: () => {
+        this.savingLateFeePolicy.set(false);
+        this.lateFeePolicyLeaseId.set(null);
+        this.toastService.show('leases.drawer.lateFeePolicySavedToast');
+      },
+      error: () => {
+        this.savingLateFeePolicy.set(false);
+        this.toastService.show('leases.drawer.errorToast');
+      },
+    });
+  }
+
+  protected removeLateFeePolicy(lease: LeaseResponse): void {
+    this.leaseService.deleteLateFeePolicy(this.propertyId(), lease.id).subscribe({
+      next: () => {
+        this.lateFeePolicyLeaseId.set(null);
+        this.toastService.show('leases.drawer.lateFeePolicyRemovedToast');
+      },
+      error: () => this.toastService.show('leases.drawer.errorToast'),
+    });
+  }
+
+  private buildLateFeePolicyForm(): FormGroup<LateFeePolicyControls> {
+    return this.fb.nonNullable.group({
+      gracePeriodDays: [5, [Validators.required, Validators.min(0)]],
+      policyType: this.fb.nonNullable.control<LateFeePolicyTypeValue>(LateFeePolicyTypes.Flat),
+      baseAmount: this.fb.control<number | null>(null),
+      percentageRate: this.fb.control<number | null>(null),
+      dailyAccrualRate: this.fb.control<number | null>(null),
+      maxFeeCap: this.fb.control<number | null>(null),
+    });
   }
 
   protected residentName(residentId: string): string {

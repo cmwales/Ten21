@@ -199,6 +199,20 @@ public class ChargeServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task CreateAdjustmentAsync_ThrowsValidation_WhenReasonIsUnderFiveCharacters()
+    {
+        // US-46: rejects a placeholder-length reason like "ok" -- an audit-compliant
+        // adjustment (e.g. waiving a late fee) needs a real explanation.
+        var (db, service) = CreateService(Guid.NewGuid());
+        var property = await SeedPropertyAsync(db);
+        var response = await service.CreateAsync(property.Id, NewRequest(), CancellationToken.None);
+        var charge = await db.Charges.SingleAsync(c => c.Id == response.Id);
+
+        await Assert.ThrowsAsync<ValidationException>(() => service.CreateAdjustmentAsync(
+            charge, new CreateChargeAdjustmentRequest(AdjustmentType.CreditAdjustment, 25m, "ok"), CancellationToken.None));
+    }
+
+    [Fact]
     public async Task CreateAdjustmentAsync_LowersOutstandingAmount_OnLockedCharge()
     {
         var (db, service) = CreateService(Guid.NewGuid());

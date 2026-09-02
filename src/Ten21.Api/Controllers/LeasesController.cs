@@ -95,4 +95,46 @@ public class LeasesController : ControllerBase
         await _leaseService.DeleteAsync(lease, cancellationToken);
         return NoContent();
     }
+
+    /// <summary>US-45: null (204) when the lease has no policy attached yet, rather than
+    /// 404 -- "no late fee policy configured" is a normal, expected state for a lease, not
+    /// a missing resource.</summary>
+    [HttpGet("{id:guid}/late-fee-policy")]
+    [Authorize(Policy = Permissions.Lease.Read)]
+    public async Task<IActionResult> GetLateFeePolicy(Guid propertyId, Guid id, CancellationToken cancellationToken)
+    {
+        var notFoundMessage = $"Lease '{id}' was not found on this property.";
+        var lease = await _leaseService.FindAsync(propertyId, id, cancellationToken)
+            ?? throw new NotFoundException(notFoundMessage);
+        await _authorizationService.EnsureSameTenantAsync(User, lease, notFoundMessage, cancellationToken);
+
+        var policy = await _leaseService.GetLateFeePolicyAsync(id, cancellationToken);
+        return policy is null ? NoContent() : Ok(policy);
+    }
+
+    [HttpPut("{id:guid}/late-fee-policy")]
+    [Authorize(Policy = Permissions.Lease.Manage)]
+    public async Task<IActionResult> UpsertLateFeePolicy(
+        Guid propertyId, Guid id, [FromBody] LateFeePolicyRequest request, CancellationToken cancellationToken)
+    {
+        var notFoundMessage = $"Lease '{id}' was not found on this property.";
+        var lease = await _leaseService.FindAsync(propertyId, id, cancellationToken)
+            ?? throw new NotFoundException(notFoundMessage);
+        await _authorizationService.EnsureSameTenantAsync(User, lease, notFoundMessage, cancellationToken);
+
+        return Ok(await _leaseService.UpsertLateFeePolicyAsync(lease, request, cancellationToken));
+    }
+
+    [HttpDelete("{id:guid}/late-fee-policy")]
+    [Authorize(Policy = Permissions.Lease.Manage)]
+    public async Task<IActionResult> DeleteLateFeePolicy(Guid propertyId, Guid id, CancellationToken cancellationToken)
+    {
+        var notFoundMessage = $"Lease '{id}' was not found on this property.";
+        var lease = await _leaseService.FindAsync(propertyId, id, cancellationToken)
+            ?? throw new NotFoundException(notFoundMessage);
+        await _authorizationService.EnsureSameTenantAsync(User, lease, notFoundMessage, cancellationToken);
+
+        await _leaseService.DeleteLateFeePolicyAsync(id, cancellationToken);
+        return NoContent();
+    }
 }

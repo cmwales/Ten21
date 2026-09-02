@@ -11,6 +11,18 @@ needs instead. Nothing here blocks *development* -- these are pre-launch/pre-sca
 
 ## 1. Secrets & Config
 
+- **`Internal:ApiKey` is unset by default -- the billing scheduler endpoints are
+  unreachable until it's configured.** `POST api/billing/run-cycle/{tenantId}` and
+  `GET api/admin/tenants` accept an internal-API-key-authenticated caller
+  (`InternalApiKeyAuthorizationHandler`) alongside a normal JWT, specifically so the future
+  owner/operator site can trigger cycles with no logged-in user. With no key configured,
+  that path simply never succeeds (fail-closed default) -- a real, random, sufficiently
+  long secret needs to be set via user-secrets/environment/key vault (matching
+  `Turnstile:SecretKey`'s pattern) before the owner site's scheduler can be pointed at
+  production, and it must be sent as the exact same value in that scheduler's
+  `X-Internal-Api-Key` request header.
+
+
 - **SMTP is not configured -- email silently falls back to console logging.**
   `EmailServiceCollectionExtensions` registers `SmtpEmailSender` only if
   `Smtp:Username`/`Smtp:Password` are set; otherwise every email (welcome, password

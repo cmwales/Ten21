@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Ten21.Business.Billing;
 using Ten21.Business.Charges;
 using Ten21.Business.Statements;
 using Ten21.Domain.Common;
@@ -29,13 +30,16 @@ public class ChargesController : ControllerBase
     private readonly IAuthorizationService _authorizationService;
     private readonly ChargeService _chargeService;
     private readonly StatementService _statementService;
+    private readonly DuesProjectionService _duesProjectionService;
 
     public ChargesController(
-        IAuthorizationService authorizationService, ChargeService chargeService, StatementService statementService)
+        IAuthorizationService authorizationService, ChargeService chargeService, StatementService statementService,
+        DuesProjectionService duesProjectionService)
     {
         _authorizationService = authorizationService;
         _chargeService = chargeService;
         _statementService = statementService;
+        _duesProjectionService = duesProjectionService;
     }
 
     [HttpGet]
@@ -64,6 +68,16 @@ public class ChargesController : ControllerBase
     [Authorize(Policy = Permissions.Ledger.Read)]
     public async Task<IActionResult> GetStatement(Guid propertyId, CancellationToken cancellationToken) =>
         Ok(await _statementService.BuildStatementAsync(propertyId, cancellationToken));
+
+    /// <summary>US-47: a rolling 30-day forecast of upcoming charges -- purely read-time,
+    /// never writes anything, zero impact on the real ledger. See DuesProjectionService's
+    /// own class comment for why this is Property-Manager-only (Permissions.Ledger.Read)
+    /// rather than also open to the resident despite the user story's "As a Resident..."
+    /// framing.</summary>
+    [HttpGet("projection")]
+    [Authorize(Policy = Permissions.Ledger.Read)]
+    public async Task<IActionResult> GetDuesProjection(Guid propertyId, CancellationToken cancellationToken) =>
+        Ok(await _duesProjectionService.GetProjectionAsync(propertyId, cancellationToken));
 
     /// <summary>
     /// US-40: renders the same statement GetStatement returns as a downloadable/embeddable

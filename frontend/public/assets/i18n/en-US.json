@@ -334,7 +334,10 @@
       "moveInChargeCreatedToast": "Move-in charge created.",
       "moveOutNoticeLabel": "Property Move-Out Notice",
       "moveOutNoticeHint": "Set this when you know the unit will need a new tenant, regardless of which resident's lease it is.",
-      "moveOutNoticeSavedToast": "Move-out notice updated."
+      "moveOutNoticeSavedToast": "Move-out notice updated.",
+      "lateFeePolicy": "Late Fee Policy",
+      "lateFeePolicySavedToast": "Late fee policy saved.",
+      "lateFeePolicyRemovedToast": "Late fee policy removed."
     },
     "form": {
       "resident": "Resident",
@@ -365,7 +368,14 @@
       "prorationStrategy": "First Period Proration",
       "isPaused": "Paused (suppresses generation)",
       "description": "Description (optional)",
-      "baseRentHeading": "Base Rent"
+      "baseRentHeading": "Base Rent",
+      "gracePeriodDays": "Grace Period (Days)",
+      "policyType": "Penalty Type",
+      "baseAmount": "Base Amount",
+      "percentageRate": "Percentage Rate (e.g. 0.05 = 5%)",
+      "dailyAccrualRate": "Daily Accrual Rate",
+      "maxFeeCap": "Max Fee Cap (optional)",
+      "removeLateFeePolicy": "Remove Policy"
     },
     "recurrencePatterns": {
       "Daily": "Daily",
@@ -393,6 +403,12 @@
       "Thursday": "Thursday",
       "Friday": "Friday",
       "Saturday": "Saturday"
+    },
+    "lateFeePolicyTypes": {
+      "Flat": "Flat",
+      "Percentage": "Percentage",
+      "DailyAccruing": "Daily Accruing",
+      "Hybrid": "Hybrid"
     }
   },
   "charges": {

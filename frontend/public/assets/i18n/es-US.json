@@ -334,7 +334,10 @@
       "moveInChargeCreatedToast": "Cargo de mudanza creado.",
       "moveOutNoticeLabel": "Aviso de Mudanza de la Propiedad",
       "moveOutNoticeHint": "Configure esto cuando sepa que la unidad necesitará un nuevo inquilino, sin importar de qué contrato de residente se trate.",
-      "moveOutNoticeSavedToast": "Aviso de mudanza actualizado."
+      "moveOutNoticeSavedToast": "Aviso de mudanza actualizado.",
+      "lateFeePolicy": "Política de Cargo por Mora",
+      "lateFeePolicySavedToast": "Política de cargo por mora guardada.",
+      "lateFeePolicyRemovedToast": "Política de cargo por mora eliminada."
     },
     "form": {
       "resident": "Residente",
@@ -365,7 +368,14 @@
       "prorationStrategy": "Prorrateo del Primer Período",
       "isPaused": "Pausado (suspende la generación)",
       "description": "Descripción (opcional)",
-      "baseRentHeading": "Renta Base"
+      "baseRentHeading": "Renta Base",
+      "gracePeriodDays": "Período de Gracia (Días)",
+      "policyType": "Tipo de Penalización",
+      "baseAmount": "Monto Base",
+      "percentageRate": "Tasa Porcentual (ej. 0.05 = 5%)",
+      "dailyAccrualRate": "Tasa de Acumulación Diaria",
+      "maxFeeCap": "Límite Máximo (opcional)",
+      "removeLateFeePolicy": "Eliminar Política"
     },
     "recurrencePatterns": {
       "Daily": "Diario",
@@ -393,6 +403,12 @@
       "Thursday": "Jueves",
       "Friday": "Viernes",
       "Saturday": "Sábado"
+    },
+    "lateFeePolicyTypes": {
+      "Flat": "Fijo",
+      "Percentage": "Porcentaje",
+      "DailyAccruing": "Acumulación Diaria",
+      "Hybrid": "Híbrido"
     }
   },
   "charges": {

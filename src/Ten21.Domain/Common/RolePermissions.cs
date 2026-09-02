@@ -78,6 +78,10 @@ public static class RolePermissions
                 Permissions.Resident.Manage, Permissions.Resident.Read,
                 Permissions.Lease.Manage, Permissions.Lease.Read,
                 Permissions.Workspace.SettingsRead, Permissions.Workspace.SettingsWrite,
+                // US-45: PM-triggered "Run Billing Cycle" for their own tenant -- see the
+                // Billing permission's own doc comment for why it's a separate grant from
+                // Lease.Manage rather than reusing it.
+                Permissions.Billing.RunCycle,
             ],
 
             // "Restricted strictly to maintenance tickets, amenity booking, and community

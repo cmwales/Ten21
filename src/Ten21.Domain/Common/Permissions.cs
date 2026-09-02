@@ -66,6 +66,21 @@ public static class Permissions
         public const string Read = "Permissions.Lease.Read";
     }
 
+    /// <summary>US-45 (Sprint 9): a deliberately narrow policy, distinct from
+    /// Permissions.Lease.Manage, satisfied either by a PM's normal permission claim (see
+    /// RolePermissions) OR by InternalApiKeyAuthorizationHandler's internal-API-key check.
+    /// Kept separate so a leaked internal key can only ever trigger a billing run, never
+    /// anything else Lease.Manage would otherwise unlock (e.g. editing a lease directly).</summary>
+    public static class Billing
+    {
+        public const string RunCycle = "Permissions.Billing.RunCycle";
+
+        /// <summary>SuperAdmin only (via Permissions.All) -- deliberately NOT satisfiable by
+        /// InternalApiKeyAuthorizationHandler, unlike RunCycle. The internal key's purpose
+        /// is narrowly "trigger a cycle," not "read every tenant's billing run history."</summary>
+        public const string ViewRuns = "Permissions.Billing.ViewRuns";
+    }
+
     /// <summary>Refinement Sprint (Directive 4): admin-configurable workspace-wide toggles
     /// (e.g. WorkspaceSettings.EnableCommunityDirectory). Read is separate from Write so the
     /// settings screen can show the current state to anyone who can reach it without also

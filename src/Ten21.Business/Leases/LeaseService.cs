@@ -167,6 +167,111 @@ public class LeaseService
         await _dbContext.SaveChangesAsync(cancellationToken);
     }
 
+    /// <summary>US-45: null when the lease has no policy attached -- late fees simply never
+    /// get assessed against it (BillingCycleService only ever looks at leases that DO have
+    /// one).</summary>
+    public async Task<LateFeePolicyResponse?> GetLateFeePolicyAsync(Guid leaseId, CancellationToken cancellationToken) =>
+        await _dbContext.LateFeePolicies.AsNoTracking()
+            .Where(p => p.LeaseId == leaseId)
+            .Select(p => ToLateFeePolicyResponse(p))
+            .FirstOrDefaultAsync(cancellationToken);
+
+    /// <summary>Upsert, not create-only -- zero-or-one policy per lease (unique index on
+    /// LeaseId), so a PM adjusting an existing policy's numbers just calls this again.</summary>
+    public async Task<LateFeePolicyResponse> UpsertLateFeePolicyAsync(
+        Lease lease, LateFeePolicyRequest request, CancellationToken cancellationToken)
+    {
+        ValidateLateFeePolicy(request);
+
+        var policy = await _dbContext.LateFeePolicies.FirstOrDefaultAsync(p => p.LeaseId == lease.Id, cancellationToken);
+        if (policy is null)
+        {
+            policy = new LateFeePolicy { Id = Guid.NewGuid(), LeaseId = lease.Id, CreatedAt = DateTimeOffset.UtcNow };
+            _dbContext.LateFeePolicies.Add(policy);
+        }
+
+        policy.GracePeriodDays = request.GracePeriodDays;
+        policy.PolicyType = request.PolicyType;
+        policy.BaseAmount = request.BaseAmount;
+        policy.PercentageRate = request.PercentageRate;
+        policy.DailyAccrualRate = request.DailyAccrualRate;
+        policy.MaxFeeCap = request.MaxFeeCap;
+
+        await _dbContext.SaveChangesAsync(cancellationToken);
+        return ToLateFeePolicyResponse(policy);
+    }
+
+    /// <summary>Removing the policy row is how a PM turns late fees back off for a lease --
+    /// there's no separate IsPaused-style flag, since "no row" already means "never assessed"
+    /// (see BillingCycleService.AssessLateFeesAsync, which only iterates leases with one).</summary>
+    public async Task DeleteLateFeePolicyAsync(Guid leaseId, CancellationToken cancellationToken)
+    {
+        var policy = await _dbContext.LateFeePolicies.FirstOrDefaultAsync(p => p.LeaseId == leaseId, cancellationToken);
+        if (policy is null)
+        {
+            throw new NotFoundException($"Lease '{leaseId}' has no late fee policy to remove.");
+        }
+
+        _dbContext.LateFeePolicies.Remove(policy);
+        await _dbContext.SaveChangesAsync(cancellationToken);
+    }
+
+    private static void ValidateLateFeePolicy(LateFeePolicyRequest request)
+    {
+        var errors = new Dictionary<string, string[]>();
+
+        if (request.GracePeriodDays < 0)
+        {
+            errors[nameof(request.GracePeriodDays)] = ["Grace period days cannot be negative."];
+        }
+
+        switch (request.PolicyType)
+        {
+            case LateFeePolicyType.Flat:
+                if (request.BaseAmount is not > 0)
+                {
+                    errors[nameof(request.BaseAmount)] = ["Base amount must be greater than zero for a Flat policy."];
+                }
+                break;
+            case LateFeePolicyType.Percentage:
+                if (request.PercentageRate is not > 0)
+                {
+                    errors[nameof(request.PercentageRate)] = ["Percentage rate must be greater than zero for a Percentage policy."];
+                }
+                break;
+            case LateFeePolicyType.DailyAccruing:
+                if (request.DailyAccrualRate is not > 0)
+                {
+                    errors[nameof(request.DailyAccrualRate)] = ["Daily accrual rate must be greater than zero for a DailyAccruing policy."];
+                }
+                break;
+            case LateFeePolicyType.Hybrid:
+                if (request.BaseAmount is not > 0)
+                {
+                    errors[nameof(request.BaseAmount)] = ["Base amount must be greater than zero for a Hybrid policy."];
+                }
+                if (request.PercentageRate is not > 0)
+                {
+                    errors[nameof(request.PercentageRate)] = ["Percentage rate must be greater than zero for a Hybrid policy."];
+                }
+                break;
+        }
+
+        if (request.MaxFeeCap is <= 0)
+        {
+            errors[nameof(request.MaxFeeCap)] = ["Max fee cap must be greater than zero when set."];
+        }
+
+        if (errors.Count > 0)
+        {
+            throw new ValidationException(errors);
+        }
+    }
+
+    private static LateFeePolicyResponse ToLateFeePolicyResponse(LateFeePolicy policy) => new(
+        policy.Id, policy.LeaseId, policy.GracePeriodDays, policy.PolicyType,
+        policy.BaseAmount, policy.PercentageRate, policy.DailyAccrualRate, policy.MaxFeeCap);
+
     /// <summary>Also the source of MoveOutNoticeDate for ToResponse -- fetching the full row
     /// (not just an existence check) costs nothing extra here and every caller needs it.</summary>
     private async Task<Property> GetPropertyAsync(Guid propertyId, CancellationToken cancellationToken) =>

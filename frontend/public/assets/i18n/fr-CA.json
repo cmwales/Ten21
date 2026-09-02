@@ -334,7 +334,10 @@
       "moveInChargeCreatedToast": "Frais d'emménagement créés.",
       "moveOutNoticeLabel": "Préavis de Départ de la Propriété",
       "moveOutNoticeHint": "Définissez ceci lorsque vous savez que l'unité aura besoin d'un nouveau locataire, peu importe le bail concerné.",
-      "moveOutNoticeSavedToast": "Préavis de départ mis à jour."
+      "moveOutNoticeSavedToast": "Préavis de départ mis à jour.",
+      "lateFeePolicy": "Politique de Frais de Retard",
+      "lateFeePolicySavedToast": "Politique de frais de retard enregistrée.",
+      "lateFeePolicyRemovedToast": "Politique de frais de retard supprimée."
     },
     "form": {
       "resident": "Résident",
@@ -365,7 +368,14 @@
       "prorationStrategy": "Proratisation de la Première Période",
       "isPaused": "En Pause (suspend la génération)",
       "description": "Description (facultatif)",
-      "baseRentHeading": "Loyer de Base"
+      "baseRentHeading": "Loyer de Base",
+      "gracePeriodDays": "Période de Grâce (Jours)",
+      "policyType": "Type de Pénalité",
+      "baseAmount": "Montant de Base",
+      "percentageRate": "Taux en Pourcentage (ex. 0.05 = 5%)",
+      "dailyAccrualRate": "Taux d'Accumulation Quotidien",
+      "maxFeeCap": "Plafond Maximum (facultatif)",
+      "removeLateFeePolicy": "Supprimer la Politique"
     },
     "recurrencePatterns": {
       "Daily": "Quotidien",
@@ -393,6 +403,12 @@
       "Thursday": "Jeudi",
       "Friday": "Vendredi",
       "Saturday": "Samedi"
+    },
+    "lateFeePolicyTypes": {
+      "Flat": "Fixe",
+      "Percentage": "Pourcentage",
+      "DailyAccruing": "Accumulation Quotidienne",
+      "Hybrid": "Hybride"
     }
   },
   "charges": {

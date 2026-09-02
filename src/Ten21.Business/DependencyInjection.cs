@@ -41,6 +41,8 @@ public static class DependencyInjection
         services.AddScoped<DepositService>();
         services.AddScoped<LeaseService>();
         services.AddScoped<BillingCycleService>();
+        services.AddScoped<BillingAdminService>();
+        services.AddScoped<DuesProjectionService>();
         services.AddScoped<WorkspaceSettingsService>();
         services.AddScoped<WorkspaceLedgerService>();
         services.AddScoped<DocumentService>();

@@ -40,6 +40,7 @@ var builder = WebApplication.CreateBuilder(args);
 // use the same shared options for exactly this reason.
 builder.Services.AddControllers(options => options.Filters.Add<ApiResponseWrappingFilter>())
     .AddJsonOptions(options => options.JsonSerializerOptions.Converters.Add(Ten21JsonOptions.CreateEnumConverter()));
+builder.Services.AddHttpContextAccessor(); // US-45: InternalApiKeyAuthorizationHandler reads the raw request header
 
 builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddBusiness(); // business-layer refactor: ChargeService/ChargeRepository

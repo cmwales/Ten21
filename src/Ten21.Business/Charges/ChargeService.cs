@@ -210,6 +210,12 @@ public class ChargeService
         {
             errors[nameof(request.Reason)] = ["Reason is required."];
         }
+        else if (reason.Length < 5)
+        {
+            // US-46: audit-compliant adjustments (e.g. waiving a late fee) need a reason
+            // substantive enough to explain the correction later, not a placeholder like "ok".
+            errors[nameof(request.Reason)] = ["Reason must be at least 5 characters."];
+        }
         else if (reason.Length > 500)
         {
             errors[nameof(request.Reason)] = ["Reason must be 500 characters or fewer."];

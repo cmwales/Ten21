@@ -3,6 +3,7 @@ using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Ten21.Api.Controllers;
 using Ten21.Application.Abstractions;
+using Ten21.Business.Billing;
 using Ten21.Business.Charges;
 using Ten21.Business.Statements;
 using Ten21.Domain.Entities;
@@ -51,7 +52,8 @@ public class ChargesControllerTests : IDisposable
         var authorizationService = TestAuthorizationService.Create(tenantContext);
         var chargeService = new ChargeService(db, new ChargeRepository(db), _sanitizer);
         var statementService = new StatementService(new StatementRepository(db), chargeService, _pdfService);
-        var controller = new ChargesController(authorizationService, chargeService, statementService)
+        var duesProjectionService = new DuesProjectionService(db);
+        var controller = new ChargesController(authorizationService, chargeService, statementService, duesProjectionService)
         {
             ControllerContext = TestControllerContext.Create(),
         };

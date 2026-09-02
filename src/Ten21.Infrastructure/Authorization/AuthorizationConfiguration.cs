@@ -25,6 +25,10 @@ public static class AuthorizationConfiguration
         services.AddScoped<IClaimsTransformation, PermissionClaimsTransformation>();
         services.AddSingleton<IAuthorizationHandler, PermissionClaimAuthorizationHandler>();
         services.AddSingleton<IAuthorizationHandler, TenantHardBlockAuthorizationHandler>();
+        // US-45: runs alongside PermissionClaimAuthorizationHandler for the same
+        // PermissionRequirement type -- see its own doc comment for why either succeeding
+        // is enough. IHttpContextAccessor/IConfiguration are both singleton-safe.
+        services.AddSingleton<IAuthorizationHandler, InternalApiKeyAuthorizationHandler>();
         // Scoped, not Singleton -- depends on ITenantContext, which is itself Scoped
         // (resolved per-request from the JWT/TenantMiddleware).
         services.AddScoped<IAuthorizationHandler, SameTenantResourceAuthorizationHandler>();

@@ -266,6 +266,77 @@ describe('LeaseDrawer', () => {
     expect(toastService.show).toHaveBeenCalledWith('leases.drawer.removedToast');
   });
 
+  it('startLateFeePolicy() loads the existing policy and populates the form', () => {
+    const component = createComponent();
+    open(component);
+
+    component['startLateFeePolicy'](lease);
+    expect(component['lateFeePolicyLeaseId']()).toBe('lease-1');
+
+    const req = httpMock.expectOne('/api/properties/prop-1/leases/lease-1/late-fee-policy');
+    expect(req.request.method).toBe('GET');
+    req.flush({
+      success: true,
+      data: { id: 'policy-1', leaseId: 'lease-1', gracePeriodDays: 3, policyType: 'Percentage', baseAmount: null, percentageRate: 0.05, dailyAccrualRate: null, maxFeeCap: null },
+      message: null,
+      statusCode: 200,
+      traceId: 't1',
+    });
+
+    expect(component['lateFeePolicyForm'].controls.gracePeriodDays.value).toBe(3);
+    expect(component['lateFeePolicyForm'].controls.policyType.value).toBe('Percentage');
+    expect(component['loadingLateFeePolicy']()).toBe(false);
+  });
+
+  it('startLateFeePolicy() defaults to Flat when the lease has no existing policy (204)', () => {
+    const component = createComponent();
+    open(component);
+
+    component['startLateFeePolicy'](lease);
+
+    const req = httpMock.expectOne('/api/properties/prop-1/leases/lease-1/late-fee-policy');
+    req.flush(null, { status: 204, statusText: 'No Content' });
+
+    expect(component['lateFeePolicyForm'].controls.policyType.value).toBe('Flat');
+  });
+
+  it('saveLateFeePolicy() PUTs the form and shows a confirmation toast', () => {
+    const component = createComponent();
+    open(component);
+    component['startLateFeePolicy'](lease);
+    httpMock.expectOne('/api/properties/prop-1/leases/lease-1/late-fee-policy').flush(null, { status: 204, statusText: 'No Content' });
+    component['lateFeePolicyForm'].patchValue({ gracePeriodDays: 5, policyType: 'Flat', baseAmount: 25 });
+
+    component['saveLateFeePolicy'](lease);
+
+    const req = httpMock.expectOne('/api/properties/prop-1/leases/lease-1/late-fee-policy');
+    expect(req.request.method).toBe('PUT');
+    expect(req.request.body).toMatchObject({ gracePeriodDays: 5, policyType: 'Flat', baseAmount: 25 });
+    req.flush({
+      success: true,
+      data: { id: 'policy-1', leaseId: 'lease-1', gracePeriodDays: 5, policyType: 'Flat', baseAmount: 25, percentageRate: null, dailyAccrualRate: null, maxFeeCap: null },
+      message: null,
+      statusCode: 200,
+      traceId: 't1',
+    });
+
+    expect(toastService.show).toHaveBeenCalledWith('leases.drawer.lateFeePolicySavedToast');
+    expect(component['lateFeePolicyLeaseId']()).toBeNull();
+  });
+
+  it('removeLateFeePolicy() DELETEs the policy and shows a confirmation toast', () => {
+    const component = createComponent();
+    open(component);
+
+    component['removeLateFeePolicy'](lease);
+
+    const req = httpMock.expectOne('/api/properties/prop-1/leases/lease-1/late-fee-policy');
+    expect(req.request.method).toBe('DELETE');
+    req.flush(null);
+
+    expect(toastService.show).toHaveBeenCalledWith('leases.drawer.lateFeePolicyRemovedToast');
+  });
+
   it('startMoveInCharge()/cancelMoveInCharge() toggle the inline move-in form, defaulted to the lease start date', () => {
     const component = createComponent();
     open(component);

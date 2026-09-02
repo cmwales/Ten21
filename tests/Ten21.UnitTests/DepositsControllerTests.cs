@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Ten21.Api.Controllers;
 using Ten21.Application.Abstractions;
 using Ten21.Application.Ledger;
+using Ten21.Business.Billing;
 using Ten21.Business.Charges;
 using Ten21.Business.Deposits;
 using Ten21.Business.Statements;
@@ -53,7 +54,8 @@ public class DepositsControllerTests : IDisposable
         var authorizationService = TestAuthorizationService.Create(tenantContext);
         var chargeService = new ChargeService(db, new ChargeRepository(db), _sanitizer);
         var statementService = new StatementService(new StatementRepository(db), chargeService, _pdfService);
-        var charges = new ChargesController(authorizationService, chargeService, statementService)
+        var duesProjectionService = new DuesProjectionService(db);
+        var charges = new ChargesController(authorizationService, chargeService, statementService, duesProjectionService)
         {
             ControllerContext = TestControllerContext.Create(),
         };
